@@ -15,6 +15,4 @@ struct Schema {
 
     # IYO Token
     token @4 :Text;
-
-    sshkey @5 :Text;
 }

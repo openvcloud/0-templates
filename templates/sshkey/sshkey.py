@@ -14,4 +14,3 @@ class Sshkey(TemplateBase):
             raise ValueError('path is required')
 
         j.clients.ssh.load_ssh_key(self.data['path'])
-        self.state.set('path', self.data['path'], 'ok')
