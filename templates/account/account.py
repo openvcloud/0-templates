@@ -47,11 +47,7 @@ class Account(TemplateBase):
 
         self.data['accountID'] = account.model['id']
 
-        # TODO: fix authorize_user
-        # authorization_user(account, service, g8client)
-
-        # Unauthorize users not in the schema
-        # THIS FUNCTIONALITY IS DISABLED UNTIL OVC DOESN'T REQUIRE USERS TO BE ADMIN
+        self._authorize_users(account)
 
         # update capacity in case account already existed
         account.model['maxMemoryCapacity'] = self.data['maxMemoryCapacity']
@@ -62,7 +58,7 @@ class Account(TemplateBase):
 
         self.state.set('actions', 'install', 'ok')
 
-    def _authorize_user(self, account):
+    def _authorize_users(self, account):
         users = {}
         VDCUSER_TEMPLATE = 'github.com/openvcloud/0-templates/vdcuser/0.0.1'
         for user in self.data['users']:
@@ -79,16 +75,21 @@ class Account(TemplateBase):
 
         authorized = {user['userGroupId']: user['right'] for user in account.model['acl']}
 
+        toremove = []
         for user, current_perm in authorized.items():
             new_perm = users.pop(user, None)
             if new_perm is None:
                 # user has been removed
-                account.unauthorize_user(username=user)
+                # we delay removing the user to avoid deleting the last admin, in case a new one is added
+                toremove.append(user)
             elif new_perm != current_perm:
                 account.update_access(username=user, right=new_perm)
 
-        for user, new_perm in users:
+        for user, new_perm in users.items():
             account.authorize_user(username=user, right=new_perm)
+
+        for user in toremove:
+            account.unauthorize_user(username=user)
 
     def uninstall(self):
         cl = self.ovc
