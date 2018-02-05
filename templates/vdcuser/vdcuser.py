@@ -51,6 +51,8 @@ class Vdcuser(TemplateBase):
                 provider=provider
             )
 
+        self.state.set('actions', 'install', 'ok')
+
     def uninstall(self):
         # unauthorize user to all consumed vdc
         username = self.name

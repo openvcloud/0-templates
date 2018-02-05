@@ -62,68 +62,44 @@ class Account(TemplateBase):
 
         self.state.set('actions', 'install', 'ok')
 
-# def init_actions_(service, args):
-#     dependencies = {
-#         'list_disks': ['init'],
-#         'get_consumption': ['install']
-#     }
-#     return dependencies
+    def _authorize_user(self, account):
+        users = {}
+        VDCUSER_TEMPLATE = 'github.com/openvcloud/0-templates/vdcuser/0.0.1'
+        for user in self.data['users']:
+            found = self.api.services.find(template_uid=VDCUSER_TEMPLATE, name=user['name'])
+            if len(found) != 1:
+                raise ValueError('no vdcuser found with name "%s"', user['name'])
 
+            instance = found[0]
+            # the name should be retrieved from the instance
+            # TODO: we can't access the provider attribute of the user, so for
+            # now let's hack this in to be able to continue, then find a way to work
+            # around it.
+            users[instance.name + '@itsyouonline'] = user['accesstype']
 
-# def init(job):
-#     service = job.service
-#     if 'g8client' not in service.producers:
-#         raise j.exceptions.AYSNotFound("No producer g8client found. Cannot continue init of %s" % service)
+        authorized = {user['userGroupId']: user['right'] for user in account.model['acl']}
 
-#     users = service.model.data.accountusers
-#     for user in users:
-#         uservdc = service.aysrepo.serviceGet('uservdc', user.name)
-#         service.consume(uservdc)
+        for user, current_perm in authorized.items():
+            new_perm = users.pop(user, None)
+            if new_perm is None:
+                # user has been removed
+                account.unauthorize_user(username=user)
+            elif new_perm != current_perm:
+                account.update_access(username=user, right=new_perm)
 
-#     service.saveAll()
+        for user, new_perm in users:
+            account.authorize_user(username=user, right=new_perm)
 
-
-def authorization_user(account, service, g8client):
-    authorized_users = account.authorized_users
-
-    userslist = service.producers.get('uservdc', [])
-    if not userslist:
-        return
-    users = []
-    user_exists = True
-    for u in userslist:
-        if u.model.data.provider != '':
-            users.append(u.model.dbobj.name + "@" + u.model.data.provider)
-        else:
-            users.append(u.model.dbobj.name)
-
-    # Authorize users
-    for user in users:
-        if user not in authorized_users:
-            user_exists = False
-        for uvdc in service.model.data.accountusers:
-            if uvdc.name == user.split('@')[0]:
-                if user_exists:
-                    for acl in account.model['acl']:
-                        if acl['userGroupId'] == user and acl['right'] != uvdc.accesstype:
-                            account.update_access(username=user, right=uvdc.accesstype)
-                else:
-                    account.authorize_user(username=user, right=uvdc.accesstype)
-        # Unauthorize users not in the schema
-    for user in authorized_users:
-        if user not in users:
-            if user == g8client.model.data.login:
-                raise j.exceptions.Input("Can't remove current authenticating user: %s. To remove use another user for g8client service." % user)
-            account.unauthorize_user(username=user)
+    def uninstall(self):
+        cl = self.ovc
+        acc = cl.account_get(self.name)
+        acc.delete()
 
 
 def get_user_accessright(username, service):
     for u in service.model.data.accountusers:
         if u.name == username:
             return u.accesstype
-
-
-
 
 
 def processChange(job):
@@ -172,18 +148,6 @@ def processChange(job):
         account.save()
 
         service.save()
-
-
-def uninstall(job):
-    service = job.service
-    if 'g8client' not in service.producers:
-        raise j.exceptions.AYSNotFound("No producer g8client found. Cannot continue uninstall of %s" % service)
-
-    g8client = service.producers["g8client"][0]
-    config_instance = "{}_{}".format(g8client.aysrepo.name, g8client.model.data.instance)
-    cl = j.clients.openvcloud.get(instance=config_instance, create=False, die=True, sshkey_path="/root/.ssh/ays_repos_key")
-    acc = cl.account_get(service.model.dbobj.name)
-    acc.delete()
 
 
 def list_disks(job):
