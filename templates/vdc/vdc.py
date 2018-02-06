@@ -136,7 +136,7 @@ class Vdc(TemplateBase):
                 # user has been removed
                 # we delay removing the user to avoid deleting the last admin, in case a new one is added
                 toremove.append(user)
-            elif new_perm != current_perm:
+            elif set(new_perm) != set(current_perm):
                 space.update_access(username=user, right=new_perm)
 
         for user, new_perm in users.items():
@@ -145,33 +145,31 @@ class Vdc(TemplateBase):
         for user in toremove:
             space.unauthorize_user(username=user)
 
+    def uninstall(self):
+        space = self.account.space_get(self.name, self.data['location'])
+        space.delete()
 
-def authorization_user(space, service):
-    authorized_users = space.authorized_users
-    userslist = service.producers.get('uservdc', [])
-    user_exists = True
-    users = []
-    for u in userslist:
-        if u.model.data.provider != '':
-            users.append(u.model.dbobj.name + "@" + u.model.data.provider)
-        else:
-            users.append(u.model.dbobj.name)
+    def enable(self):
+        # Get space, raise error if not found
+        space = self.account.space_get(
+            name=self.name,
+            location=self.data['location'],
+            create=False
+        )
 
-    # Authorize users
-    for user in users:
-        if user not in authorized_users:
-            user_exists = False
-        for uvdc in service.model.data.uservdc:
-            if uvdc.name == user.split('@')[0]:
-                if user_exists:
-                    space.update_access(username=user, right=uvdc.accesstype)
-                else:
-                    space.authorize_user(username=user, right=uvdc.accesstype)
+        space.enable('The space should be enabled.')
+        self.data['disabled'] = False
 
-    # Unauthorize users not in the schema
-    for user in authorized_users:
-        if user not in users:
-            space.unauthorize_user(username=user)
+    def disable(self):
+        # Get space, raise error if not found
+        space = self.account.space_get(
+            name=self.name,
+            location=self.data['location'],
+            create=False
+        )
+
+        space.disable('The space should be disabled.')
+        self.data['disabled'] = True
 
 
 def get_user_accessright(username, service):
@@ -231,61 +229,6 @@ def processChange(job):
         space.save()
 
         service.save()
-
-
-def uninstall(job):
-    service = job.service
-    if 'g8client' not in service.producers:
-        raise j.exceptions.AYSNotFound("No producer g8client found. Cannot continue uninstall of %s" % service)
-
-    g8client = service.producers["g8client"][0]
-    config_instance = "{}_{}".format(g8client.aysrepo.name, g8client.model.data.instance)
-    cl = j.clients.openvcloud.get(instance=config_instance, create=False, die=True, sshkey_path="/root/.ssh/ays_repos_key")
-    acc = cl.account_get(service.model.data.account)
-    space = acc.space_get(service.model.dbobj.name, service.model.data.location)
-    space.delete()
-
-def enable(job):
-    """
-    This action will enable the vdc.
-    """
-    service = job.service
-
-    if 'g8client' not in service.producers:
-        raise j.exceptions.AYSNotFound("No producer g8client found. Cannot continue enabling  %s" % service)
-
-    g8client = service.producers["g8client"][0]
-    config_instance = "{}_{}".format(g8client.aysrepo.name, g8client.model.data.instance)
-    cl = j.clients.openvcloud.get(instance=config_instance, create=False, die=True, sshkey_path="/root/.ssh/ays_repos_key")
-    acc = cl.account_get(service.model.data.account)
-    # Get space, raise error if not found
-    space = acc.space_get(name=service.model.dbobj.name,
-                          location=service.model.data.location,
-                          create=False)
-    space.enable('The space should be enabled.')
-    service.model.data.disabled = False
-    service.saveAll()
-
-def disable(job):
-    """
-    This action will disable the vdc.
-    """
-    service = job.service
-
-    if 'g8client' not in service.producers:
-        raise j.exceptions.AYSNotFound("No producer g8client found. Cannot continue disabling  %s" % service)
-
-    g8client = service.producers["g8client"][0]
-    config_instance = "{}_{}".format(g8client.aysrepo.name, g8client.model.data.instance)
-    cl = j.clients.openvcloud.get(instance=config_instance, create=False, die=True, sshkey_path="/root/.ssh/ays_repos_key")
-    acc = cl.account_get(service.model.data.account)
-    # Get space, raise error if not found
-    space = acc.space_get(name=service.model.dbobj.name,
-                          location=service.model.data.location,
-                          create=False)
-    space.disable('The space should be disabled.')
-    service.model.data.disabled = True
-    service.saveAll()
 
 
 def execute_routeros_script(job):

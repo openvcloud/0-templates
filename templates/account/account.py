@@ -84,7 +84,7 @@ class Account(TemplateBase):
                 # user has been removed
                 # we delay removing the user to avoid deleting the last admin, in case a new one is added
                 toremove.append(user)
-            elif new_perm != current_perm:
+            elif set(new_perm) != set(current_perm):
                 account.update_access(username=user, right=new_perm)
 
         for user, new_perm in users.items():
