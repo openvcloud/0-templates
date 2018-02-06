@@ -114,7 +114,6 @@ class Vdc(TemplateBase):
         self.state.set('acitons', 'install', 'ok')
 
     def _authorize_users(self, space):
-        import ipdb; ipdb.set_trace()
         users = {}
         VDCUSER_TEMPLATE = 'github.com/openvcloud/0-templates/vdcuser/0.0.1'
         for user in self.data['users']:
