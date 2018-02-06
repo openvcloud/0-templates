@@ -32,6 +32,9 @@ class Account(TemplateBase):
     def ovc(self):
         return j.clients.openvcloud.get(self.data['openvcloud'])
 
+    def get_openvcloud(self):
+        return self.data['openvcloud']
+
     def install(self):
         cl = self.ovc
         # Set limits
