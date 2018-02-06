@@ -67,11 +67,10 @@ class Account(TemplateBase):
                 raise ValueError('no vdcuser found with name "%s"', user['name'])
 
             instance = found[0]
-            # the name should be retrieved from the instance
-            # TODO: we can't access the provider attribute of the user, so for
-            # now let's hack this in to be able to continue, then find a way to work
-            # around it.
-            users[instance.name + '@itsyouonline'] = user['accesstype']
+            task = instance.schedule_action('get_fqid')
+            task.wait()
+
+            users[task.result] = user['accesstype']
 
         authorized = {user['userGroupId']: user['right'] for user in account.model['acl']}
 

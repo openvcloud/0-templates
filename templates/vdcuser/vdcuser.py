@@ -28,14 +28,17 @@ class Vdcuser(TemplateBase):
     def ovc(self):
         return j.clients.openvcloud.get(self.data['openvcloud'])
 
+    def get_fqid(self):
+        provider = self.data.get('provider')
+        return "%s@%s" % (self.name, provider) if provider else self.name
+
     def install(self):
         # create user if it doesn't exists
-        username = self.name
+        username = self.get_fqid()
         password = self.data['password']
         email = self.data['email']
 
-        provider = self.data['provider']
-        username = "%s@%s" % (username, provider) if provider else username
+        provider = self.data.get('provider')
         password = password if not provider else \
             j.data.idgenerator.generatePasswd(8, '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
 
