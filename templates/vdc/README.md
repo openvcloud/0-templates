@@ -11,7 +11,7 @@ This actor template creates a cloudspace (Virtual Data Center) on the specified 
 - g8client: User login.
 - account: Account used for this space(if doesn't exist will be created), if empty will use existing account that belongs to the specified user.
 - location: Environment to deploy this cloudspace.
-- uservdc: Users to have access to this cloudpsace. Name is name of user service to be consumed and accesstype is the user access right to this cloudspace.
+- users: Users to have access to this cloudpsace. Name is name of user service to be consumed and accesstype is the user access right to this cloudspace.
 - allowedVMSizes: Specify the allowed size ids for virtual machines on this cloudspace.
 - cloudspaceID: id of the cloudspace. **Filled in automatically, don't specify it in the blueprint**
 - maxMemoryCapacity: Cloudspace limits, maximum memory(GB).

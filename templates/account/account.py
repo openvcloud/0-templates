@@ -151,27 +151,3 @@ def processChange(job):
         account.save()
 
         service.save()
-
-
-def list_disks(job):
-    service = job.service
-    g8client = service.producers["g8client"][0]
-    config_instance = "{}_{}".format(g8client.aysrepo.name, g8client.model.data.instance)
-    cl = j.clients.openvcloud.get(instance=config_instance, create=False, die=True, sshkey_path="/root/.ssh/ays_repos_key")
-    account = cl.account_get(name=service.model.dbobj.name)
-    service.model.disks = account.disks
-    service.save()
-
-
-def get_consumption(job):
-    import datetime
-    service = job.service
-    g8client = service.producers["g8client"][0]
-    config_instance = "{}_{}".format(g8client.aysrepo.name, g8client.model.data.instance)
-    cl = j.clients.openvcloud.get(instance=config_instance, create=False, die=True, sshkey_path="/root/.ssh/ays_repos_key")
-    account = cl.account_get(name=service.model.dbobj.name)
-    if not service.model.data.consumptionFrom and not service.model.data.consumptionTo:
-        service.model.data.consumptionFrom = account.model['creationTime']
-        end = datetime.datetime.fromtimestamp(service.model.data.consumptionFrom) + datetime.timedelta(hours=1)
-        service.model.data.consumptionTo = end.timestamp()
-    service.model.data.consumptionData = account.get_consumption(service.model.data.consumptionFrom, service.model.data.consumptionTo)

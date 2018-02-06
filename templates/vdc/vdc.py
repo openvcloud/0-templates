@@ -91,7 +91,7 @@ class Vdc(TemplateBase):
         # add space ID to data
         self.data['cloudspaceID'] = space.model['id']
 
-        # self.authorization_user(space, service)
+        self._authorize_users(space)
 
         # update capacity incase cloudspace already existed update it
         space.model['maxMemoryCapacity'] = self.data.get('maxMemoryCapacity', -1)
@@ -110,6 +110,41 @@ class Vdc(TemplateBase):
             status = self.ovc.api.cloudapi.cloudspaces.get(cloudspaceId=self.data['cloudspaceID'])['status']
         else:
             raise j.exceptions.Timeout("VDC not yet deployed")
+
+        self.state.set('acitons', 'install', 'ok')
+
+    def _authorize_users(self, space):
+        import ipdb; ipdb.set_trace()
+        users = {}
+        VDCUSER_TEMPLATE = 'github.com/openvcloud/0-templates/vdcuser/0.0.1'
+        for user in self.data['users']:
+            found = self.api.services.find(template_uid=VDCUSER_TEMPLATE, name=user['name'])
+            if len(found) != 1:
+                raise ValueError('no vdcuser found with name "%s"', user['name'])
+
+            instance = found[0]
+            task = instance.schedule_action('get_fqid')
+            task.wait()
+
+            users[task.result] = user['accesstype']
+
+        authorized = {user['userGroupId']: user['right'] for user in space.model['acl']}
+
+        toremove = []
+        for user, current_perm in authorized.items():
+            new_perm = users.pop(user, None)
+            if new_perm is None:
+                # user has been removed
+                # we delay removing the user to avoid deleting the last admin, in case a new one is added
+                toremove.append(user)
+            elif new_perm != current_perm:
+                space.update_access(username=user, right=new_perm)
+
+        for user, new_perm in users.items():
+            space.authorize_user(username=user, right=new_perm)
+
+        for user in toremove:
+            space.unauthorize_user(username=user)
 
 
 def authorization_user(space, service):
