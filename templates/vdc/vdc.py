@@ -14,11 +14,10 @@ class Vdc(TemplateBase):
     def __init__(self, name, guid=None, data=None):
         super().__init__(name=name, guid=guid, data=data)
 
-        self._validate_data()
         self._ovc = None
         self._account = None
 
-    def _validate_data(self):
+    def validate(self):
         for key in ['location']:
             if not self.data.get('location'):
                 raise ValueError('%s is required' % key)
