@@ -10,9 +10,7 @@ class Account(TemplateBase):
     def __init__(self, name, guid=None, data=None):
         super().__init__(name=name, guid=guid, data=data)
 
-        self._validate_data()
-
-    def _validate_data(self):
+    def validate(self):
         OVC_TEMPLATE = 'github.com/openvcloud/0-templates/openvcloud/0.0.1'
         ovcs = self.api.services.find(template_uid=OVC_TEMPLATE, name=self.data.get('openvcloud', None))
 

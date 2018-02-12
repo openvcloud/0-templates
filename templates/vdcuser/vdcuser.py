@@ -9,9 +9,8 @@ class Vdcuser(TemplateBase):
 
     def __init__(self, name, guid=None, data=None):
         super().__init__(name=name, guid=guid, data=data)
-        self._validate_data()
 
-    def _validate_data(self):
+    def validate(self):
         for key in ['email']:
             if key not in self.data:
                 raise ValueError('"%s" is required' % key)
