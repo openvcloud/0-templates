@@ -39,6 +39,10 @@ class Nodeovc(TemplateBase):
 
         self.data['location'] = locations[0]['name']
 
+        sshkeypaths = j.clients.ssh.ssh_keys_list_from_agent()
+        sshkeypath = sshkeypaths[0]
+        self.sshkeyname = sshkeypath.split('/')[-1]  
+
     @property
     def ovc(self):
         """
@@ -50,20 +54,41 @@ class Nodeovc(TemplateBase):
         self._ovc = j.clients.openvcloud.get(self.data['openvcloud'])
         return self._ovc
 
-    def create_vm(self):
+    def install(self):        
+        machine = self.machine
+        self._configure_ports(machine)
+
+    @property
+    def machine(self):
+        
         client = self.ovc
 
         space = client.space_get(accountName=self.data['account'],
                                  spaceName=self.data['openvcloud'],
                                  location=self.data['location'])
-        space.machine_create(name=self.data['name'],
-                             sshkeyname='id_rsa',
-#                            image=self.data['osImage'],
-#                            memsize=self.data['memsize'],
-                            # vcpus=self.data['vcpus'],
-                            # disksize=self.data['bootDiskSize'],
-                            # datadisks=self.data['disks'],
-                            # sizeId=self.data['sizeId']
-                            )
+
+        if space.machines.get(self.data['name']):
+            return space.machines.get(self.data['name'])
+
+        machine = space.machine_create(name=self.data['name'],
+                                       sshkeyname=self.sshkeyname,
+                                            )
+                #                            image=self.data['osImage'],
+                #                            memsize=self.data['memsize'],
+                                            # vcpus=self.data['vcpus'],
+                                            # disksize=self.data['bootDiskSize'],
+                                            # datadisks=self.data['disks'],
+                                            # sizeId=self.data['sizeId']
+        return machine
+
+    def _configure_ports(self, machine):
         import ipdb; ipdb.set_trace()
+        for port in self.data['ports']:
+            machine.portforward_create(
+                publicport=port['destination'], 
+                localport=port['source'], 
+                protocol='tcp',
+                )
+        pass
+
 
