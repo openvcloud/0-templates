@@ -6,8 +6,6 @@ class Nodeovc(TemplateBase):
     version = '0.0.1'
     template_name = "nodeovc"
 
-    ACCOUNT_TEMPLATE = 'github.com/openvcloud/0-templates/account/0.0.1'
-    VDCUSER_TEMPLATE = 'github.com/openvcloud/0-templates/vdcuser/0.0.1'
     OVC_TEMPLATE = 'github.com/openvcloud/0-templates/openvcloud/0.0.1'
     SSH_TEMPLATE = 'github.com/openvcloud/0-templates/sshkey/0.0.1'
 
@@ -16,6 +14,7 @@ class Nodeovc(TemplateBase):
 
         self.data['name'] = name
         self._ovc = None
+        self._machine = None
 
     def validate(self):
         # Get object for an OVC service, make sure exactly one is running
@@ -25,30 +24,27 @@ class Nodeovc(TemplateBase):
 
         self.data['openvcloud'] = ovcs[0].name
         
-        # Get object for an account service, make sure exactly one is running
-        accounts = self.api.services.find(template_uid=self.ACCOUNT_TEMPLATE, name=self.data.get('account', None))
-        if len(accounts) != 1:
-            raise RuntimeError('found %s openvcloud connections, requires exactly 1' % len(ovcs))
+        # ensure uploaded key
+        self.sshkey
 
-        self.data['account'] = accounts[0].name
+    def update_data(self, data):
+        # merge the new data
+        self.data.update(data)
+        
+        self.save()
 
-        # Get loccation
-        locations = self.ovc.locations
-        if len(locations) != 1:
-            raise RuntimeError('found %s openvcloud locations, requires exactly 1' % len(locations))
-
-        self.data['location'] = locations[0]['name']
-
-        # Get a path of the ssh-key uploaded to the ssh-agent
+    @property
+    def sshkey(self):
+        """ Get a path and keyname of the sshkey service """
         sshkeys = self.api.services.find(template_uid=self.SSH_TEMPLATE)
         if len(sshkeys) != 1:
             raise RuntimeError('found %s ssh services, requires exactly 1' % len(sshkeys))
 
-        # Get key name
-        self.data['sshkeyname'] = sshkeys[0].data['path'].split('/')[-1]
+        # Get key name and path
+        path = sshkeys[0].data['path']
+        key = path.split('/')[-1]
 
-    def update_data(self):
-        pass
+        return key         
 
     @property
     def ovc(self):
@@ -61,41 +57,78 @@ class Nodeovc(TemplateBase):
         self._ovc = j.clients.openvcloud.get(self.data['openvcloud'])
         return self._ovc
 
-    def install(self):        
-        machine = self.machine
-        if not machine:
-            self._machine_create()
-
-        self._configure_ports(machine)
-
     @property
     def space(self):
-        return self.ovc.space_get(accountName=self.data['account'],
-                                 spaceName=self.data['openvcloud'],
-                                 location=self.data['location'])
+        return self.ovc.space_get(accountName=None,
+                                 spaceName=self.data['openvcloud'])
 
     @property
     def machine(self):
+        if self._machine:
+            return self._machine
         return self.space.machines.get(self.data['name'])
 
+    def install(self):
+        machine = self.machine
+        if not machine:
+            machine = self._machine_create()
+        # else:
+        #     machine.configure_machine(machine, machine.name, self.sshkey)
+        self._configure_ports()
+
+        # Get data from the vm
+        ip_private, vm_info = machine.machineip_get()
+        self.data['sshLogin'] = vm_info['accounts'][0]['login']
+        self.data['sshPassword']= vm_info['accounts'][0]['password']
+        self.data['ipPrivate'] = ip_private
+        self.data['ipPublic'] = machine.space.model['publicipaddress']
+        self.data['machineId'] = machine.id
+
+#        self._ssh_authorize_root()
+
+        self.state.set('actions', 'install', 'ok')
+        self.save()
+
+    def uninstall(self):
+        # check if the machine is in the space
+        if self.machine:
+            self.machine.delete()
+
+        self.state.set('actions', 'uninstall', 'ok')
+
     def _machine_create(self):
-        return self.space.machine_create(
-                name=self.data['name'],
-                sshkeyname= self.data['sshkeyname'],
-        )
-                # image=self.data['osImage'],
-                # memsize=self.data['memsize'],
-                # vcpus=self.data['vcpus'],
-                # disksize=self.data['bootDiskSize'],
-                # datadisks=self.data['disks'],
-                # sizeId=self.data['sizeId'
+        self._machine =  self.space.machine_create(
+            name=self.data['name'],
+            sshkeyname= self.sshkey,
+            image=self.data['osImage'],
+            disksize=self.data['bootDiskSize'],
+            datadisks=self.data['disks'],
+            sizeId=self.data['sizeId'],
+            )
+        return self._machine
 
-    def _configure_ports(self, machine):
-
+    def _configure_ports(self):
+        """
+        Configure portforwards
+        """
+        machine = self.machine
+        port_forwards = self.data['ports']
+        
         # get list of existing ports at the vm
         existent_ports = [port['publicPort'] for port in machine.portforwards]
 
-        for port in self.data['ports']:
+        # list of requested ports
+        requested_ports = [port['destination'] for port in port_forwards]
+
+        # check if port 22 is already created or requested
+        ssh_present = ('22' in existent_ports) or ('22' in requested_ports)
+
+        # if port 22 is not created, add to requested
+        if not ssh_present:
+            ssh_port = {'source':'22', 'destination': '22'}
+            port_forwards.append(ssh_port)
+
+        for port in port_forwards:
             # check if ports do not exist yet
             if port['destination'] not in existent_ports:
                 # create portforward
@@ -105,46 +138,99 @@ class Nodeovc(TemplateBase):
                     protocol='tcp',
                     )
 
-    def uninstall(self):
-        space = self.space
-
-        # check if the machine is in the space
-        if self.machine:
-            self.machine.delete()
-
     def start(self):
+        """ Start the VM """
         machine = self.machine
-#        _check_ssh_authorization(job.service, machine)
-        machine.start()
-
+        if machine:
+            machine.start()
+        else:
+            self.err_log_machine_not_found()
 
     def stop(self):
+        """ Stop the VM """
         machine = self.machine
-#        _check_ssh_authorization(job.service, machine)
-        machine.stop()
-
+        if machine:
+            machine.stop()
+        else:
+            self.err_log_machine_not_found()
 
     def restart(self):
+        """ Restart the VM """
         machine = self.machine
-#        _check_ssh_authorization(job.service, machine)
-        machine.restart()
-
+        if machine:
+            machine.restart()
+        else:
+            self.err_log_machine_not_found()
 
     def pause(self):
+        """ Pause the VM """
         machine = self.machine
-#        _check_ssh_authorization(job.service, machine)
-        machine.pause()
-
+        if machine:
+            machine.pause()
+        else:
+            self.err_log_machine_not_found()
 
     def resume(self):
+        """ Resume the VM """
         machine = self.machine
-#        _check_ssh_authorization(job.service, machine)
-        machine.resume()
-
+        if machine:
+            machine.resume()
+        else:
+            self.err_log_machine_not_found()
 
     def reset(self):
+        """ Reset the VM """
         machine = self.machine
-#        _check_ssh_authorization(job.service, machine)
-        machine.reset()    
-        
+        if machine:
+            machine.reset()    
+        else:
+            self.err_log_machine_not_found()      
 
+    def snapshot(self):
+        """
+        Action that creates a snapshot of the machine
+        """
+        machine = self.machine
+        if machine:
+            machine.snapshot_create()
+        else:
+            self.err_log_machine_not_found()
+
+    def snapshot_rollback(self, snapshot_epoch=None):
+        """
+        Action that rolls back the machine to a snapshot
+        """    
+        machine = self.machine
+        if machine and snapshot_epoch:       
+            machine.snapshot_rollback(snapshot_epoch)
+            machine.start()
+        else:
+            self.err_log_machine_not_found()
+
+    def snapshot_delete(self,  snapshot_epoch=None):
+        """
+        Action that deletes a snapshot of the machine
+        """
+        machine = self.machine
+        if machine and snapshot_epoch:       
+            machine.snapshot_delete(snapshot_epoch)
+        else:
+            self.err_log_machine_not_found()        
+
+    def list_snapshots(self):
+        """
+        Action that deletes a snapshot of the machine
+        """
+        machine = self.machine
+        if machine:       
+            self.data['snapshots'] = machine.snapshots
+            self.save()
+        else:
+            self.err_log_machine_not_found()      
+
+
+    def err_log_machine_not_found(self):
+            self.logger.error('machine %s in not created in the openvcloud %s'%(
+                self.data['name'],
+                self.data['openvcloud'])
+                )
