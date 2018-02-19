@@ -63,14 +63,14 @@ struct Schema {
 		accesstype @1 :Text = "R";
 	}
 
-	snapshots @17 :List(Snaphost);
-	struct Snaphost {
+	# List of snapshots
+	snapshots @17 :List(Snapshost);
+
+	struct Snapshost {
 		diskguid @0 :Text;
 		epoch @1 :Int64;
 		guid @2 :Text;
 		name @3 :Text;
 	}
 
-	sshAuthorized @18 :Bool = false;
-		
 }

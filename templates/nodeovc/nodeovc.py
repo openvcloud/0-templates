@@ -30,9 +30,8 @@ class Nodeovc(TemplateBase):
     def update_data(self, data):
         # merge the new data
         self.data.update(data)
-        
         self.save()
-
+        
     @property
     def sshkey(self):
         """ Get a path and keyname of the sshkey service """
@@ -72,8 +71,7 @@ class Nodeovc(TemplateBase):
         machine = self.machine
         if not machine:
             machine = self._machine_create()
-        # else:
-        #     machine.configure_machine(machine, machine.name, self.sshkey)
+
         self._configure_ports()
 
         # Get data from the vm
@@ -84,19 +82,20 @@ class Nodeovc(TemplateBase):
         self.data['ipPublic'] = machine.space.model['publicipaddress']
         self.data['machineId'] = machine.id
 
-#        self._ssh_authorize_root()
-
         self.state.set('actions', 'install', 'ok')
         self.save()
 
     def uninstall(self):
         # check if the machine is in the space
-        if self.machine:
+        machine = self.machine
+        if machine:
             self.machine.delete()
-
-        self.state.set('actions', 'uninstall', 'ok')
+        else:
+            self.err_log_machine_not_found()
 
     def _machine_create(self):
+        """ Create a new machine """
+
         self._machine =  self.space.machine_create(
             name=self.data['name'],
             sshkeyname= self.sshkey,
@@ -108,9 +107,8 @@ class Nodeovc(TemplateBase):
         return self._machine
 
     def _configure_ports(self):
-        """
-        Configure portforwards
-        """
+        """ Configure portforwards """
+
         machine = self.machine
         port_forwards = self.data['ports']
         
@@ -128,6 +126,12 @@ class Nodeovc(TemplateBase):
             ssh_port = {'source':'22', 'destination': '22'}
             port_forwards.append(ssh_port)
 
+        # delete ports that are not requested
+        for port in existent_ports:
+            if port != '22' or port not in requested_ports:
+                machine.portforward_delete(port)
+
+        # add requested ports
         for port in port_forwards:
             # check if ports do not exist yet
             if port['destination'] not in existent_ports:
@@ -140,6 +144,7 @@ class Nodeovc(TemplateBase):
 
     def start(self):
         """ Start the VM """
+
         machine = self.machine
         if machine:
             machine.start()
@@ -148,6 +153,7 @@ class Nodeovc(TemplateBase):
 
     def stop(self):
         """ Stop the VM """
+
         machine = self.machine
         if machine:
             machine.stop()
@@ -156,6 +162,7 @@ class Nodeovc(TemplateBase):
 
     def restart(self):
         """ Restart the VM """
+
         machine = self.machine
         if machine:
             machine.restart()
@@ -164,6 +171,7 @@ class Nodeovc(TemplateBase):
 
     def pause(self):
         """ Pause the VM """
+
         machine = self.machine
         if machine:
             machine.pause()
@@ -172,6 +180,7 @@ class Nodeovc(TemplateBase):
 
     def resume(self):
         """ Resume the VM """
+
         machine = self.machine
         if machine:
             machine.resume()
@@ -180,6 +189,7 @@ class Nodeovc(TemplateBase):
 
     def reset(self):
         """ Reset the VM """
+
         machine = self.machine
         if machine:
             machine.reset()    
@@ -228,9 +238,11 @@ class Nodeovc(TemplateBase):
         else:
             self.err_log_machine_not_found()      
 
-
     def err_log_machine_not_found(self):
-            self.logger.error('machine %s in not created in the openvcloud %s'%(
-                self.data['name'],
-                self.data['openvcloud'])
-                )
+        """
+        Log error in zrobot log if machine is not found
+        """
+        self.logger.error('machine %s in not found in the openvcloud %s'%(
+            self.data['name'],
+            self.data['openvcloud'])
+            )
