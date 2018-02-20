@@ -10,8 +10,6 @@ class Openvcloud(TemplateBase):
     def __init__(self, name, guid=None, data=None):
         super().__init__(name=name, guid=guid, data=data)
 
-        self._validate_data()
-
         ovc = j.clients.openvcloud.get(
             name,
             {
@@ -26,7 +24,8 @@ class Openvcloud(TemplateBase):
         # No, the create flag is not enough, we need to save
         ovc.config.save()
 
-    def _validate_data(self):
-        for key in ['address', 'login', 'token']:
-            if key not in self.data:
-                raise ValueError('%s is required' % key)
+    def validate(self):
+        if not self.data['instance']:
+            for key in ['address', 'login', 'token']:
+                if key not in self.data:
+                    raise ValueError('%s is required' % key)
