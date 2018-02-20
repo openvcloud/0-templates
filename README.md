@@ -1,1 +1,1 @@
-# 0-templates
+# 0-templates [![Build Status](https://travis-ci.org/openvcloud/0-templates.svg?branch=master)](https://travis-ci.org/openvcloud/0-templates) (https://codecov.io/gh/openvcloud/0-templates/branch/master/graph/badge.svg)](https://codecov.io/gh/openvcloud/0-templates)
