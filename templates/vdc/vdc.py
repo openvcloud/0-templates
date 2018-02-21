@@ -16,6 +16,7 @@ class Vdc(TemplateBase):
 
         self._ovc = None
         self._account = None
+        self._space = None
 
     def validate(self):
         for key in ['location']:
@@ -65,6 +66,13 @@ class Vdc(TemplateBase):
 
         self._account = ovc.account_get(self.data['account'])
         return self._account
+
+    @property
+    def space(self):
+        if self._space:
+            return self._space
+        acc = self.account
+        return acc.space_get(name=self.name, location=self.data['location'])
 
     def install(self):
         acc = self.account
@@ -169,6 +177,64 @@ class Vdc(TemplateBase):
 
         space.disable('The space should be disabled.')
         self.data['disabled'] = True
+
+    def portforward_create(
+                            self, 
+                            machineId=None, 
+                            port_forwards=[], 
+                            protocol='tcp'):
+        ovc = self.ovc
+        space = self.space        
+        space.get_space_ip()
+        existent_ports = [port['publicPort'] for port in 
+                          ovc.api.cloudapi.portforwarding.list(
+                              cloudspaceId=space.id, machineId=machineId,
+                            )]
+        # add ports
+        for port in port_forwards:
+            # check if ports do not exist yet
+            if str(port['source']) not in existent_ports:
+                # create portforward
+                ovc.api.cloudapi.portforwarding.create(
+                    cloudspaceId=space.id, 
+                    protocol=protocol, 
+                    localPort=port['destination'], 
+                    publicPort=port['source'], 
+                    publicIp=space.get_space_ip(),
+                    machineId=machineId,
+                )
+            else:
+                self.logger.debug("Port forward %s:%s already exists" % (port['destination'], port['source']))
+
+    def portforward_delete(
+                            self, 
+                            machineId=None, 
+                            port_forwards=[], 
+                            protocol='tcp'):
+        ovc = self.ovc
+        space = self.space     
+        existent_ports = [(port['publicPort'], port['localPort'], port['id']) 
+                            for port in ovc.api.cloudapi.portforwarding.list(
+                                            cloudspaceId=space.id, machineId=machineId,
+                                                )]
+        # add ports
+        for publicPort, localPort, id in existent_ports:
+            for port in port_forwards:
+                if publicPort == str(port['source']) and localPort == str(port['destination']):
+                    if str(port['source']) == '22' :
+                        self.logger.error("SSH port 22 can't be deleted")
+                        break
+                    
+                    # delete portforward
+                    ovc.api.cloudapi.portforwarding.delete(
+                        id=id,
+                        cloudspaceId=space.id, 
+                        protocol=protocol, 
+                        localPort=port['destination'], 
+                        publicPort=port['source'], 
+                        publicIp=space.get_space_ip(),
+                        machineId=machineId,
+                )
 
 
 def get_user_accessright(username, service):
