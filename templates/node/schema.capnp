@@ -3,74 +3,59 @@ struct Schema {
 	# Description for the VM
 	description @0 :Text;
 
-	# Name of the VM
-	name @1 :Text;
-	
-	# OpenvCloud
-	openvcloud @2 :Text;
+	# Virtual Data Center id
+	vdc @1 :Text;
 
 	# OS Image
-	osImage @3 :Text = "Ubuntu 16.04";
+	osImage @2 :Text = "Ubuntu 16.04";
 
 	# Memory available for the vm in GB
-	bootDiskSize @4 :Int64 = 10;
+	bootDiskSize @3 :Int64 = 10;
 
 	# Type of VM: defines the number of CPU and memory available for the vm
-	sizeId @5 :Int64 = 1;
+	sizeId @4 :Int64 = 1;
 
-	# number of CPUs
-	vcpus @6 :Int64;
+	# Mumber of CPUs
+	vcpus @5 :Int64;
 
-	# memory in MB
-    memsize @7 :Int64;
+	# Memory in MB
+    memsize @6 :Int64;
 
 	# List of port forwards to create
-	ports @8 :List(PortForward);
+	ports @7 :List(PortForward);
 
 	struct PortForward{
 		source @0 :Text;
 		destination @1 :Text;
 	}
 	# ID of the VM
-	machineId @9 :Int64 = 0;
+	machineId @8 :Int64 = 0;
 
 	# Public ip of the VM
-	ipPublic @10 :Text;
+	ipPublic @9 :Text;
 
 	# Private ip of the VM
-	ipPrivate @11 :Text;
+	ipPrivate @10 :Text;
 
 	# Credentials to create ssh connection to the VM
-	sshLogin @12 :Text;
-	sshPassword @13 :Text;	
-
-	# Virtual Data Center id
-	vdc @14 :Text;
+	sshLogin @11 :Text;
+	sshPassword @12 :Text;	
 
 	# List of disk instances to be attached to the VM
-	disks @15 :List(Disk);
+	disks @13 :List(Disk);
 
 	struct Disk{
 		size @0 :Int64;
 		iops @1 :Int64;
+		name @2 :Text;
 	}
 	
 	# List of vdc users that have access to the vm
-	uservdc @16 :List(UserVdcEntry);
+	uservdc @14 :List(UserVdcEntry);
 
 	struct UserVdcEntry {
 		name @0 :Text;
 		accesstype @1 :Text = "R";
-	}
-
-	# List of snapshots
-	snapshots @17 :List(Snapshost);
-
-	struct Snapshost {
-		diskguid @0 :Text;
-		epoch @1 :Int64;
-		guid @2 :Text;
-		name @3 :Text;
 	}
 
 }
