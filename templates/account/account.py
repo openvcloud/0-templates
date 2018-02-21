@@ -96,56 +96,22 @@ class Account(TemplateBase):
         acc = cl.account_get(self.name)
         acc.delete()
 
+    def update_data(self, data):
+        cl = self.ovc
+        account = cl.account_get(name=self.name, create=False)
 
-def get_user_accessright(username, service):
-    for u in service.model.data.accountusers:
-        if u.name == username:
-            return u.accesstype
+        self.data.update(data)
 
+        if 'users' in data:
+            # sync users
+            self._authorize_users(account)
 
-def processChange(job):
-    service = job.service
+        updated = False
+        for key in ['maxMemoryCapacity', 'maxDiskCapacity',
+                    'maxNumPublicIP', 'maxCPUCapacity']:
+            if key in data:
+                updated = True
+                account.model[key] = self.data[key]
 
-    if 'g8client' not in service.producers:
-        raise j.exceptions.AYSNotFound("No producer g8client found. Cannot continue processChange of %s" % service)
-
-    g8client = service.producers["g8client"][0]
-    config_instance = "{}_{}".format(g8client.aysrepo.name, g8client.model.data.instance)
-    cl = j.clients.openvcloud.get(instance=config_instance, create=False, die=True, sshkey_path="/root/.ssh/ays_repos_key")
-    account = cl.account_get(name=service.model.dbobj.name, create=False)
-
-    args = job.model.args
-    category = args.pop('changeCategory')
-    if category == "dataschema" and service.model.actionsState['install'] == 'ok':
-        for key, value in args.items():
-            if key == 'accountusers':
-                # value is a list of (uservdc)
-                if not isinstance(value, list):
-                    raise j.exceptions.Input(message="%s should be a list" % key)
-
-                if 'uservdc' in service.producers:
-                    for s in service.producers['uservdc']:
-                        if not any(v['name'] == s.name for v in value):
-                            service.model.producerRemove(s)
-                        for v in value:
-                            accessRight = v.get('accesstype', '')
-                            if v['name'] == s.name and accessRight != get_user_accessright(s.name, service) and accessRight:
-                                name = s.name + '@' + s.model.data.provider if s.model.data.provider else s.name
-                                account.update_access(name, v['accesstype'])
-
-                for v in value:
-                    userservice = service.aysrepo.serviceGet('uservdc', v['name'])
-                    if userservice not in service.producers.get('uservdc', []):
-                        service.consume(userservice)
-            setattr(service.model.data, key, value)
-
-        authorization_user(account, service, g8client)
-
-        # update capacity
-        account.model['maxMemoryCapacity'] = service.model.data.maxMemoryCapacity
-        account.model['maxVDiskCapacity'] = service.model.data.maxDiskCapacity
-        account.model['maxNumPublicIP'] = service.model.data.maxNumPublicIP
-        account.model['maxCPUCapacity'] = service.model.data.maxCPUCapacity
-        account.save()
-
-        service.save()
+        if updated:
+            account.save()

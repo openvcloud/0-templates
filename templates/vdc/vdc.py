@@ -170,64 +170,37 @@ class Vdc(TemplateBase):
         space.disable('The space should be disabled.')
         self.data['disabled'] = True
 
+    def update_data(self, data):
+        acc = self.account
+
+        # Get given space, raise error if not found
+        space = acc.space_get(
+            name=self.name,
+            location=self.data['location'],
+            create=False
+        )
+
+        self.data.update(data)
+
+        if 'users' in data:
+            self._authorize_users(space)
+
+        updated = False
+
+        for key in ['maxMemoryCapacity', 'maxDiskCapacity', 'maxNumPublicIP',
+                    'maxCPUCapacity', 'maxNetworkPeerTransfer']:
+            if key in data:
+                updated = True
+                space.model[key] = self.data[key]
+
+        if updated:
+            space.save()
+
 
 def get_user_accessright(username, service):
     for u in service.model.data.uservdc:
         if u.name == username:
             return u.accesstype
-
-
-def processChange(job):
-    service = job.service
-
-    args = job.model.args
-    category = args.pop('changeCategory')
-
-    if 'g8client' not in service.producers:
-        raise j.exceptions.AYSNotFound("No producer g8client found. Cannot continue processChange of %s" % service)
-    g8client = service.producers["g8client"][0]
-
-    config_instance = "{}_{}".format(g8client.aysrepo.name, g8client.model.data.instance)
-    cl = j.clients.openvcloud.get(instance=config_instance, create=False, die=True, sshkey_path="/root/.ssh/ays_repos_key")
-    acc = cl.account_get(service.model.data.account)
-
-    # Get given space, raise error if not found
-    space = acc.space_get(name=service.model.dbobj.name,
-                          location=service.model.data.location,
-                          create=False)
-    if category == "dataschema" and service.model.actionsState['install'] == 'ok':
-        for key, value in args.items():
-            if key == 'uservdc':
-                # value is a list of (uservdc)
-                if not isinstance(value, list):
-                    raise j.exceptions.Input(message="%s should be a list" % key)
-                if 'uservdc' in service.producers:
-                    for s in service.producers['uservdc']:
-                        if not any(v['name'] == s.name for v in value):
-                            service.model.producerRemove(s)
-                        for v in value:
-                            accessRight = v.get('accesstype', '')
-                            if v['name'] == s.name and accessRight != get_user_accessright(s.name, service):
-                                name = s.name + '@' + s.model.data.provider if s.model.data.provider else s.name
-                                space.update_access(name, accessRight)
-                for v in value:
-                    userservice = service.aysrepo.serviceGet('uservdc', v['name'])
-                    if userservice not in service.producers.get('uservdc', []):
-                        service.consume(userservice)
-            elif key == 'location' and service.model.data.location != value:
-                raise RuntimeError("Cannot change attribute location")
-            setattr(service.model.data, key, value)
-
-        authorization_user(space, service)
-
-        # update capacity incase cloudspace already existed update it
-        space.model['maxMemoryCapacity'] = service.model.data.maxMemoryCapacity
-        space.model['maxVDiskCapacity'] = service.model.data.maxDiskCapacity
-        space.model['maxNumPublicIP'] = service.model.data.maxNumPublicIP
-        space.model['maxCPUCapacity'] = service.model.data.maxCPUCapacity
-        space.save()
-
-        service.save()
 
 
 def execute_routeros_script(job):
