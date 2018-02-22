@@ -8,6 +8,8 @@ class Account(TemplateBase):
     version = '0.0.1'
     template_name = "account"
 
+    VDCUSER_TEMPLATE = 'github.com/openvcloud/0-templates/vdcuser/0.0.1'
+
     def __init__(self, name, guid=None, data=None):
         super().__init__(name=name, guid=guid, data=data)
 
@@ -67,10 +69,15 @@ class Account(TemplateBase):
         self.state.set('actions', 'install', 'ok')
 
     def _authorize_users(self, account):
+        '''
+        Authorize users will make sure the account users are synced to the userd configured
+        on the account. Hence, it's better for add_user and delete_user to update the data
+        of the instance, and then call this method
+        '''
         users = {}
-        VDCUSER_TEMPLATE = 'github.com/openvcloud/0-templates/vdcuser/0.0.1'
+
         for user in self.data['users']:
-            found = self.api.services.find(template_uid=VDCUSER_TEMPLATE, name=user['name'])
+            found = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=user['name'])
             if len(found) != 1:
                 raise ValueError('no vdcuser found with name "%s"', user['name'])
 
@@ -103,20 +110,76 @@ class Account(TemplateBase):
         acc = cl.account_get(self.name)
         acc.delete()
 
-    def update_data(self, data):
+    def add_user(self, user):
+        '''
+        Add/Update user access to an account
+        '''
+        name = user['name']
+
+        found = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=name)
+        if len(found) != 1:
+            raise ValueError('no vdcuser found with name "%s"', name)
+
+        accesstype = user.get('accesstype', 'ACDRUX')
+        users = self.data['users']
+
+        for user in users:
+            if user['name'] != name:
+                continue
+
+            if user['accesstype'] == accesstype:
+                # nothing to do here
+                return
+
+            user['accesstype'] = accesstype
+            break
+        else:
+            # user not found (looped over all users)
+            users.append({'name': name, 'accesstype': accesstype})
+
+        self.data['users'] = users
+        cl = self.ovc
+        account = cl.account_get(name=self.name, create=False)
+        self._authorize_users(account)
+
+    def delete_user(self, username):
+        '''
+        Delete user access
+
+        :param username: user instance name
+        '''
+        users = self.data['users']
+
+        for user in users[:]:
+            if user['name'] == username:
+                users.remove(user)
+                break
+        else:
+            # user not found (looped over all users)
+            return
+
+        self.data['users'] = users
+        cl = self.ovc
+        account = cl.account_get(name=self.name, create=False)
+        self._authorize_users(account)
+
+    def update(self, **kwargs):
+        '''
+        Update account flags
+
+        :param maxMemoryCapacity: The limit on the memory capacity that can be used by the account
+        :param maxCPUCapacity: The limit on the CPUs that can be used by the account.
+        :param maxNumPublicIP: The limit on the number of public IPs that can be used by the account.
+        :param maxDiskCapacity: The limit on the disk capacity that can be used by the account.
+        '''
         cl = self.ovc
         account = cl.account_get(name=self.name, create=False)
 
-        self.data.update(data)
+        self.data.update(kwargs)
 
-        if 'users' in data:
-            # sync users
-            self._authorize_users(account)
-
-        updated = False
         for key in ['maxMemoryCapacity', 'maxDiskCapacity',
                     'maxNumPublicIP', 'maxCPUCapacity']:
-            if key in data:
+            if key in kwargs:
                 updated = True
                 account.model[key] = self.data[key]
 
