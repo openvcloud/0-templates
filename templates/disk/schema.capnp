@@ -1,4 +1,4 @@
-@@0xac3d666143ded7ee;
+@0xc9e87efb1212af77;
 struct Schema {
 	# Size of the disk in GB
 	size @0 :Int64 = 1;
@@ -15,8 +15,8 @@ struct Schema {
 	# id of the disk
 	diskId @4: Int64;
 
-	# OpenvCloud
-	openccloud @5 :Text;
+	# Virtual Data Center id
+	vdc @5 :Text;
 
 	# location of the disk
 	location @6 :Text;

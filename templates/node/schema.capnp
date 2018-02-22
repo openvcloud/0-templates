@@ -9,49 +9,55 @@ struct Schema {
 	# OS Image
 	osImage @2 :Text = "Ubuntu 16.04";
 
-	# Memory available for the vm in GB
-	bootDiskSize @3 :Int64 = 10;
-
 	# Type of VM: defines the number of CPU and memory available for the vm
-	sizeId @4 :Int64 = 1;
+	sizeId @3 :Int64 = 1;
 
 	# Mumber of CPUs
-	vcpus @5 :Int64;
+	vCpus @4 :Int64;
 
 	# Memory in MB
-    memsize @6 :Int64;
+    memSize @5 :Int64;
 
 	# List of port forwards to create
-	ports @7 :List(PortForward);
+	ports @6 :List(PortForward);
 
 	struct PortForward{
 		source @0 :Text;
 		destination @1 :Text;
 	}
 	# ID of the VM
-	machineId @8 :Int64 = 0;
+	machineId @7 :Int64 = 0;
 
 	# Public ip of the VM
-	ipPublic @9 :Text;
+	ipPublic @8 :Text;
 
 	# Private ip of the VM
-	ipPrivate @10 :Text;
+	ipPrivate @9 :Text;
 
 	# Credentials to create ssh connection to the VM
-	sshLogin @11 :Text;
-	sshPassword @12 :Text;	
+	sshLogin @10 :Text;
+	sshPassword @11 :Text;
 
-	# List of disk instances to be attached to the VM
-	disks @13 :List(Disk);
+	# List of disk instance services to be attached to the VM
+	disks @12 :List(Text);
 
-	struct Disk{
-		size @0 :Int64;
-		iops @1 :Int64;
-		name @2 :Text;
+	# Memory available for the vm in GB
+	bootDiskSize @13 :Int64 = 10;
+
+	# Standard datadisk parameters for creation of VM
+	dataDiskSize @14 :Int64 = 10;	
+	dataDiskFilesystem @15 :FilesystemType;
+	enum FilesystemType{
+		xfs @0; 
+		ext2 @1;
+		ext3 @2;
+		ext4 @3;
+		btrfs @4;
 	}
-	
+	dataDiskMountpoint @16 :Text = "/var";
+
 	# List of vdc users that have access to the vm
-	uservdc @14 :List(UserVdcEntry);
+	uservdc @17 :List(UserVdcEntry);
 
 	struct UserVdcEntry {
 		name @0 :Text;

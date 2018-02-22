@@ -8,6 +8,7 @@ class Node(TemplateBase):
 
     VDC_TEMPLATE = 'github.com/openvcloud/0-templates/vdc/0.0.1'
     SSH_TEMPLATE = 'github.com/openvcloud/0-templates/sshkey/0.0.1'
+    DISK_TEMPLATE = 'github.com/openvcloud/0-templates/disk/0.0.1'
 
     def __init__(self, name, guid=None, data=None):
         super().__init__(name=name, guid=guid, data=data)
@@ -96,163 +97,164 @@ class Node(TemplateBase):
         self.data['machineId'] = machine.id
 
         self.portforward_create(self.data['ports'])
-        # TODO: self._configure_disks()
+        self._configure_disks()
 
         self.state.set('actions', 'install', 'ok')
         self.save()
 
-    def uninstall(self):
-        # check if the machine is in the space
-        machine = self.machine
-        if machine:
-            self.machine.delete()
-        else:
-            raise RuntimeError('machine %s in not found' % self.name)
-
     def _machine_create(self):
         """ Create a new machine """
-
-        self._machine =  self.space.machine_create(
-            name=self.data['name'],
+        data = self.data
+        space = self.space
+        self._machine = space.machine_create(
+            name=self.name,
             sshkeyname= self.sshkey,
-            image=self.data['osImage'],
-            disksize=self.data['bootDiskSize'],
-            datadisks=self.data['disks'],
-            sizeId=self.data['sizeId'],
+            image=data['osImage'],
+            disksize=data['bootDiskSize'],
+            datadisks=[data['dataDiskSize']],
+            sizeId=data['sizeId'],
             )
+
         return self._machine
 
-    def portforward_create(self, portforwards={}):
-        """ Add portforwards """
-
+    def _configure_disks(self):
+        """
+        Configure one boot disk and one data disk when installing a machine.
+        """
         machine = self.machine
-        machine_ip, _ = machine.machineip_get()
-
-        space = self.space
-        vdc = self.vdc
-        task = vdc.schedule_action(
-            'portforward_create', 
-            {'machineId':machine.id, 
-            'port_forwards':portforwards, 
-            'protocol':'tcp'})
-        task.wait()
-
-    def portforward_delete(self, portforwards={}):
-        """ Delete portforwards """
-
-        machine = self.machine
-        machine_ip, _ = machine.machineip_get()
-
-        space = self.space
-        vdc = self.vdc
-        task = vdc.schedule_action(
-            'portforward_delete', 
-            {'machineId':machine.id, 
-            'port_forwards':self.data['ports'], 
-            'protocol':'tcp'})
-        task.wait()        
- 
-
-    def start(self):
-        """ Start the VM """
-
-        machine = self.machine
+        space_name = machine.space.model['name']
         if machine:
             machine.start()
         else:
+            raise RuntimeError('machine %s in not found' % self.name)        
+
+        for disk in machine.disks:
+            # create a disk service
+            service = self.api.services.create(
+                template_uid=self.DISK_TEMPLATE, 
+                service_name= 'Disk%s' % str(disk['id']),
+                data={'vdc' : space_name},
+            )
+            # update data in the disk service
+            task = service.schedule_action('update_data', {'data':disk})
+            task.wait()
+            # limmit disk with default limits
+            task = service.schedule_action('limit_io')
+            task.wait()                   
+
+
+    def uninstall(self):
+        """ Uninstall machine """
+        if not self.machine:
+            raise RuntimeError('machine %s in not found' % self.name)
+        self.machine.delete()
+
+    def portforward_create(self, ports):
+        """ Add portforwards """
+        if not self.machine:
             raise RuntimeError('machine %s in not found' % self.name)
 
+        # get vdc service
+        task = self.vdc.schedule_action('portforward_create', 
+                                        {'machineId':self.machine.id, 'port_forwards':ports, 'protocol':'tcp'})
+        task.wait()
+
+    def portforward_delete(self, ports):
+        """ Delete portforwards """
+        if not self.machine:
+            raise RuntimeError('machine %s in not found' % self.name)
+
+        task = self.vdc.schedule_action('portforward_delete', 
+                                        {'machineId':self.machine.id, 'port_forwards':ports, 'protocol':'tcp'})
+        task.wait()        
+
+    def start(self):
+        """ Start the VM """
+        if not self.machine:
+            raise RuntimeError('machine %s in not found' % self.name)
+            
+        self.machine.start()
+    
     def stop(self):
         """ Stop the VM """
-
-        machine = self.machine
-        if machine:
-            machine.stop()
-        else:
+        if not self.machine:
             raise RuntimeError('machine %s in not found' % self.name)
+
+        self.machine.stop()
 
     def restart(self):
         """ Restart the VM """
-
-        machine = self.machine
-        if machine:
-            machine.restart()
-        else:
+        if not self.machine:
             raise RuntimeError('machine %s in not found' % self.name)
+
+        self.machine.restart()
 
     def pause(self):
         """ Pause the VM """
 
-        machine = self.machine
-        if machine:
-            machine.pause()
-        else:
+        if not self.machine:
             raise RuntimeError('machine %s in not found' % self.name)
+
+        self.machine.pause()
 
     def resume(self):
         """ Resume the VM """
 
-        machine = self.machine
-        if machine:
-            machine.resume()
-        else:
+        if not self.machine:
             raise RuntimeError('machine %s in not found' % self.name)
+
+        self.machine.resume()
 
     def reset(self):
         """ Reset the VM """
 
-        machine = self.machine
-        if machine:
-            machine.reset()    
-        else:
-            raise RuntimeError('machine %s in not found' % self.name)      
+        if not self.machine:
+            raise RuntimeError('machine %s in not found' % self.name)
+
+        self.machine.reset()    
 
     def snapshot(self):
         """
         Action that creates a snapshot of the machine
         """
-        machine = self.machine
-        if machine:
-            machine.snapshot_create()
-        else:
+        if not self.machine:
             raise RuntimeError('machine %s in not found' % self.name)
 
-    def snapshot_rollback(self, snapshot_epoch=None):
+        self.machine.snapshot_create()
+
+    def snapshot_rollback(self, snapshot_epoch):
         """
         Action that rolls back the machine to a snapshot
         """    
         if not snapshot_epoch:
             raise RuntimeError('"snapshot_epoch" should be given')
 
-        machine = self.machine
-        if machine:       
-            machine.snapshot_rollback(snapshot_epoch)
-            machine.start()
-        else:
+        if not self.machine:
             raise RuntimeError('machine %s in not found' % self.name)
 
-    def snapshot_delete(self,  snapshot_epoch=None):
+        self.machine.snapshot_rollback(snapshot_epoch)
+        self.machine.start()
+
+    def snapshot_delete(self,  snapshot_epoch):
         """
         Action that deletes a snapshot of the machine
         """
         if not snapshot_epoch:
             raise RuntimeError('"snapshot_epoch" should be given')
 
-        machine = self.machine
-        if machine and snapshot_epoch:       
-            machine.snapshot_delete(snapshot_epoch)
-        else:
-            raise RuntimeError('machine %s in not found' % self.name)        
+        if not self.machine:
+            raise RuntimeError('machine %s in not found' % self.name)       
+
+        self.machine.snapshot_delete(snapshot_epoch)
 
     def list_snapshots(self):
         """
         Action that lists snapshots of the machine
         """
-        machine = self.machine
-        if not machine:
-            raise RuntimeError('machine %s in not found' % self.name)      
+        if not self.machine:
+            raise RuntimeError('machine %s in not found' % self.name)
 
-        return machine.snapshots
+        return self.machine.snapshots
     
     def clone(self, clone_name):
         """
@@ -261,9 +263,8 @@ class Node(TemplateBase):
         if not clone_name:
             raise RuntimeError('"clone_name" should be given')
 
-        machine = self.machine
-        if not machine:       
-            raise RuntimeError('machine %s in not found' % self.name)
+        if not self.machine:
+            raise RuntimeError('machine %s in not found' % self.name)     
 
-        machine.clone(clone_name)
-        machine.start()
+        self.machine.clone(clone_name)
+        self.machine.start()
