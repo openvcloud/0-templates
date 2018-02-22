@@ -12,7 +12,7 @@ struct Schema {
 	# Type of VM: defines the number of CPU and memory available for the vm
 	sizeId @3 :Int64 = 1;
 
-	# Mumber of CPUs
+	# Number of CPUs
 	vCpus @4 :Int64;
 
 	# Memory in MB
