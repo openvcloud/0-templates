@@ -1,5 +1,6 @@
 from js9 import j
 from zerorobot.template.base import TemplateBase
+from zerorobot.template.state import StateCheckError
 
 
 class Account(TemplateBase):
@@ -34,6 +35,12 @@ class Account(TemplateBase):
         return self.data['openvcloud']
 
     def install(self):
+        try:
+            self.state.check('actions', 'install', 'ok')
+            return
+        except StateCheckError:
+            pass
+
         cl = self.ovc
         # Set limits
         # if account does not exist, it will create it
@@ -71,7 +78,7 @@ class Account(TemplateBase):
             task = instance.schedule_action('get_fqid')
             task.wait()
 
-            users[task.result] = user['accesstype']
+            users[task.result] = user.get('accesstype', 'ACDRUX')
 
         authorized = {user['userGroupId']: user['right'] for user in account.model['acl']}
 

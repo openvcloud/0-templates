@@ -1,6 +1,7 @@
 import time
 from js9 import j
 from zerorobot.template.base import TemplateBase
+from zerorobot.template.state import StateCheckError
 
 
 class Vdc(TemplateBase):
@@ -67,6 +68,11 @@ class Vdc(TemplateBase):
         return self._account
 
     def install(self):
+        try:
+            self.state.check('actions', 'install', 'ok')
+            return
+        except StateCheckError:
+            pass
         acc = self.account
 
         # Set limits
@@ -124,7 +130,7 @@ class Vdc(TemplateBase):
             task = instance.schedule_action('get_fqid')
             task.wait()
 
-            users[task.result] = user['accesstype']
+            users[task.result] = user.get('accesstype', 'ACDRUX')
 
         authorized = {user['userGroupId']: user['right'] for user in space.model['acl']}
 
