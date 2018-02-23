@@ -1,4 +1,4 @@
-# Temptate: node
+# temptate: node
 
 ## Description
 
@@ -47,7 +47,7 @@ services:
             - name: admin
               accesstype: CXDRAU          
     - github.com/openvcloud/0-templates/node/0.0.1__mynode:
-        vdc: katiadev
+        vdc: myspace
         ports:
           - source: 7000
             destination: 7001        
@@ -60,16 +60,22 @@ actions:
 By analogy the following actions can be applied to manage VM:
 `['unnstall']`, `['stop']`, `['start']`, `['pause']`, `['resume']`, `['clone']`, `['snapshot']`.
 
+Following examples show how to schedule actions with arguments.
+## Example for cloning machine:
+``` yaml
+- service: mynode 
+    actions: ['clone']
+    args:
+        clone_name: <clone name>
+```
 ## Example for adding portforwards:
 ``` yaml
 - service: mynode 
     actions: ['portforward_create']
     args:
         ports:
-        - source: 5000
-          destination: 5001
-        - source: 6000
-          destination: 6001
+        - source: <public port>
+          destination: <local port>
 ```
 ## Example for deleting portforwards:
 ``` yaml
@@ -77,8 +83,21 @@ By analogy the following actions can be applied to manage VM:
     actions: ['portforward_delete']
     args:
         ports:
-        - source: 5000
-          destination: 5001
-        - source: 6000
-          destination: 6001
+        - source: <public port>
+          destination: <local port>
+```
+
+## Example for rolling back snapshot:
+``` yaml
+- service: mynode 
+    actions: ['snapshot_rollback']
+    args:
+        snapshot_epoch: <epoch>
+```
+## Example for deleting snapshot:
+``` yaml
+- service: mynode 
+    actions: ['snapshot_rollback']
+    args:
+        snapshot_epoch: <epoch>
 ```

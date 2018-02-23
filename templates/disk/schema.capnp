@@ -10,7 +10,7 @@ struct Schema {
 	description @2 :Text = "disk";
 
 	# name of the disk
-	devicename @3 :Text;
+	deviceName @3 :Text;
 
 	# id of the disk
 	diskId @4: Int64;
@@ -21,8 +21,8 @@ struct Schema {
 	# location of the disk
 	location @6 :Text;
 
-	# Limmits
-	maxIOPS @7 :Int64 = 2000;
+	# Limits
+	maxIops @7 :Int64 = 2000;
 
 	totalBytesSec @8 :Int64;
 

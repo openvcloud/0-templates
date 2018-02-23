@@ -28,7 +28,7 @@ class Disk(TemplateBase):
             raise RuntimeError("diskovc's type must be data (D) or boot (B) only")
 
         # ensure that limits are given correctly
-        if (data['maxIOPS'] or data['totalIopsSec']) and (data['readIopsSec'] or data['writeIopsSec']):
+        if (data['maxIops'] or data['totalIopsSec']) and (data['readIopsSec'] or data['writeIopsSec']):
             raise RuntimeError("total and read/write of iops_sec cannot be set at the same time")
 
         if data['totalBytesSec'] and (data['readBytesSec'] or data['writeBytesSec']):
@@ -155,7 +155,7 @@ class Disk(TemplateBase):
             raise RuntimeError('Data Disk with Id = "%s" was not found' % data['diskId'])
 
         ovc.api.cloudapi.disks.limitIO(
-            diskId=data['diskId'], iops=data['maxIOPS'], total_bytes_sec=data['totalBytesSec'],
+            diskId=data['diskId'], iops=data['maxIops'], total_bytes_sec=data['totalBytesSec'],
             read_bytes_sec=data['readBytesSec'], write_bytes_sec=data['writeBytesSec'], total_iops_sec=data['totalIopsSec'],
             read_iops_sec=data['readIopsSec'], write_iops_sec=data['writeIopsSec'],
             total_bytes_sec_max=data['totalBytesSecMax'], read_bytes_sec_max=data['readBytesSecMax'],

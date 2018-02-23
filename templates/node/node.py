@@ -1,5 +1,6 @@
 from js9 import j
 from zerorobot.template.base import TemplateBase
+from zerorobot.template.state import StateCheckError
 
 class Node(TemplateBase):
 
@@ -84,6 +85,12 @@ class Node(TemplateBase):
         return self.space.machines.get(self.name)
 
     def install(self):
+        try:
+            self.state.check('actions', 'install', 'ok')
+            return
+        except StateCheckError:
+            pass        
+
         machine = self.machine
         if not machine:
             machine = self._machine_create()
@@ -98,9 +105,9 @@ class Node(TemplateBase):
 
         self.portforward_create(self.data['ports'])
         self._configure_disks()
+        self.save()
 
         self.state.set('actions', 'install', 'ok')
-        self.save()
 
     def _machine_create(self):
         """ Create a new machine """
