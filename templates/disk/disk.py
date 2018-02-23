@@ -19,10 +19,30 @@ class Disk(TemplateBase):
         self._vdc = None
     
     def validate(self):
-        data = self.data
-        if not data['vdc']:
+        if not self.data['vdc']:
             raise RuntimeError('vdc name should be given')
+        self._validate_limits()
 
+        # ensure uploaded key
+        self.sshkey
+
+    def update_data(self, data):
+        # merge new data
+        self.data.update(data)
+
+        # check that new limits are valid
+        self._validate_limits()
+
+        # apply new limits
+        self._limit_io()
+
+        self.save()
+
+    def _validate_limits(self):
+        """
+        Validate limits on the Disk
+        """
+        data = self.data
         # ensure that disk has a valid type
         if data['type']  and data['type'].upper() not in ["D", "B"]:
             raise RuntimeError("diskovc's type must be data (D) or boot (B) only")
@@ -40,21 +60,12 @@ class Disk(TemplateBase):
         if data['totalIopsSecMax'] and (data['readIopsSecMax'] or data['writeIopsSecMax']):
             raise RuntimeError("total and read/write of iops_sec_max cannot be set at the same time")
 
-        # ensure uploaded key
-        self.sshkey
-
-    def update_data(self, data):
-        # merge new data
-        self.data.update(data)
-        
-        self.save()
-
     @property
     def sshkey(self):
         """ Get a path and keyname of the sshkey service """
 
         sshkeys = self.api.services.find(template_uid=self.SSH_TEMPLATE)
-        if not len(sshkeys):
+        if len(sshkeys) == 0:
             raise RuntimeError('no %s ssh services found' % len(sshkeys))
 
         # Get key name and path
@@ -114,12 +125,11 @@ class Disk(TemplateBase):
         account = self.account
 
         # check existence of the disk. If ID field was updated in the service
-
         guid = [location['gid'] for location in ovc.locations if location['name']==data['location']]
         if not guid:
             raise RuntimeError('location "%s" not found'%data['location'])
 
-        # if dons'nt exist - create
+        # if doesn't exist - create
         data['diskId'] = account.disk_create(
                             name=data['devicename'],
                             gid=guid,
@@ -127,7 +137,7 @@ class Disk(TemplateBase):
                             size=data['size'],
                             type=data['type'],
                         )
-        self.limit_io()                        
+        self._limit_io()                        
         self.save()        
 
 
@@ -138,23 +148,19 @@ class Disk(TemplateBase):
         data = self.data
         account = self.account
 
-        if data['diskId'] not in [disk['id'] for disk in account.disks]:
-            raise RuntimeError("data Disk was not found. cannot continue init of %s" % self.template_name)
         if data['type'] == 'B':
             raise RuntimeError("can't delete boot disk")
-        
-        account.disk_delete(data['diskId'])
+        if data['diskId'] in [disk['id'] for disk in account.disks]:
+            account.disk_delete(data['diskId'])
 
     
-    def limit_io(self):
+    def _limit_io(self):
         data = self.data
-        account = self.account
-        ovc = self.ovc
 
-        if data['diskId'] not in [disk['id'] for disk in account.disks]:
+        if data['diskId'] not in [disk['id'] for disk in self.account.disks]:
             raise RuntimeError('Data Disk with Id = "%s" was not found' % data['diskId'])
 
-        ovc.api.cloudapi.disks.limitIO(
+        self.ovc.api.cloudapi.disks.limitIO(
             diskId=data['diskId'], iops=data['maxIops'], total_bytes_sec=data['totalBytesSec'],
             read_bytes_sec=data['readBytesSec'], write_bytes_sec=data['writeBytesSec'], total_iops_sec=data['totalIopsSec'],
             read_iops_sec=data['readIopsSec'], write_iops_sec=data['writeIopsSec'],

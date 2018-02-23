@@ -69,7 +69,7 @@ class Node(TemplateBase):
         """ Get a path and keyname of the sshkey service """
 
         sshkeys = self.api.services.find(template_uid=self.SSH_TEMPLATE)
-        if not len(sshkeys):
+        if len(sshkeys) == 0:
             raise RuntimeError('no %s ssh services found' % len(sshkeys))
 
         # Get key name and path
