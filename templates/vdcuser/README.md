@@ -31,12 +31,13 @@ actions:
 ```
 
 ## Actions
-### `set_groups` set user groups
+### `groups_set` set user groups
 ```yaml
 actions:
-  service: admin
-  args:
-    groups:
-      - group1
-      - group2
+  - service: admin
+    actions: ['groups_set']
+    args:
+      groups:
+        - group1
+        - group2
 ```

@@ -65,7 +65,7 @@ class Vdcuser(TemplateBase):
         if client.api.system.usermanager.userexists(name=username):
             client.api.system.usermanager.delete(username=username)
 
-    def set_groups(self, groups):
+    def groups_set(self, groups):
         """
         Set user groups
 

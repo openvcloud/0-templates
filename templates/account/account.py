@@ -111,7 +111,7 @@ class Account(TemplateBase):
         acc = cl.account_get(self.name)
         acc.delete()
 
-    def add_user(self, user):
+    def user_add(self, user):
         '''
         Add/Update user access to an account
         '''
@@ -144,7 +144,7 @@ class Account(TemplateBase):
         account = cl.account_get(name=self.name, create=False)
         self._authorize_users(account)
 
-    def delete_user(self, username):
+    def user_delete(self, username):
         '''
         Delete user access
 

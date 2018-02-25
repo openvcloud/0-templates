@@ -48,7 +48,7 @@ actions:
 ```
 
 ## Actions
-### `add_user` action
+### `user_add` action
 Add user to an account
 
 params:
@@ -67,14 +67,14 @@ actions:
     action: ['install']
 
   - service: myaccount
-    actions: ['add_user']
+    actions: ['user_add']
      args:
         user:
           name: thabet
           accesstype: R
 ```
 
-### `delete_user` action
+### `user_delete` action
 Remove users from an account
 
 params:
@@ -82,7 +82,7 @@ params:
 ```yaml
 actions:
   - service: myaccount
-    actions: ['delete_user']
+    actions: ['user_delete']
     args:
       username: testuser
 ```

@@ -54,7 +54,7 @@ actions:
     - actions: ['install']
 ```
 ## Actions
-### `add_user` action
+### `user_add` action
 Add user to an account
 
 params:
@@ -73,7 +73,7 @@ actions:
     action: ['install']
 
   - service: myspace
-    actions: ['add_user']
+    actions: ['user_add']
      args:
         user:
           name: thabet
@@ -81,7 +81,7 @@ actions:
 ```
 
 ## Actions
-### `delete_user` action
+### `user_delete` action
 Remove users from an account
 
 params:
@@ -89,7 +89,7 @@ params:
 ```yaml
 actions:
   - service: myspace
-    actions: ['delete_user']
+    actions: ['user_delete']
     args:
       username: testuser
 ```

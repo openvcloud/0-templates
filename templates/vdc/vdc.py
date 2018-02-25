@@ -178,7 +178,7 @@ class Vdc(TemplateBase):
         space.disable('The space should be disabled.')
         self.data['disabled'] = True
 
-    def add_user(self, user):
+    def user_add(self, user):
         '''
         Add/Update user access to an space
         '''
@@ -216,7 +216,7 @@ class Vdc(TemplateBase):
 
         self._authorize_users(space)
 
-    def delete_user(self, username):
+    def user_delete(self, username):
         '''
         Delete user access
 
