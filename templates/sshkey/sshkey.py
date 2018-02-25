@@ -21,8 +21,7 @@ class Sshkey(TemplateBase):
 
         old = self.data['path']
         self.data.update(data)
-        self.save() # making sure data is not breaking the schema before we do key unload
+        self.save()  # making sure data is not breaking the schema before we do key unload
 
         j.clients.ssh.ssh_key_unload(old)
         j.clients.ssh.load_ssh_key(self.data['path'])
-
