@@ -166,8 +166,8 @@ class Account(TemplateBase):
         account = cl.account_get(name=self.name, create=False)
         self._authorize_users(account)
 
-    def update(self, maxMemoryCapacity, maxDiskCapacity,
-               maxNumPublicIP, maxCPUCapacity):
+    def update(self, maxMemoryCapacity=None, maxDiskCapacity=None,
+               maxNumPublicIP=None, maxCPUCapacity=None):
         '''
         Update account flags
 

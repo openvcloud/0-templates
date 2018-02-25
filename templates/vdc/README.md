@@ -19,14 +19,6 @@ This actor template creates a cloudspace (Virtual Data Center) on the specified 
 - maxNetworkPeerTransfer: Cloudspace limits, max sent/received network transfer peering(GB).
 - disabled: True if the cloudspace is disabled. **Filled in automatically, don't specify it in the blueprint**
 
-## User access rights
-
-Use the uservdc parameter to specify the user access right to the vdc. Note that if only name exist in the entry (no accesstype) then the access right will be by default `ACDRUX`.
-
-Note that the data in the blueprint is always reflected in the vdc, which means that removing an entry in the blueprint will remove or change it in the vdc.
-
-Using process change it is possible to add, remove and update user access to the cloudspace. To add user after executing the run and creating the vdc, add a new user in the blueprint and execute the blueprint to trigger process change and add new user to the cloudspace or removing user by deleting the entry in the blueprint. Changing the accesstype will update the user access when executing the blueprint and as above removing it will change the access right to the default value `ACDRUX`.
-
 ## Access rights
 
 For information about the different access rights check docs at [openvcloud](https://github.com/0-complexity/openvcloud/blob/2.1.7/docs/EndUserPortal/Authorization/AuthorizationModel.md).
@@ -61,8 +53,68 @@ services:
 actions:
     - actions: ['install']
 ```
+## Actions
+### `add_user` action
+Add user to an account
 
-## Example for Deleting VDC
+params:
+- user object
+  - name: username reference to user instance
+  - accesstype: (optional) access type
+
+```yaml
+# Create the user instance if it doesn't already exist
+services:
+  - github.com/openvcloud/0-templates/vdcuser/0.0.1__testuser:
+      provider: itsyouonline
+      email: testuser@greenitglobe.com
+actions:
+  - service: testuser
+    action: ['install']
+
+  - service: myspace
+    actions: ['add_user']
+     args:
+        user:
+          name: thabet
+          accesstype: R
+```
+
+## Actions
+### `delete_user` action
+Remove users from an account
+
+params:
+- username: user name to delete
+```yaml
+actions:
+  - service: myspace
+    actions: ['delete_user']
+    args:
+      username: testuser
+```
+
+
+### `update` action
+Update account attributes
+
+params:
+- maxMemoryCapacity: Cloudspace limits, maximum memory(GB).
+- maxCPUCapacity: Cloudspace limits, maximum CPU capacity.
+- maxDiskCapacity: Cloudspace limits, maximum disk capacity(GB).
+- maxNumPublicIP: Cloudspace limits, maximum allowed number of public IPs.
+- externalNetworkID: External network to be attached to this cloudspace.
+- maxNetworkPeerTransfer: Cloudspace limits, max sent/received network transfer peering(GB).
+
+```yaml
+actions:
+  - service: myspace
+    actions: ['update']
+    args:
+      maxMemoryCapacity: 5
+```
+
+### Example for Deleting VDC
 
 ```yaml
 actions:
@@ -70,7 +122,7 @@ actions:
     actions: ['uninstall']
 ```
 
-## Example for disabling VDC
+### Example for disabling VDC
 
 ```yaml
 actions:
@@ -78,7 +130,7 @@ actions:
     actions: ['disable']
 ```
 
-## Example for enabling VDC
+### Example for enabling VDC
 ```yaml
 actions:
   - service: myspace

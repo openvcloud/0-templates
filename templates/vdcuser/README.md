@@ -29,3 +29,14 @@ services:
 actions:
       actions: ['install']
 ```
+
+## Actions
+### `set_groups` set user groups
+```yaml
+actions:
+  service: admin
+  args:
+    groups:
+      - group1
+      - group2
+```
