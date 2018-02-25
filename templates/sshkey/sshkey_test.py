@@ -15,39 +15,35 @@ class TestSshKey(TestCase):
             os.path.dirname(__file__)
         )
 
-        # mock ssh client
-        self.ssh_patch = mock.patch.object(j.clients, '_ssh')
-        self.ssh = self.ssh_patch.start()
-
-    def tearDown(self):
-        self.ssh_patch.stop()
-
-    def test_create(self):
+    @mock.patch.object(j.clients, '_ssh')
+    def test_create(self, ssh):
         path = '/path/to/key/file'
         self.type("test", None, {'path': path})
-        self.ssh.load_ssh_key.assert_called_with(path)
+        ssh.load_ssh_key.assert_called_with(path)
 
-    def test_update_data_no_change(self):
+    @mock.patch.object(j.clients, '_ssh')
+    def test_update_data_no_change(self, ssh):
         path = '/path/to/key/file'
         instance = self.type("test", None, {'path': path})
 
-        self.ssh.load_ssh_key.assert_called_once_with(path)
+        ssh.load_ssh_key.assert_called_once_with(path)
 
-        self.ssh.reset_mock()
+        ssh.reset_mock()
         instance.update_data({'path': path})
 
-        self.ssh.ssh_key_unload.assert_not_called()
-        self.ssh.load_ssh_key.assert_not_called()
+        ssh.ssh_key_unload.assert_not_called()
+        ssh.load_ssh_key.assert_not_called()
 
-    def test_update_data_change(self):
+    @mock.patch.object(j.clients, '_ssh')
+    def test_update_data_change(self, ssh):
         path1 = '/path/to/key/file'
         instance = self.type("test", None, {'path': path1})
 
-        self.ssh.load_ssh_key.assert_called_once_with(path1)
+        ssh.load_ssh_key.assert_called_once_with(path1)
 
-        self.ssh.reset_mock()
+        ssh.reset_mock()
         path2 = '/path/to/new/key/file'
         instance.update_data({'path': path2})
 
-        self.ssh.ssh_key_unload.assert_called_once_with(path1)
-        self.ssh.load_ssh_key.assert_called_once_with(path2)
+        ssh.ssh_key_unload.assert_called_once_with(path1)
+        ssh.load_ssh_key.assert_called_once_with(path2)
