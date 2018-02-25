@@ -116,7 +116,7 @@ class Vdc(TemplateBase):
         else:
             raise j.exceptions.Timeout("VDC not yet deployed")
 
-        self.state.set('acitons', 'install', 'ok')
+        self.state.set('actions', 'install', 'ok')
 
     def _authorize_users(self, space):
         users = {}
@@ -156,6 +156,7 @@ class Vdc(TemplateBase):
 
     def enable(self):
         # Get space, raise error if not found
+        self.state.check('actions', 'install', 'ok')
         space = self.account.space_get(
             name=self.name,
             location=self.data['location'],
@@ -167,6 +168,7 @@ class Vdc(TemplateBase):
 
     def disable(self):
         # Get space, raise error if not found
+        self.state.check('actions', 'install', 'ok')
         space = self.account.space_get(
             name=self.name,
             location=self.data['location'],
@@ -176,26 +178,96 @@ class Vdc(TemplateBase):
         space.disable('The space should be disabled.')
         self.data['disabled'] = True
 
-    def update_data(self, data):
-        acc = self.account
+    def add_user(self, user):
+        '''
+        Add/Update user access to an space
+        '''
+        self.state.check('actions', 'install', 'ok')
 
-        # Get given space, raise error if not found
-        space = acc.space_get(
+        name = user['name']
+
+        found = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=name)
+        if len(found) != 1:
+            raise ValueError('no vdcuser found with name "%s"', name)
+
+        accesstype = user.get('accesstype', 'ACDRUX')
+        users = self.data['users']
+
+        for user in users:
+            if user['name'] != name:
+                continue
+
+            if user['accesstype'] == accesstype:
+                # nothing to do here
+                return
+
+            user['accesstype'] = accesstype
+            break
+        else:
+            # user not found (looped over all users)
+            users.append({'name': name, 'accesstype': accesstype})
+
+        self.data['users'] = users
+        space = self.account.space_get(
             name=self.name,
             location=self.data['location'],
             create=False
         )
 
-        self.data.update(data)
+        self._authorize_users(space)
 
-        if 'users' in data:
-            self._authorize_users(space)
+    def delete_user(self, username):
+        '''
+        Delete user access
 
-        updated = False
+        :param username: user instance name
+        '''
+        self.state.check('actions', 'install', 'ok')
+        users = self.data['users']
+
+        for user in users[:]:
+            if user['name'] == username:
+                users.remove(user)
+                break
+        else:
+            # user not found (looped over all users)
+            return
+
+        self.data['users'] = users
+        space = self.account.space_get(
+            name=self.name,
+            location=self.data['location'],
+            create=False
+        )
+        self._authorize_users(space)
+
+    def update(self, maxMemoryCapacity=None, maxDiskCapacity=None, maxNumPublicIP=None,
+               maxCPUCapacity=None, maxNetworkPeerTransfer=None):
+        '''
+        Update account flags
+
+        :param maxMemoryCapacity: The limit on the memory capacity that can be used by the account
+        :param maxCPUCapacity: The limit on the CPUs that can be used by the account.
+        :param maxNumPublicIP: The limit on the number of public IPs that can be used by the account.
+        :param maxDiskCapacity: The limit on the disk capacity that can be used by the account.
+        :param maxNetworkPeerTransfer: Cloudspace limits, max sent/received network transfer peering(GB).
+        '''
+        # work around not supporting the **kwargs in actions call
+        kwargs = locals()
+        kwargs.pop('self')
+
+        self.state.check('actions', 'install', 'ok')
+        space = self.account.space_get(
+            name=self.name,
+            location=self.data['location'],
+            create=False
+        )
+
+        self.data.update(kwargs)
 
         for key in ['maxMemoryCapacity', 'maxDiskCapacity', 'maxNumPublicIP',
                     'maxCPUCapacity', 'maxNetworkPeerTransfer']:
-            if key in data:
+            if key in kwargs:
                 updated = True
                 space.model[key] = self.data[key]
 

@@ -106,6 +106,7 @@ class Account(TemplateBase):
             account.unauthorize_user(username=user)
 
     def uninstall(self):
+        self.state.check('actions', 'install', 'ok')
         cl = self.ovc
         acc = cl.account_get(self.name)
         acc.delete()
@@ -114,6 +115,7 @@ class Account(TemplateBase):
         '''
         Add/Update user access to an account
         '''
+        self.state.check('actions', 'install', 'ok')
         name = user['name']
 
         found = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=name)
@@ -148,6 +150,7 @@ class Account(TemplateBase):
 
         :param username: user instance name
         '''
+        self.state.check('actions', 'install', 'ok')
         users = self.data['users']
 
         for user in users[:]:
@@ -163,7 +166,8 @@ class Account(TemplateBase):
         account = cl.account_get(name=self.name, create=False)
         self._authorize_users(account)
 
-    def update(self, **kwargs):
+    def update(self, maxMemoryCapacity, maxDiskCapacity,
+               maxNumPublicIP, maxCPUCapacity):
         '''
         Update account flags
 
@@ -172,6 +176,11 @@ class Account(TemplateBase):
         :param maxNumPublicIP: The limit on the number of public IPs that can be used by the account.
         :param maxDiskCapacity: The limit on the disk capacity that can be used by the account.
         '''
+        # work around not supporting the **kwargs in actions call
+        kwargs = locals()
+        kwargs.pop('self')
+
+        self.state.check('actions', 'install', 'ok')
         cl = self.ovc
         account = cl.account_get(name=self.name, create=False)
 

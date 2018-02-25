@@ -56,16 +56,24 @@ class Vdcuser(TemplateBase):
         self.state.set('actions', 'install', 'ok')
 
     def uninstall(self):
-        # unauthorize user to all consumed vdc
+        """
+        unauthorize user to all consumed vdc
+        """
+        self.state.check('actions', 'install', 'ok')
         client = self.ovc
         username = self.get_fqid()
         if client.api.system.usermanager.userexists(name=username):
             client.api.system.usermanager.delete(username=username)
 
-    def update_data(self, data):
+    def set_groups(self, groups):
+        """
+        Set user groups
+
+        :param groups: list of groups
+        """
+        self.state.check('actions', 'install', 'ok')
         client = self.ovc
 
-        groups = data.get('groups', [])
         if set(groups) == set(self.data['groups']):
             return
 
@@ -73,5 +81,11 @@ class Vdcuser(TemplateBase):
         username = self.get_fqid()
         emails = [self.data['email']]
 
-        client.api.system.usermanager.editUser(username=username, groups=groups, provider=self.data['provider'], emails=emails)
+        client.api.system.usermanager.editUser(
+            username=username,
+            groups=groups,
+            provider=self.data['provider'],
+            emails=emails
+        )
+
         self.data['groups'] = groups
