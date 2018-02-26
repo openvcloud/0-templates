@@ -37,8 +37,7 @@ class Node(TemplateBase):
         if self._ovc is not None:
             return self._ovc
         
-        vdc = self.vdc
-        instance = vdc.ovc.instance
+        instance = self.vdc.ovc.instance
         self._ovc = j.clients.openvcloud.get(instance=instance)
 
         return self._ovc
@@ -103,7 +102,7 @@ class Node(TemplateBase):
         self.data['ipPublic'] = machine.space.model['publicipaddress']
         self.data['machineId'] = machine.id
 
-        self.portforward_create(self.data['ports'])
+        self.portforward_create(self.data.get('ports', None))
         self._configure_disks()
         self.save()
 
@@ -145,10 +144,23 @@ class Node(TemplateBase):
             # update data in the disk service
             task = service.schedule_action('update_data', {'data':disk})
             task.wait()
-            # limmit disk with default limits
-            task = service.schedule_action('limit_io')
-            task.wait()                   
 
+        # set default values
+        fs_type = 'ext4'
+        mount_point = '/var'
+        device = '/dev/vdb'
+        
+        # create file system and mount data disk
+        prefab = machine.prefab
+        prefab.system.filesystem.create(fs_type=fs_type, device=device)
+        prefab.system.filesystem.mount(mount_point=mount_point, device=device, 
+                                       reboot=True, copy=True, 
+                                       fs_type=fs_type)
+
+        # update data
+        self.data['dataDiskFilesystem'] = fs_type
+        self.data['dataDiskMountpoint'] = mount_point
+        self.save()
 
     def uninstall(self):
         """ Uninstall machine """
@@ -162,18 +174,16 @@ class Node(TemplateBase):
             raise RuntimeError('machine %s in not found' % self.name)
 
         # get vdc service
-        task = self.vdc.schedule_action('portforward_create', 
-                                        {'machineId':self.machine.id, 'port_forwards':ports, 'protocol':'tcp'})
-        task.wait()
+        self.vdc.schedule_action('portforward_create', 
+                                {'machineId':self.machine.id, 'port_forwards':ports, 'protocol':'tcp'})
 
     def portforward_delete(self, ports):
         """ Delete portforwards """
         if not self.machine:
             raise RuntimeError('machine %s in not found' % self.name)
 
-        task = self.vdc.schedule_action('portforward_delete', 
-                                        {'machineId':self.machine.id, 'port_forwards':ports, 'protocol':'tcp'})
-        task.wait()        
+        self.vdc.schedule_action('portforward_delete', 
+                                {'machineId':self.machine.id, 'port_forwards':ports, 'protocol':'tcp'})
 
     def start(self):
         """ Start the VM """

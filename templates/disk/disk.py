@@ -137,7 +137,7 @@ class Disk(TemplateBase):
                             size=data['size'],
                             type=data['type'],
                         )
-        self._limit_io()                        
+        # TODO: self._limit_io()                        
         self.save()        
 
 
