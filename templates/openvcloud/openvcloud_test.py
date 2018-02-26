@@ -65,30 +65,3 @@ class TestOpenvcloud(TestCase):
         }, create=True)
 
         client.get.return_value.config.save.assert_called_once_with()
-
-    # @mock.patch.object(j.clients, '_ssh')
-    # def test_update_data_no_change(self, ssh):
-    #     path = '/path/to/key/file'
-    #     instance = self.type("test", None, {'path': path})
-
-    #     ssh.load_ssh_key.assert_called_once_with(path)
-
-    #     ssh.reset_mock()
-    #     instance.update_data({'path': path})
-
-    #     ssh.ssh_key_unload.assert_not_called()
-    #     ssh.load_ssh_key.assert_not_called()
-
-    # @mock.patch.object(j.clients, '_ssh')
-    # def test_update_data_change(self, ssh):
-    #     path1 = '/path/to/key/file'
-    #     instance = self.type("test", None, {'path': path1})
-
-    #     ssh.load_ssh_key.assert_called_once_with(path1)
-
-    #     ssh.reset_mock()
-    #     path2 = '/path/to/new/key/file'
-    #     instance.update_data({'path': path2})
-
-    #     ssh.ssh_key_unload.assert_called_once_with(path1)
-    #     ssh.load_ssh_key.assert_called_once_with(path2)

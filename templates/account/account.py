@@ -8,14 +8,14 @@ class Account(TemplateBase):
     version = '0.0.1'
     template_name = "account"
 
+    OVC_TEMPLATE = 'github.com/openvcloud/0-templates/openvcloud/0.0.1'
     VDCUSER_TEMPLATE = 'github.com/openvcloud/0-templates/vdcuser/0.0.1'
 
     def __init__(self, name, guid=None, data=None):
         super().__init__(name=name, guid=guid, data=data)
 
     def validate(self):
-        OVC_TEMPLATE = 'github.com/openvcloud/0-templates/openvcloud/0.0.1'
-        ovcs = self.api.services.find(template_uid=OVC_TEMPLATE, name=self.data.get('openvcloud', None))
+        ovcs = self.api.services.find(template_uid=self.OVC_TEMPLATE, name=self.data['openvcloud'] or None)
 
         if len(ovcs) != 1:
             raise RuntimeError('found %s openvcloud connections, requires exactly 1' % len(ovcs))
@@ -23,9 +23,8 @@ class Account(TemplateBase):
         self.data['openvcloud'] = ovcs[0].name
 
         # validate users
-        VDCUSER_TEMPLATE = 'github.com/openvcloud/0-templates/vdcuser/0.0.1'
         for user in self.data['users']:
-            users = self.api.services.find(template_uid=VDCUSER_TEMPLATE, name=user['name'])
+            users = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=user['name'])
             if len(users) != 1:
                 raise ValueError('no vdcuser found with name "%s"', user['name'])
 
@@ -188,9 +187,13 @@ class Account(TemplateBase):
 
         for key in ['maxMemoryCapacity', 'maxDiskCapacity',
                     'maxNumPublicIP', 'maxCPUCapacity']:
-            if key in kwargs:
-                updated = True
-                account.model[key] = self.data[key]
+            value = kwargs[key]
+            if value is None:
+                continue
+
+            updated = True
+            self.data[key] = value
+            account.model[key] = value
 
         if updated:
             account.save()
