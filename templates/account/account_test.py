@@ -5,6 +5,7 @@ from unittest import TestCase
 from unittest import mock
 
 from zerorobot import config, template_collection
+from zerorobot.template.state import StateCheckError
 
 
 class TestAccount(TestCase):
@@ -232,6 +233,132 @@ class TestAccount(TestCase):
         account.update_access.assert_called_once_with(username='test2', right='R')
         account.authorize_user.assert_not_called()
         account.unauthorize_user.assert_not_called()
+
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_user_add(self, openvcloud):
+        data = {
+            'users': [
+                {'name': 'test1', 'accesstype': 'R'},
+            ]
+        }
+
+        instance = self.type('test', None, data.copy())
+
+        with self.assertRaises(StateCheckError):
+            # fails if not installed
+            instance.user_add({'name': 'test1', 'accesstype': 'R'})
+
+        instance.state.set('actions', 'install', 'ok')
+        with mock.patch.object(instance, '_authorize_users') as authorize:
+            with mock.patch.object(instance, 'api') as api:
+                api.services.find.return_value = [None]
+                instance.user_add({'name': 'test1', 'accesstype': 'R'})
+
+            authorize.assert_not_called()
+            self.assertEqual(
+                instance.data['users'],
+                [
+                    {'name': 'test1', 'accesstype': 'R'},
+                ]
+            )
+
+        cl = openvcloud.get.return_value
+        account = cl.account_get.return_value
+
+        # Add a user that does not exist
+        with mock.patch.object(instance, '_authorize_users') as authorize:
+            with mock.patch.object(instance, 'api') as api:
+                api.services.find.return_value = [None]
+                instance.user_add({'name': 'test2'})
+
+            authorize.assert_called_once_with(account)
+            self.assertEqual(
+                instance.data['users'], [
+                    {'name': 'test1', 'accesstype': 'R'},
+                    {'name': 'test2', 'accesstype': 'ACDRUX'},
+                ])
+
+        # Add a user that exists but with different accesstype
+        with mock.patch.object(instance, '_authorize_users') as authorize:
+            with mock.patch.object(instance, 'api') as api:
+                api.services.find.return_value = [None]
+                instance.user_add({'name': 'test2', 'accesstype': 'R'})
+
+            authorize.assert_called_once_with(account)
+            self.assertEqual(
+                instance.data['users'], [
+                    {'name': 'test1', 'accesstype': 'R'},
+                    {'name': 'test2', 'accesstype': 'R'},
+                ])
+
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_user_delete(self, openvcloud):
+        data = {
+            'users': [
+                {'name': 'test1', 'accesstype': 'R'},
+            ]
+        }
+
+        instance = self.type('test', None, data)
+
+        with self.assertRaises(StateCheckError):
+            # fails if not installed
+            instance.user_delete({'name': 'test1', 'accesstype': 'R'})
+
+        # delete a user that does not exist
+        instance.state.set('actions', 'install', 'ok')
+        with mock.patch.object(instance, '_authorize_users') as authorize:
+            with mock.patch.object(instance, 'api') as api:
+                api.services.find.return_value = [None]
+                instance.user_delete('test2')
+
+            authorize.assert_not_called()
+            self.assertEqual(
+                instance.data['users'],
+                [
+                    {'name': 'test1', 'accesstype': 'R'},
+                ]
+            )
+
+        cl = openvcloud.get.return_value
+        account = cl.account_get.return_value
+
+        # delete a user that exists
+        with mock.patch.object(instance, '_authorize_users') as authorize:
+            with mock.patch.object(instance, 'api') as api:
+                api.services.find.return_value = [None]
+                instance.user_delete('test1')
+
+            authorize.assert_called_once_with(account)
+            self.assertEqual(
+                instance.data['users'], [])
+
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_update(self, openvcloud):
+        cl = openvcloud.get.return_value
+        account = cl.account_get.return_value
+        account.model = {}
+
+        instance = self.type('test', None, {})
+
+        with self.assertRaises(StateCheckError):
+            instance.update()
+
+        instance.state.set('actions', 'install', 'ok')
+
+        instance.update(
+            maxMemoryCapacity=1,
+            maxDiskCapacity=2,
+            maxNumPublicIP=3
+        )
+
+        account.save.assert_called_once_with()
+
+        self.assertEqual(account.model, {
+            'maxMemoryCapacity': 1,
+            'maxDiskCapacity': 2,
+            'maxNumPublicIP': 3
+        })
 
     # @mock.patch.object(j.clients, '_openvcloud')
     # def test_update(self, client):

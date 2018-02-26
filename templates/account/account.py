@@ -177,13 +177,10 @@ class Account(TemplateBase):
         '''
         # work around not supporting the **kwargs in actions call
         kwargs = locals()
-        kwargs.pop('self')
 
         self.state.check('actions', 'install', 'ok')
         cl = self.ovc
         account = cl.account_get(name=self.name, create=False)
-
-        self.data.update(kwargs)
 
         for key in ['maxMemoryCapacity', 'maxDiskCapacity',
                     'maxNumPublicIP', 'maxCPUCapacity']:
