@@ -7,6 +7,8 @@ class Vdcuser(TemplateBase):
     version = '0.0.1'
     template_name = "vdcuser"
 
+    OVC_TEMPLATE = 'github.com/openvcloud/0-templates/openvcloud/0.0.1'
+
     def __init__(self, name, guid=None, data=None):
         super().__init__(name=name, guid=guid, data=data)
 
@@ -15,8 +17,7 @@ class Vdcuser(TemplateBase):
             if key not in self.data:
                 raise ValueError('"%s" is required' % key)
 
-        OVC_TEMPLATE = 'github.com/openvcloud/0-templates/openvcloud/0.0.1'
-        ovcs = self.api.services.find(template_uid=OVC_TEMPLATE, name=self.data.get('openvcloud', None))
+        ovcs = self.api.services.find(template_uid=self.OVC_TEMPLATE, name=self.data['openvcloud'] or None)
 
         if len(ovcs) != 1:
             raise RuntimeError('found %s openvcloud connections, requires exactly 1' % len(ovcs))
