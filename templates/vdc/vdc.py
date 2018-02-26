@@ -23,13 +23,14 @@ class Vdc(TemplateBase):
             if not self.data.get('location'):
                 raise ValueError('%s is required' % key)
 
+        if not self.data['account']:
+            raise ValueError('account is required')
+
         # validate accounts
-        accounts = self.api.services.find(template_uid=self.ACCOUNT_TEMPLATE, name=self.data['account'] or None)
+        accounts = self.api.services.find(template_uid=self.ACCOUNT_TEMPLATE, name=self.data['account'])
 
         if len(accounts) != 1:
             raise RuntimeError('found %s accounts, requires exactly one' % len(accounts))
-
-        self.data['account'] = accounts[0].name
 
         # validate users
         for user in self.data['users']:

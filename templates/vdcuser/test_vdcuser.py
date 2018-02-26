@@ -53,19 +53,22 @@ class TestVdcUser(TestCase):
 
         with mock.patch.object(instance, 'api') as api:
             api.services.find.side_effect = find
-            instance.validate()
+            with self.assertRaises(ValueError):
+                instance.validate()
 
-        api.services.find.assert_called_once_with(template_uid=self.type.OVC_TEMPLATE, name=None)
+        api.services.find.assert_not_called()
 
         # Finally, if the search retuned more than one object
         api.reset_mock()
 
-        data = {}
+        data = {
+            'openvcloud': 'connection'
+        }
         instance = self.type(name, None, data)
 
         def find(template_uid, name):
             self.assertEqual(template_uid, self.type.OVC_TEMPLATE)
-            self.assertEqual(name, None)
+            self.assertEqual(name, data['openvcloud'])
 
             result = mock.MagicMock()
             result.name = name
@@ -76,7 +79,7 @@ class TestVdcUser(TestCase):
             with self.assertRaises(RuntimeError):
                 instance.validate()
 
-        api.services.find.assert_called_once_with(template_uid=self.type.OVC_TEMPLATE, name=None)
+        api.services.find.assert_called_once_with(template_uid=self.type.OVC_TEMPLATE, name=data['openvcloud'])
 
     @mock.patch.object(j.clients, '_openvcloud')
     def test_install(self, openvcloud):

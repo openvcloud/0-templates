@@ -17,12 +17,13 @@ class Vdcuser(TemplateBase):
             if key not in self.data:
                 raise ValueError('"%s" is required' % key)
 
-        ovcs = self.api.services.find(template_uid=self.OVC_TEMPLATE, name=self.data['openvcloud'] or None)
+        if not self.data['openvcloud']:
+            raise ValueError('openvcloud is mandatory')
+
+        ovcs = self.api.services.find(template_uid=self.OVC_TEMPLATE, name=self.data['openvcloud'])
 
         if len(ovcs) != 1:
             raise RuntimeError('found %s openvcloud connections, requires exactly 1' % len(ovcs))
-
-        self.data['openvcloud'] = ovcs[0].name
 
     @property
     def ovc(self):

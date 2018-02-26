@@ -56,21 +56,23 @@ class TestVDC(TestCase):
 
         with mock.patch.object(instance, 'api') as api:
             api.services.find.side_effect = find
-            instance.validate()
+            with self.assertRaises(ValueError):
+                instance.validate()
 
-        api.services.find.assert_called_once_with(template_uid=self.type.ACCOUNT_TEMPLATE, name=None)
+        api.services.find.assert_not_called()
 
         # Finally, if the search retuned more than one object
         api.reset_mock()
 
         data = {
+            'account': 'test-account',
             'location': 'some-location'
         }
         instance = self.type(name, None, data)
 
         def find(template_uid, name):
             self.assertEqual(template_uid, self.type.ACCOUNT_TEMPLATE)
-            self.assertEqual(name, None)
+            self.assertEqual(name, data['account'])
 
             result = mock.MagicMock()
             result.name = name
@@ -81,7 +83,7 @@ class TestVDC(TestCase):
             with self.assertRaises(RuntimeError):
                 instance.validate()
 
-        api.services.find.assert_called_once_with(template_uid=self.type.ACCOUNT_TEMPLATE, name=None)
+        api.services.find.assert_called_once_with(template_uid=self.type.ACCOUNT_TEMPLATE, name=data['account'])
 
     def test_validate_users(self):
         data = {

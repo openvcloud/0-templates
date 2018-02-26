@@ -15,12 +15,13 @@ class Account(TemplateBase):
         super().__init__(name=name, guid=guid, data=data)
 
     def validate(self):
-        ovcs = self.api.services.find(template_uid=self.OVC_TEMPLATE, name=self.data['openvcloud'] or None)
+        if not self.data['openvcloud']:
+            raise ValueError('openvcloud is mandatory')
+
+        ovcs = self.api.services.find(template_uid=self.OVC_TEMPLATE, name=self.data['openvcloud'])
 
         if len(ovcs) != 1:
             raise RuntimeError('found %s openvcloud connections, requires exactly 1' % len(ovcs))
-
-        self.data['openvcloud'] = ovcs[0].name
 
         # validate users
         for user in self.data['users']:
