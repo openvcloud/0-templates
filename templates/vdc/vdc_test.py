@@ -8,7 +8,7 @@ from zerorobot import config, template_collection
 from zerorobot.template.state import StateCheckError
 
 
-class TestAccount(TestCase):
+class TestVDC(TestCase):
     def setUp(self):
         config.DATA_DIR = '/tmp'
         self.type = template_collection._load_template(
@@ -16,16 +16,17 @@ class TestAccount(TestCase):
             os.path.dirname(__file__)
         )
 
-    def test_validate_openvcloud(self):
+    def test_validate_account(self):
         data = {
-            'openvcloud': 'connection',
+            'account': 'test-account',
+            'location': 'some-location'
         }
         name = 'test'
         instance = self.type(name, None, data)
 
         def find(template_uid, name):
-            self.assertEqual(template_uid, self.type.OVC_TEMPLATE)
-            self.assertEqual(name, data['openvcloud'])
+            self.assertEqual(template_uid, self.type.ACCOUNT_TEMPLATE)
+            self.assertEqual(name, data['account'])
 
             result = mock.MagicMock()
             result.name = name
@@ -35,16 +36,18 @@ class TestAccount(TestCase):
             api.services.find.side_effect = find
             instance.validate()
 
-        api.services.find.assert_called_once_with(template_uid=self.type.OVC_TEMPLATE, name=data['openvcloud'])
+        api.services.find.assert_called_once_with(template_uid=self.type.ACCOUNT_TEMPLATE, name=data['account'])
 
         # Next, we test when NO connection is given
         api.reset_mock()
 
-        data = {}
+        data = {
+            'location': 'some-location'
+        }
         instance = self.type(name, None, data)
 
         def find(template_uid, name):
-            self.assertEqual(template_uid, self.type.OVC_TEMPLATE)
+            self.assertEqual(template_uid, self.type.ACCOUNT_TEMPLATE)
             self.assertEqual(name, None)
 
             result = mock.MagicMock()
@@ -55,16 +58,18 @@ class TestAccount(TestCase):
             api.services.find.side_effect = find
             instance.validate()
 
-        api.services.find.assert_called_once_with(template_uid=self.type.OVC_TEMPLATE, name=None)
+        api.services.find.assert_called_once_with(template_uid=self.type.ACCOUNT_TEMPLATE, name=None)
 
         # Finally, if the search retuned more than one object
         api.reset_mock()
 
-        data = {}
+        data = {
+            'location': 'some-location'
+        }
         instance = self.type(name, None, data)
 
         def find(template_uid, name):
-            self.assertEqual(template_uid, self.type.OVC_TEMPLATE)
+            self.assertEqual(template_uid, self.type.ACCOUNT_TEMPLATE)
             self.assertEqual(name, None)
 
             result = mock.MagicMock()
@@ -76,11 +81,12 @@ class TestAccount(TestCase):
             with self.assertRaises(RuntimeError):
                 instance.validate()
 
-        api.services.find.assert_called_once_with(template_uid=self.type.OVC_TEMPLATE, name=None)
+        api.services.find.assert_called_once_with(template_uid=self.type.ACCOUNT_TEMPLATE, name=None)
 
     def test_validate_users(self):
         data = {
-            'openvcloud': 'connection',
+            'account': 'test-account',
+            'location': 'some-location',
             'users': [
                 {'name': 'test-user'},
             ]
@@ -89,10 +95,10 @@ class TestAccount(TestCase):
         instance = self.type(name, None, data)
 
         def find(template_uid, name):
-            if template_uid == self.type.OVC_TEMPLATE:
+            if template_uid == self.type.ACCOUNT_TEMPLATE:
                 # handle the connection search (tested in another test method)
                 result = mock.MagicMock()
-                result.name = 'connection'
+                result.name = 'test-account'
                 return [result]
 
             self.assertEqual(template_uid, self.type.VDCUSER_TEMPLATE)
@@ -108,7 +114,7 @@ class TestAccount(TestCase):
 
         api.services.find.assert_has_calls(
             [
-                mock.call(template_uid=self.type.OVC_TEMPLATE, name=data['openvcloud']),
+                mock.call(template_uid=self.type.ACCOUNT_TEMPLATE, name=data['account']),
                 mock.call(template_uid=self.type.VDCUSER_TEMPLATE, name=data['users'][0]['name'])
             ]
         )
@@ -116,30 +122,45 @@ class TestAccount(TestCase):
     @mock.patch.object(j.clients, '_openvcloud')
     def test_install(self, openvcloud):
         data = {
-            'openvcloud': 'connection',
-            # 'users': [
-            #     {'name': 'test-user'},
-            # ]
+            'account': 'test-account',
+            'location': 'some-location'
         }
         name = 'test'
         instance = self.type(name, None, data)
-        instance.install()
 
-        openvcloud.get.assert_called_once_with(data['openvcloud'])
+        # we will do it this way
+        with mock.patch.object(instance, '_account') as account:
+            space = account.space_get.return_value
+            space.model = {
+                'id': 'space-id',
+                'acl': [],
+                'status': 'DEPLOYED'
+            }
 
-        cl = openvcloud.get.return_value
-        cl.account_get.assert_called_once_with(
-            name=name,
-            create=True,
-            # default values
-            maxMemoryCapacity=-1,
-            maxVDiskCapacity=-1,
-            maxCPUCapacity=-1,
-            maxNumPublicIP=-1,
-        )
+            instance.install()
+            account.space_get.assert_called_once_with(
+                name=name,
+                location=data['location'],
+                create=True,
+                maxMemoryCapacity=-1,
+                maxVDiskCapacity=-1,
+                maxCPUCapacity=-1,
+                maxNumPublicIP=-1,
+                maxNetworkPeerTransfer=-1,
+                externalnetworkId=None
+            )
+            self.assertEqual(space.model, {
+                'id': 'space-id',
+                'acl': [],
+                'maxMemoryCapacity': -1,
+                'maxVDiskCapacity': -1,
+                'maxNumPublicIP': -1,
+                'maxCPUCapacity': -1,
+                'maxNetworkPeerTransfer': -1,
+                'status': 'DEPLOYED'
+            })
 
-        account = cl.account_get.return_value
-        account.save.assert_called_once_with()
+            space.save.assert_called_once_with()
 
     def test_authorize_users(self):
         data = {
@@ -160,12 +181,12 @@ class TestAccount(TestCase):
                     return [u]
             raise ValueError('user not found')
 
-        account = mock.MagicMock()
+        space = mock.MagicMock()
 
         # we set the account ACL to match the
         # configured data. this should has no
         # effect
-        account.model = {
+        space.model = {
             'acl': [
                 {'userGroupId': 'test1', 'right': 'ACDRUX'},
                 {'userGroupId': 'test2', 'right': 'R'},
@@ -174,16 +195,16 @@ class TestAccount(TestCase):
 
         with mock.patch.object(instance, 'api') as api:
             api.services.find.side_effect = find
-            instance._authorize_users(account)
+            instance._authorize_users(space)
 
-        account.update_access.assert_not_called()
-        account.authorize_user.assert_not_called()
-        account.unauthorize_user.assert_not_called()
+        space.update_access.assert_not_called()
+        space.authorize_user.assert_not_called()
+        space.unauthorize_user.assert_not_called()
 
-        account.reset_mock()
+        space.reset_mock()
         # change the account model to force a change
         # account model is missing a user, we expect a call to authorize_user
-        account.model = {
+        space.model = {
             'acl': [
                 {'userGroupId': 'test2', 'right': 'R'},
             ]
@@ -191,16 +212,16 @@ class TestAccount(TestCase):
 
         with mock.patch.object(instance, 'api') as api:
             api.services.find.side_effect = find
-            instance._authorize_users(account)
+            instance._authorize_users(space)
 
-        account.update_access.assert_not_called()
-        account.authorize_user.assert_called_once_with(username='test1', right='ACDRUX')
-        account.unauthorize_user.assert_not_called()
+        space.update_access.assert_not_called()
+        space.authorize_user.assert_called_once_with(username='test1', right='ACDRUX')
+        space.unauthorize_user.assert_not_called()
 
-        account.reset_mock()
+        space.reset_mock()
         # change the account model to force a change
         # account model has an extra user, we expect a call to unauthorize_user
-        account.model = {
+        space.model = {
             'acl': [
                 {'userGroupId': 'test1', 'right': 'ACDRUX'},
                 {'userGroupId': 'test2', 'right': 'R'},
@@ -210,16 +231,16 @@ class TestAccount(TestCase):
 
         with mock.patch.object(instance, 'api') as api:
             api.services.find.side_effect = find
-            instance._authorize_users(account)
+            instance._authorize_users(space)
 
-        account.update_access.assert_not_called()
-        account.authorize_user.assert_not_called()
-        account.unauthorize_user.assert_called_once_with(username='test3')
+        space.update_access.assert_not_called()
+        space.authorize_user.assert_not_called()
+        space.unauthorize_user.assert_called_once_with(username='test3')
 
-        account.reset_mock()
+        space.reset_mock()
         # change the account model to force a change
         # account model has a missmatching user, we expect a call to update_access
-        account.model = {
+        space.model = {
             'acl': [
                 {'userGroupId': 'test1', 'right': 'ACDRUX'},
                 {'userGroupId': 'test2', 'right': 'ACDRUX'},
@@ -228,21 +249,20 @@ class TestAccount(TestCase):
 
         with mock.patch.object(instance, 'api') as api:
             api.services.find.side_effect = find
-            instance._authorize_users(account)
+            instance._authorize_users(space)
 
-        account.update_access.assert_called_once_with(username='test2', right='R')
-        account.authorize_user.assert_not_called()
-        account.unauthorize_user.assert_not_called()
+        space.update_access.assert_called_once_with(username='test2', right='R')
+        space.authorize_user.assert_not_called()
+        space.unauthorize_user.assert_not_called()
 
-    @mock.patch.object(j.clients, '_openvcloud')
-    def test_user_add(self, openvcloud):
+    def test_user_add(self):
         data = {
             'users': [
                 {'name': 'test1', 'accesstype': 'R'},
             ]
         }
 
-        instance = self.type('test', None, data.copy())
+        instance = self.type('test', None, data)
 
         with self.assertRaises(StateCheckError):
             # fails if not installed
@@ -262,16 +282,15 @@ class TestAccount(TestCase):
                 ]
             )
 
-        cl = openvcloud.get.return_value
-        account = cl.account_get.return_value
-
         # Add a user that does not exist
         with mock.patch.object(instance, '_authorize_users') as authorize:
             with mock.patch.object(instance, 'api') as api:
                 api.services.find.return_value = [None]
-                instance.user_add({'name': 'test2'})
+                with mock.patch.object(instance, '_account') as account:
+                    space = account.space_get.return_value
+                    instance.user_add({'name': 'test2'})
+                    authorize.assert_called_once_with(space)
 
-            authorize.assert_called_once_with(account)
             self.assertEqual(
                 instance.data['users'], [
                     {'name': 'test1', 'accesstype': 'R'},
@@ -282,17 +301,18 @@ class TestAccount(TestCase):
         with mock.patch.object(instance, '_authorize_users') as authorize:
             with mock.patch.object(instance, 'api') as api:
                 api.services.find.return_value = [None]
-                instance.user_add({'name': 'test2', 'accesstype': 'R'})
+                with mock.patch.object(instance, '_account') as account:
+                    space = account.space_get.return_value
+                    instance.user_add({'name': 'test2', 'accesstype': 'R'})
 
-            authorize.assert_called_once_with(account)
+            authorize.assert_called_once_with(space)
             self.assertEqual(
                 instance.data['users'], [
                     {'name': 'test1', 'accesstype': 'R'},
                     {'name': 'test2', 'accesstype': 'R'},
                 ])
 
-    @mock.patch.object(j.clients, '_openvcloud')
-    def test_user_delete(self, openvcloud):
+    def test_user_delete(self):
         data = {
             'users': [
                 {'name': 'test1', 'accesstype': 'R'},
@@ -318,23 +338,17 @@ class TestAccount(TestCase):
                 ]
             )
 
-        cl = openvcloud.get.return_value
-        account = cl.account_get.return_value
-
         # delete a user that exists
         with mock.patch.object(instance, '_authorize_users') as authorize:
-            instance.user_delete('test1')
+            with mock.patch.object(instance, '_account') as account:
+                space = account.space_get.return_value
+                instance.user_delete('test1')
 
-            authorize.assert_called_once_with(account)
+                authorize.assert_called_once_with(space)
             self.assertEqual(
                 instance.data['users'], [])
 
-    @mock.patch.object(j.clients, '_openvcloud')
-    def test_update(self, openvcloud):
-        cl = openvcloud.get.return_value
-        account = cl.account_get.return_value
-        account.model = {}
-
+    def test_update(self):
         instance = self.type('test', None, {})
 
         with self.assertRaises(StateCheckError):
@@ -342,16 +356,21 @@ class TestAccount(TestCase):
 
         instance.state.set('actions', 'install', 'ok')
 
-        instance.update(
-            maxMemoryCapacity=1,
-            maxDiskCapacity=2,
-            maxNumPublicIP=3
-        )
+        with mock.patch.object(instance, '_account') as account:
+            space = account.space_get.return_value
+            space.model = {}
+            instance.update(
+                maxMemoryCapacity=1,
+                maxDiskCapacity=2,
+                maxNumPublicIP=3,
+                maxCPUCapacity=4
+            )
 
-        account.save.assert_called_once_with()
+            space.save.assert_called_once_with()
 
-        self.assertEqual(account.model, {
-            'maxMemoryCapacity': 1,
-            'maxDiskCapacity': 2,
-            'maxNumPublicIP': 3
-        })
+            self.assertEqual(space.model, {
+                'maxMemoryCapacity': 1,
+                'maxDiskCapacity': 2,
+                'maxNumPublicIP': 3,
+                'maxCPUCapacity': 4
+            })

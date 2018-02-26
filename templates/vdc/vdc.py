@@ -24,7 +24,7 @@ class Vdc(TemplateBase):
                 raise ValueError('%s is required' % key)
 
         # validate accounts
-        accounts = self.api.services.find(template_uid=self.ACCOUNT_TEMPLATE, name=self.data.get('account', None))
+        accounts = self.api.services.find(template_uid=self.ACCOUNT_TEMPLATE, name=self.data['account'] or None)
 
         if len(accounts) != 1:
             raise RuntimeError('found %s accounts, requires exactly one' % len(accounts))
@@ -62,6 +62,8 @@ class Vdc(TemplateBase):
         """
         An account getter
         """
+        if self._account is not None:
+            return self._account
         ovc = self.ovc
 
         self._account = ovc.account_get(self.data['account'])
@@ -267,7 +269,8 @@ class Vdc(TemplateBase):
 
         for key in ['maxMemoryCapacity', 'maxDiskCapacity', 'maxNumPublicIP',
                     'maxCPUCapacity', 'maxNetworkPeerTransfer']:
-            if key in kwargs:
+            value = kwargs[key]
+            if value is not None:
                 updated = True
                 space.model[key] = self.data[key]
 
