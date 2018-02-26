@@ -15,7 +15,7 @@ class Openvcloud(TemplateBase):
 
     def _validate_data(self):
         for key in ['address', 'login', 'token']:
-            if key not in self.data:
+            if key not in self.data or not self.data[key]:
                 raise ValueError('%s is required' % key)
 
     def _configure(self):
@@ -33,6 +33,12 @@ class Openvcloud(TemplateBase):
         # No, the create flag is not enough, we need to save
         ovc.config.save()
 
-    def update_data(self, data):
-        self.data.update(data)
+    def update(self, address=None, login=None, token=None, port=None):
+        kwargs = locals()
+
+        for key in ['address', 'login', 'token', 'port']:
+            value = kwargs[key]
+            if value is not None:
+                self.data[key] = value
+
         self._configure()
