@@ -108,7 +108,7 @@ class Account(TemplateBase):
     def uninstall(self):
         self.state.check('actions', 'install', 'ok')
         cl = self.ovc
-        acc = cl.account_get(self.name)
+        acc = cl.account_get(self.name, create=False)
         acc.delete()
 
     def user_add(self, user):
