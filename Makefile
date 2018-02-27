@@ -1,7 +1,7 @@
 all: test
 
 test:
-	pytest --cov=./ templates
+	pytest --cov=./ -v templates
 
 test-ui:
-	pytest --cov=./ --cov-report=html templates
+	pytest --cov=./ --cov-report=html -v templates
