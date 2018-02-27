@@ -137,7 +137,7 @@ class Disk(TemplateBase):
                             size=data['size'],
                             type=data['type'],
                         )
-        # TODO: self._limit_io()                        
+        self._limit_io()                        
         self.save()        
 
 
@@ -156,7 +156,6 @@ class Disk(TemplateBase):
     
     def _limit_io(self):
         data = self.data
-
         if data['diskId'] not in [disk['id'] for disk in self.account.disks]:
             raise RuntimeError('Data Disk with Id = "%s" was not found' % data['diskId'])
 
