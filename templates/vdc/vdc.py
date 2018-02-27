@@ -17,6 +17,7 @@ class Vdc(TemplateBase):
 
         self._ovc = None
         self._account = None
+        self._space = None
 
     def validate(self):
         for key in ['location']:
@@ -69,6 +70,13 @@ class Vdc(TemplateBase):
 
         self._account = ovc.account_get(self.data['account'], create=False)
         return self._account
+
+    @property
+    def space(self):
+        if self._space:
+            return self._space
+        acc = self.account
+        return acc.space_get(name=self.name, location=self.data['location'])
 
     def install(self):
         try:
@@ -180,6 +188,48 @@ class Vdc(TemplateBase):
 
         space.disable('The space should be disabled.')
         self.data['disabled'] = True
+
+    def portforward_create(self, machineId=None, port_forwards=[], protocol='tcp'):
+        """
+        Create port forwards
+        """
+        ovc = self.ovc
+        space = self.space  
+
+        # add portforwards
+        for port in port_forwards:
+            ovc.api.cloudapi.portforwarding.create(
+                cloudspaceId=space.id, 
+                protocol=protocol, 
+                localPort=port['destination'], 
+                publicPort=port['source'], 
+                publicIp=space.get_space_ip(),
+                machineId=machineId,
+                )
+
+    def portforward_delete(self, machineId=None, port_forwards=[], protocol='tcp'):
+        """
+        Delete port forwards
+        """
+        ovc = self.ovc
+        space = self.space     
+        existent_ports = [(port['publicPort'], port['localPort'], port['id']) 
+                            for port in ovc.api.cloudapi.portforwarding.list(
+                                            cloudspaceId=space.id, machineId=machineId,
+                                                )]
+        # remove portfrowards
+        for publicPort, localPort, id in existent_ports:
+            for port in port_forwards:                    
+                if str(port['source']) == publicPort and str(port['destination']) == localPort:
+                    ovc.api.cloudapi.portforwarding.delete(
+                        id=id,
+                        cloudspaceId=space.id, 
+                        protocol=protocol, 
+                        localPort=port['destination'], 
+                        publicPort=port['source'], 
+                        publicIp=space.get_space_ip(),
+                        machineId=machineId,
+                )
 
     def user_add(self, user):
         '''
