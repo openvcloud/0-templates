@@ -1,6 +1,7 @@
 import time
 from js9 import j
 from zerorobot.template.base import TemplateBase
+from zerorobot.template.state import StateCheckError
 
 
 class Vdc(TemplateBase):
@@ -22,13 +23,14 @@ class Vdc(TemplateBase):
             if not self.data.get('location'):
                 raise ValueError('%s is required' % key)
 
+        if not self.data['account']:
+            raise ValueError('account is required')
+
         # validate accounts
-        accounts = self.api.services.find(template_uid=self.ACCOUNT_TEMPLATE, name=self.data.get('account', None))
+        accounts = self.api.services.find(template_uid=self.ACCOUNT_TEMPLATE, name=self.data['account'])
 
         if len(accounts) != 1:
             raise RuntimeError('found %s accounts, requires exactly one' % len(accounts))
-
-        self.data['account'] = accounts[0].name
 
         # validate users
         for user in self.data['users']:
@@ -61,12 +63,19 @@ class Vdc(TemplateBase):
         """
         An account getter
         """
+        if self._account is not None:
+            return self._account
         ovc = self.ovc
 
         self._account = ovc.account_get(self.data['account'])
         return self._account
 
     def install(self):
+        try:
+            self.state.check('actions', 'install', 'ok')
+            return
+        except StateCheckError:
+            pass
         acc = self.account
 
         # Set limits
@@ -110,7 +119,7 @@ class Vdc(TemplateBase):
         else:
             raise j.exceptions.Timeout("VDC not yet deployed")
 
-        self.state.set('acitons', 'install', 'ok')
+        self.state.set('actions', 'install', 'ok')
 
     def _authorize_users(self, space):
         users = {}
@@ -124,7 +133,7 @@ class Vdc(TemplateBase):
             task = instance.schedule_action('get_fqid')
             task.wait()
 
-            users[task.result] = user['accesstype']
+            users[task.result] = user.get('accesstype', 'ACDRUX')
 
         authorized = {user['userGroupId']: user['right'] for user in space.model['acl']}
 
@@ -150,6 +159,7 @@ class Vdc(TemplateBase):
 
     def enable(self):
         # Get space, raise error if not found
+        self.state.check('actions', 'install', 'ok')
         space = self.account.space_get(
             name=self.name,
             location=self.data['location'],
@@ -161,6 +171,7 @@ class Vdc(TemplateBase):
 
     def disable(self):
         # Get space, raise error if not found
+        self.state.check('actions', 'install', 'ok')
         space = self.account.space_get(
             name=self.name,
             location=self.data['location'],
@@ -170,64 +181,108 @@ class Vdc(TemplateBase):
         space.disable('The space should be disabled.')
         self.data['disabled'] = True
 
+    def user_add(self, user):
+        '''
+        Add/Update user access to an space
+        '''
+        self.state.check('actions', 'install', 'ok')
+
+        name = user['name']
+
+        found = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=name)
+        if len(found) != 1:
+            raise ValueError('no vdcuser found with name "%s"', name)
+
+        accesstype = user.get('accesstype', 'ACDRUX')
+        users = self.data['users']
+
+        for user in users:
+            if user['name'] != name:
+                continue
+
+            if user['accesstype'] == accesstype:
+                # nothing to do here
+                return
+
+            user['accesstype'] = accesstype
+            break
+        else:
+            # user not found (looped over all users)
+            users.append({'name': name, 'accesstype': accesstype})
+
+        self.data['users'] = users
+        space = self.account.space_get(
+            name=self.name,
+            location=self.data['location'],
+            create=False
+        )
+
+        self._authorize_users(space)
+
+    def user_delete(self, username):
+        '''
+        Delete user access
+
+        :param username: user instance name
+        '''
+        self.state.check('actions', 'install', 'ok')
+        users = self.data['users']
+
+        for user in users[:]:
+            if user['name'] == username:
+                users.remove(user)
+                break
+        else:
+            # user not found (looped over all users)
+            return
+
+        self.data['users'] = users
+        space = self.account.space_get(
+            name=self.name,
+            location=self.data['location'],
+            create=False
+        )
+        self._authorize_users(space)
+
+    def update(self, maxMemoryCapacity=None, maxDiskCapacity=None, maxNumPublicIP=None,
+               maxCPUCapacity=None, maxNetworkPeerTransfer=None):
+        '''
+        Update account flags
+
+        :param maxMemoryCapacity: The limit on the memory capacity that can be used by the account
+        :param maxCPUCapacity: The limit on the CPUs that can be used by the account.
+        :param maxNumPublicIP: The limit on the number of public IPs that can be used by the account.
+        :param maxDiskCapacity: The limit on the disk capacity that can be used by the account.
+        :param maxNetworkPeerTransfer: Cloudspace limits, max sent/received network transfer peering(GB).
+        '''
+        # work around not supporting the **kwargs in actions call
+        kwargs = locals()
+        kwargs.pop('self')
+
+        self.state.check('actions', 'install', 'ok')
+        space = self.account.space_get(
+            name=self.name,
+            location=self.data['location'],
+            create=False
+        )
+
+        self.data.update(kwargs)
+
+        for key in ['maxMemoryCapacity', 'maxDiskCapacity', 'maxNumPublicIP',
+                    'maxCPUCapacity', 'maxNetworkPeerTransfer']:
+            value = kwargs[key]
+            if value is not None:
+                updated = True
+                space.model[key] = self.data[key]
+
+        if updated:
+            space.save()
+
 
 def get_user_accessright(username, service):
     for u in service.model.data.uservdc:
         if u.name == username:
             return u.accesstype
-
-
-def processChange(job):
-    service = job.service
-
-    args = job.model.args
-    category = args.pop('changeCategory')
-
-    if 'g8client' not in service.producers:
-        raise j.exceptions.AYSNotFound("No producer g8client found. Cannot continue processChange of %s" % service)
-    g8client = service.producers["g8client"][0]
-
-    config_instance = "{}_{}".format(g8client.aysrepo.name, g8client.model.data.instance)
-    cl = j.clients.openvcloud.get(instance=config_instance, create=False, die=True, sshkey_path="/root/.ssh/ays_repos_key")
-    acc = cl.account_get(service.model.data.account)
-
-    # Get given space, raise error if not found
-    space = acc.space_get(name=service.model.dbobj.name,
-                          location=service.model.data.location,
-                          create=False)
-    if category == "dataschema" and service.model.actionsState['install'] == 'ok':
-        for key, value in args.items():
-            if key == 'uservdc':
-                # value is a list of (uservdc)
-                if not isinstance(value, list):
-                    raise j.exceptions.Input(message="%s should be a list" % key)
-                if 'uservdc' in service.producers:
-                    for s in service.producers['uservdc']:
-                        if not any(v['name'] == s.name for v in value):
-                            service.model.producerRemove(s)
-                        for v in value:
-                            accessRight = v.get('accesstype', '')
-                            if v['name'] == s.name and accessRight != get_user_accessright(s.name, service):
-                                name = s.name + '@' + s.model.data.provider if s.model.data.provider else s.name
-                                space.update_access(name, accessRight)
-                for v in value:
-                    userservice = service.aysrepo.serviceGet('uservdc', v['name'])
-                    if userservice not in service.producers.get('uservdc', []):
-                        service.consume(userservice)
-            elif key == 'location' and service.model.data.location != value:
-                raise RuntimeError("Cannot change attribute location")
-            setattr(service.model.data, key, value)
-
-        authorization_user(space, service)
-
-        # update capacity incase cloudspace already existed update it
-        space.model['maxMemoryCapacity'] = service.model.data.maxMemoryCapacity
-        space.model['maxVDiskCapacity'] = service.model.data.maxDiskCapacity
-        space.model['maxNumPublicIP'] = service.model.data.maxNumPublicIP
-        space.model['maxCPUCapacity'] = service.model.data.maxCPUCapacity
-        space.save()
-
-        service.save()
 
 
 def execute_routeros_script(job):
