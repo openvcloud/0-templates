@@ -105,7 +105,6 @@ class Node(TemplateBase):
         self.portforward_create(self.data.get('ports', None))
         self._configure_disks()
         self.save()
-
         self.state.set('actions', 'install', 'ok')
 
     def _machine_create(self):
@@ -132,7 +131,7 @@ class Node(TemplateBase):
         if machine:
             machine.start()
         else:
-            raise RuntimeError('machine %s in not found' % self.name)        
+            raise RuntimeError('machine %s is not found' % self.name)        
 
         for disk in machine.disks:
             # create a disk service
@@ -165,13 +164,16 @@ class Node(TemplateBase):
     def uninstall(self):
         """ Uninstall machine """
         if not self.machine:
-            raise RuntimeError('machine %s in not found' % self.name)
+            raise RuntimeError('machine %s is not found' % self.name)
         self.machine.delete()
+        self._machine = None
+
+        self.state.delete('actions','install')
 
     def portforward_create(self, ports):
         """ Add portforwards """
         if not self.machine:
-            raise RuntimeError('machine %s in not found' % self.name)
+            raise RuntimeError('machine %s is not found' % self.name)
 
         # get vdc service
         self.vdc.schedule_action('portforward_create', 
@@ -180,7 +182,7 @@ class Node(TemplateBase):
     def portforward_delete(self, ports):
         """ Delete portforwards """
         if not self.machine:
-            raise RuntimeError('machine %s in not found' % self.name)
+            raise RuntimeError('machine %s is not found' % self.name)
 
         self.vdc.schedule_action('portforward_delete', 
                                 {'machineId':self.machine.id, 'port_forwards':ports, 'protocol':'tcp'})
@@ -188,21 +190,21 @@ class Node(TemplateBase):
     def start(self):
         """ Start the VM """
         if not self.machine:
-            raise RuntimeError('machine %s in not found' % self.name)
+            raise RuntimeError('machine %s is not found' % self.name)
             
         self.machine.start()
     
     def stop(self):
         """ Stop the VM """
         if not self.machine:
-            raise RuntimeError('machine %s in not found' % self.name)
+            raise RuntimeError('machine %s is not found' % self.name)
 
         self.machine.stop()
 
     def restart(self):
         """ Restart the VM """
         if not self.machine:
-            raise RuntimeError('machine %s in not found' % self.name)
+            raise RuntimeError('machine %s is not found' % self.name)
 
         self.machine.restart()
 
@@ -210,7 +212,7 @@ class Node(TemplateBase):
         """ Pause the VM """
 
         if not self.machine:
-            raise RuntimeError('machine %s in not found' % self.name)
+            raise RuntimeError('machine %s is not found' % self.name)
 
         self.machine.pause()
 
@@ -218,7 +220,7 @@ class Node(TemplateBase):
         """ Resume the VM """
 
         if not self.machine:
-            raise RuntimeError('machine %s in not found' % self.name)
+            raise RuntimeError('machine %s is not found' % self.name)
 
         self.machine.resume()
 
@@ -226,7 +228,7 @@ class Node(TemplateBase):
         """ Reset the VM """
 
         if not self.machine:
-            raise RuntimeError('machine %s in not found' % self.name)
+            raise RuntimeError('machine %s is not found' % self.name)
 
         self.machine.reset()    
 
@@ -235,7 +237,7 @@ class Node(TemplateBase):
         Action that creates a snapshot of the machine
         """
         if not self.machine:
-            raise RuntimeError('machine %s in not found' % self.name)
+            raise RuntimeError('machine %s is not found' % self.name)
 
         self.machine.snapshot_create()
 
@@ -247,7 +249,7 @@ class Node(TemplateBase):
             raise RuntimeError('"snapshot_epoch" should be given')
 
         if not self.machine:
-            raise RuntimeError('machine %s in not found' % self.name)
+            raise RuntimeError('machine %s is not found' % self.name)
 
         self.machine.snapshot_rollback(snapshot_epoch)
         self.machine.start()
@@ -260,7 +262,7 @@ class Node(TemplateBase):
             raise RuntimeError('"snapshot_epoch" should be given')
 
         if not self.machine:
-            raise RuntimeError('machine %s in not found' % self.name)       
+            raise RuntimeError('machine %s is not found' % self.name)       
 
         self.machine.snapshot_delete(snapshot_epoch)
 
@@ -269,7 +271,7 @@ class Node(TemplateBase):
         Action that lists snapshots of the machine
         """
         if not self.machine:
-            raise RuntimeError('machine %s in not found' % self.name)
+            raise RuntimeError('machine %s is not found' % self.name)
 
         return self.machine.snapshots
     
@@ -281,7 +283,7 @@ class Node(TemplateBase):
             raise RuntimeError('"clone_name" should be given')
 
         if not self.machine:
-            raise RuntimeError('machine %s in not found' % self.name)     
+            raise RuntimeError('machine %s is not found' % self.name)     
 
         self.machine.clone(clone_name)
         self.machine.start()
