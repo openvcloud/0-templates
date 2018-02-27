@@ -6,7 +6,7 @@ This template represents a user on an environment. If the user doesn't exist it 
 
 ## Schema
 
-- openvcloud: Name of the [openvcloud](../openvcloud) instance used to connect to the environment. If not provided and there is exactly one openvcloud instance configured, this instance will be used (and remembered), otherwise it's an error.
+- openvcloud (required): Name of the [openvcloud](../openvcloud) instance used to connect to the environment.
 - password: Password of the user. (optional) is an Oauth provider is set
 - email: Email of the user.
 - provider: Oauth provider. Currently: itsyou.online

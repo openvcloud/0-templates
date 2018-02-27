@@ -6,7 +6,7 @@ This template is responsible for creating an account on any openVCloud environme
 ## Schema:
 
 - description: (optional) Arbitrary description of the account.
-- openvcloud: Name of the [openvcloud](../openvcloud) instance used to connect to the environment. If not provided and there is exactly one openvcloud instance configured, this instance will be used (and remembered), otherwise it's an error.
+- openvcloud (required): Name of the [openvcloud](../openvcloud) instance used to connect to the environment.
 - users: List of [vcd users](#vdc-user) that will be authorized on the account.
 - accountID: The ID of the account. **Filled in automatically, don't specify it in the blueprint**
 - maxMemoryCapacity: The limit on the memory capacity that can be used by the account. Default: -1 (unlimited)

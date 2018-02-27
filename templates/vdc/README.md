@@ -7,7 +7,7 @@ This actor template creates a cloudspace (Virtual Data Center) on the specified 
 ## Schema
 
 - description: Description of the cloudspace.
-- account: an [account](../account) used for this space, if not specified and there is exactly one account instance configured, this instance will be used (and remembered), otherwise it's an error.
+- account (required): an [account](../account) used for this space.
 - location: Environment to deploy this cloudspace.
 - users: List of [vcd users](#vdc-user) that will be authorized on the space.
 - cloudspaceID: id of the cloudspace. **Filled in automatically, don't specify it in the blueprint**
