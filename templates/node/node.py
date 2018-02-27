@@ -139,7 +139,7 @@ class Node(TemplateBase):
             service = self.api.services.create(
                 template_uid=self.DISK_TEMPLATE, 
                 service_name= 'Disk%s' % str(disk['id']),
-                data={'vdc' : space_name},
+                data={'vdc' : space_name, 'diskId': disk['id']},
             )
             # update data in the disk service
             task = service.schedule_action('update_data', {'data':disk})
@@ -155,7 +155,7 @@ class Node(TemplateBase):
         prefab.system.filesystem.create(fs_type=fs_type, device=device)
         prefab.system.filesystem.mount(mount_point=mount_point, device=device, 
                                        reboot=True, copy=True, 
-                                       fs_type=fs_type)
+                                       append_fstab=True, fs_type=fs_type)
 
         # update data
         self.data['dataDiskFilesystem'] = fs_type
