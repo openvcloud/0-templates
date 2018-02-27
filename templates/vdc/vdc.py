@@ -67,7 +67,7 @@ class Vdc(TemplateBase):
             return self._account
         ovc = self.ovc
 
-        self._account = ovc.account_get(self.data['account'])
+        self._account = ovc.account_get(self.data['account'], create=False)
         return self._account
 
     def install(self):
