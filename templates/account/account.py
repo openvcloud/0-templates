@@ -1,5 +1,6 @@
 from js9 import j
 from zerorobot.template.base import TemplateBase
+from zerorobot.template.state import StateCheckError
 
 
 class Account(TemplateBase):
@@ -7,22 +8,24 @@ class Account(TemplateBase):
     version = '0.0.1'
     template_name = "account"
 
+    OVC_TEMPLATE = 'github.com/openvcloud/0-templates/openvcloud/0.0.1'
+    VDCUSER_TEMPLATE = 'github.com/openvcloud/0-templates/vdcuser/0.0.1'
+
     def __init__(self, name, guid=None, data=None):
         super().__init__(name=name, guid=guid, data=data)
 
     def validate(self):
-        OVC_TEMPLATE = 'github.com/openvcloud/0-templates/openvcloud/0.0.1'
-        ovcs = self.api.services.find(template_uid=OVC_TEMPLATE, name=self.data.get('openvcloud', None))
+        if not self.data['openvcloud']:
+            raise ValueError('openvcloud is mandatory')
+
+        ovcs = self.api.services.find(template_uid=self.OVC_TEMPLATE, name=self.data['openvcloud'])
 
         if len(ovcs) != 1:
             raise RuntimeError('found %s openvcloud connections, requires exactly 1' % len(ovcs))
 
-        self.data['openvcloud'] = ovcs[0].name
-
         # validate users
-        VDCUSER_TEMPLATE = 'github.com/openvcloud/0-templates/vdcuser/0.0.1'
         for user in self.data['users']:
-            users = self.api.services.find(template_uid=VDCUSER_TEMPLATE, name=user['name'])
+            users = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=user['name'])
             if len(users) != 1:
                 raise ValueError('no vdcuser found with name "%s"', user['name'])
 
@@ -34,6 +37,12 @@ class Account(TemplateBase):
         return self.data['openvcloud']
 
     def install(self):
+        try:
+            self.state.check('actions', 'install', 'ok')
+            return
+        except StateCheckError:
+            pass
+
         cl = self.ovc
         # Set limits
         # if account does not exist, it will create it
@@ -60,10 +69,15 @@ class Account(TemplateBase):
         self.state.set('actions', 'install', 'ok')
 
     def _authorize_users(self, account):
+        '''
+        Authorize users will make sure the account users are synced to the userd configured
+        on the account. Hence, it's better for add_user and delete_user to update the data
+        of the instance, and then call this method
+        '''
         users = {}
-        VDCUSER_TEMPLATE = 'github.com/openvcloud/0-templates/vdcuser/0.0.1'
+
         for user in self.data['users']:
-            found = self.api.services.find(template_uid=VDCUSER_TEMPLATE, name=user['name'])
+            found = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=user['name'])
             if len(found) != 1:
                 raise ValueError('no vdcuser found with name "%s"', user['name'])
 
@@ -71,7 +85,7 @@ class Account(TemplateBase):
             task = instance.schedule_action('get_fqid')
             task.wait()
 
-            users[task.result] = user['accesstype']
+            users[task.result] = user.get('accesstype', 'ACDRUX')
 
         authorized = {user['userGroupId']: user['right'] for user in account.model['acl']}
 
@@ -92,60 +106,92 @@ class Account(TemplateBase):
             account.unauthorize_user(username=user)
 
     def uninstall(self):
+        self.state.check('actions', 'install', 'ok')
         cl = self.ovc
-        acc = cl.account_get(self.name)
+        acc = cl.account_get(self.name, create=False)
         acc.delete()
 
+    def user_add(self, user):
+        '''
+        Add/Update user access to an account
+        '''
+        self.state.check('actions', 'install', 'ok')
+        name = user['name']
 
-def get_user_accessright(username, service):
-    for u in service.model.data.accountusers:
-        if u.name == username:
-            return u.accesstype
+        found = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=name)
+        if len(found) != 1:
+            raise ValueError('no vdcuser found with name "%s"', name)
 
+        accesstype = user.get('accesstype', 'ACDRUX')
+        users = self.data['users']
 
-def processChange(job):
-    service = job.service
+        for user in users:
+            if user['name'] != name:
+                continue
 
-    if 'g8client' not in service.producers:
-        raise j.exceptions.AYSNotFound("No producer g8client found. Cannot continue processChange of %s" % service)
+            if user['accesstype'] == accesstype:
+                # nothing to do here
+                return
 
-    g8client = service.producers["g8client"][0]
-    config_instance = "{}_{}".format(g8client.aysrepo.name, g8client.model.data.instance)
-    cl = j.clients.openvcloud.get(instance=config_instance, create=False, die=True, sshkey_path="/root/.ssh/ays_repos_key")
-    account = cl.account_get(name=service.model.dbobj.name, create=False)
+            user['accesstype'] = accesstype
+            break
+        else:
+            # user not found (looped over all users)
+            users.append({'name': name, 'accesstype': accesstype})
 
-    args = job.model.args
-    category = args.pop('changeCategory')
-    if category == "dataschema" and service.model.actionsState['install'] == 'ok':
-        for key, value in args.items():
-            if key == 'accountusers':
-                # value is a list of (uservdc)
-                if not isinstance(value, list):
-                    raise j.exceptions.Input(message="%s should be a list" % key)
+        self.data['users'] = users
+        cl = self.ovc
+        account = cl.account_get(name=self.name, create=False)
+        self._authorize_users(account)
 
-                if 'uservdc' in service.producers:
-                    for s in service.producers['uservdc']:
-                        if not any(v['name'] == s.name for v in value):
-                            service.model.producerRemove(s)
-                        for v in value:
-                            accessRight = v.get('accesstype', '')
-                            if v['name'] == s.name and accessRight != get_user_accessright(s.name, service) and accessRight:
-                                name = s.name + '@' + s.model.data.provider if s.model.data.provider else s.name
-                                account.update_access(name, v['accesstype'])
+    def user_delete(self, username):
+        '''
+        Delete user access
 
-                for v in value:
-                    userservice = service.aysrepo.serviceGet('uservdc', v['name'])
-                    if userservice not in service.producers.get('uservdc', []):
-                        service.consume(userservice)
-            setattr(service.model.data, key, value)
+        :param username: user instance name
+        '''
+        self.state.check('actions', 'install', 'ok')
+        users = self.data['users']
 
-        authorization_user(account, service, g8client)
+        for user in users[:]:
+            if user['name'] == username:
+                users.remove(user)
+                break
+        else:
+            # user not found (looped over all users)
+            return
 
-        # update capacity
-        account.model['maxMemoryCapacity'] = service.model.data.maxMemoryCapacity
-        account.model['maxVDiskCapacity'] = service.model.data.maxDiskCapacity
-        account.model['maxNumPublicIP'] = service.model.data.maxNumPublicIP
-        account.model['maxCPUCapacity'] = service.model.data.maxCPUCapacity
-        account.save()
+        self.data['users'] = users
+        cl = self.ovc
+        account = cl.account_get(name=self.name, create=False)
+        self._authorize_users(account)
 
-        service.save()
+    def update(self, maxMemoryCapacity=None, maxDiskCapacity=None,
+               maxNumPublicIP=None, maxCPUCapacity=None):
+        '''
+        Update account flags
+
+        :param maxMemoryCapacity: The limit on the memory capacity that can be used by the account
+        :param maxCPUCapacity: The limit on the CPUs that can be used by the account.
+        :param maxNumPublicIP: The limit on the number of public IPs that can be used by the account.
+        :param maxDiskCapacity: The limit on the disk capacity that can be used by the account.
+        '''
+        # work around not supporting the **kwargs in actions call
+        kwargs = locals()
+
+        self.state.check('actions', 'install', 'ok')
+        cl = self.ovc
+        account = cl.account_get(name=self.name, create=False)
+
+        for key in ['maxMemoryCapacity', 'maxDiskCapacity',
+                    'maxNumPublicIP', 'maxCPUCapacity']:
+            value = kwargs[key]
+            if value is None:
+                continue
+
+            updated = True
+            self.data[key] = value
+            account.model[key] = value
+
+        if updated:
+            account.save()
