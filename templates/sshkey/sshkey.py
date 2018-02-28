@@ -11,17 +11,18 @@ class Sshkey(TemplateBase):
         super().__init__(name=name, guid=guid, data=data)
 
 
-        path = self.data['path']
+        dir = self.data['dir']
         passphrase = self.data['passphrase']
 
-        if path == '':
+        if dir == '':
             raise ValueError('path is required')
 
         if len(passphrase) < 5:
             raise ValueError('passphrase must be min of 5 characters')
 
+        path = j.sal.fs.joinPaths(dir, name)
         if not j.sal.fs.exists(path):
-            j.clients.sshkey.key_generate(path, passphrase=passphrase, overwrite=True)
+            j.clients.sshkey.key_generate(path, passphrase=passphrase, overwrite=True, returnObj=False)
 
         j.clients.sshkey.get(
             name,
