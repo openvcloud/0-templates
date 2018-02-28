@@ -14,7 +14,7 @@ class Openvcloud(TemplateBase):
         self._configure()
 
     def _validate_data(self):
-        for key in ['address', 'login', 'token']:
+        for key in ['address', 'token']:
             if key not in self.data or not self.data[key]:
                 raise ValueError('%s is required' % key)
 
@@ -23,8 +23,7 @@ class Openvcloud(TemplateBase):
             self.name,
             {
                 'address': self.data['address'],
-                'login': self.data['login'],
-                'appkey_': self.data['token'],
+                'jwt_': self.data['token'],
                 'port': self.data.get('port', 443)
             },
             create=True
@@ -36,7 +35,7 @@ class Openvcloud(TemplateBase):
     def update(self, address=None, login=None, token=None, port=None):
         kwargs = locals()
 
-        for key in ['address', 'login', 'token', 'port']:
+        for key in ['address', 'token', 'port']:
             value = kwargs[key]
             if value is not None:
                 self.data[key] = value

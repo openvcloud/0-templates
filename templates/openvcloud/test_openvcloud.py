@@ -19,7 +19,6 @@ class TestOpenvcloud(TestCase):
     def test_create_success(self, client):
         data = {
             'address': 'some.address.com',
-            'login': 'some-login',
             'token': 'some-token'
         }
         name = 'test'
@@ -27,8 +26,7 @@ class TestOpenvcloud(TestCase):
 
         client.get.assert_called_once_with(name, {
             'address': data['address'],
-            'login': data['login'],
-            'appkey_': data['token'],
+            'jwt_': data['token'],
             'port': data.get('port', 443)
         }, create=True)
 
@@ -38,7 +36,6 @@ class TestOpenvcloud(TestCase):
     def test_create_missing_data(self, client):
         data = {
             'address': 'some.address.com',
-            'login': 'some-login',
             # missing token
         }
         name = 'test'
@@ -49,7 +46,6 @@ class TestOpenvcloud(TestCase):
     def test_update(self, client):
         data = {
             'address': 'some.address.com',
-            'login': 'some-login',
             'token': 'some-token'
         }
         name = 'test'
@@ -59,8 +55,7 @@ class TestOpenvcloud(TestCase):
         instance.update(address='new.address.com')
         client.get.assert_called_once_with(name, {
             'address': 'new.address.com',
-            'login': data['login'],
-            'appkey_': data['token'],
+            'jwt_': data['token'],
             'port': data.get('port', 443)
         }, create=True)
 

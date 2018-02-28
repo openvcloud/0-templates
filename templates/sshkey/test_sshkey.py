@@ -15,35 +15,65 @@ class TestSshKey(TestCase):
             os.path.dirname(__file__)
         )
 
-    @mock.patch.object(j.clients, '_ssh')
+    @mock.patch.object(j.clients, '_sshkey')
     def test_create(self, ssh):
-        path = '/path/to/key/file'
-        self.type("test", None, {'path': path})
-        ssh.load_ssh_key.assert_called_with(path)
+        dir = '/tmp'
+        passphrase = '123456'
 
-    @mock.patch.object(j.clients, '_ssh')
-    def test_update_data_no_change(self, ssh):
-        path = '/path/to/key/file'
-        instance = self.type("test", None, {'path': path})
+        name = 'test'
+        self.type(name, None, {'dir': dir, 'passphrase': passphrase})
 
-        ssh.load_ssh_key.assert_called_once_with(path)
+        dir = '%s/%s' % (dir, name)
+        ssh.key_generate.assert_called_once_with(
+            dir,
+            passphrase=passphrase,
+            overwrite=True,
+            returnObj=False
+        )
 
-        ssh.reset_mock()
-        instance.update_data({'path': path})
+        ssh.get.assert_called_once_with(
+            name,
+            create=True,
+            data={
+                'path': dir,
+                'passphrase_': passphrase,
+            }
+        )
 
-        ssh.ssh_key_unload.assert_not_called()
-        ssh.load_ssh_key.assert_not_called()
+    @mock.patch.object(j.clients, '_sshkey')
+    def test_create_default_dir(self, ssh):
+        dir = '/root/.ssh'
+        passphrase = '123456'
 
-    @mock.patch.object(j.clients, '_ssh')
-    def test_update_data_change(self, ssh):
-        path1 = '/path/to/key/file'
-        instance = self.type("test", None, {'path': path1})
+        name = 'test'
+        self.type(name, None, {'passphrase': passphrase})
 
-        ssh.load_ssh_key.assert_called_once_with(path1)
+        dir = '%s/%s' % (dir, name)
+        ssh.key_generate.assert_called_once_with(
+            dir,
+            passphrase=passphrase,
+            overwrite=True,
+            returnObj=False
+        )
 
-        ssh.reset_mock()
-        path2 = '/path/to/new/key/file'
-        instance.update_data({'path': path2})
+        ssh.get.assert_called_once_with(
+            name,
+            create=True,
+            data={
+                'path': dir,
+                'passphrase_': passphrase,
+            }
+        )
 
-        ssh.ssh_key_unload.assert_called_once_with(path1)
-        ssh.load_ssh_key.assert_called_once_with(path2)
+    @mock.patch.object(j.clients, '_sshkey')
+    def test_create_bad_pass(self, ssh):
+        dir = '/root/.ssh'
+        passphrase = '123'
+
+        name = 'test'
+        with self.assertRaises(ValueError):
+            self.type(name, None, {'passphrase': passphrase})
+
+        ssh.key_generate.assert_not_called()
+
+        ssh.get.assert_not_called()

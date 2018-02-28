@@ -10,9 +10,6 @@ struct Schema {
     # Port
     port @2 :UInt16 = 443;
 
-    # OVC Login
-    login @3 :Text;
-
     # IYO Token
-    token @4 :Text;
+    token @3 :Text;
 }
