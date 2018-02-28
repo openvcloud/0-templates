@@ -2,4 +2,6 @@
 
 struct Schema {
     path @0 :Text;
+
+    passphrase @1 :Text;
 }
