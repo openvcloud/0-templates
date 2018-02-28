@@ -24,7 +24,7 @@ class Openvcloud(TemplateBase):
             {
                 'address': self.data['address'],
                 'login': self.data['login'],
-                'appkey_': self.data['token'],
+                'jwt_': self.data['token'],
                 'port': self.data.get('port', 443)
             },
             create=True
