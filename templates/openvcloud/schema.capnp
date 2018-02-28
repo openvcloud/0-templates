@@ -11,5 +11,5 @@ struct Schema {
     port @2 :UInt16 = 443;
 
     # IYO Token
-    token @4 :Text;
+    token @3 :Text;
 }
