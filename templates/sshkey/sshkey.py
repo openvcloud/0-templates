@@ -21,7 +21,7 @@ class Sshkey(TemplateBase):
             raise ValueError('passphrase must be min of 5 characters')
 
         if not j.sal.fs.exists(path):
-            j.clients.sshkey.key_generate(path, passphrase=passphrase, override=True)
+            j.clients.sshkey.key_generate(path, passphrase=passphrase, overwrite=True)
 
         j.clients.sshkey.get(
             name,
