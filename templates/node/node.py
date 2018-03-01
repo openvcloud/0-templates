@@ -123,9 +123,12 @@ class Node(TemplateBase):
         except StateCheckError:
             pass
 
-        machine = self.machine
-        if not machine:
-            machine = self._machine_create()
+        # check if machine already exists
+        if self.machine:
+            raise StateCheckError('machine "%s" already exists' % self.name)
+        
+        # get new machine
+        machine = self._machine_create()
 
         # Get data from the vm
         self.data['sshLogin'] = machine.model['accounts'][0]['login']
