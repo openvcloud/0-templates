@@ -2,6 +2,7 @@ from js9 import j
 from zerorobot.template.base import TemplateBase
 from zerorobot.template.state import StateCheckError
 
+
 class Node(TemplateBase):
 
     version = '0.0.1'
@@ -20,9 +21,14 @@ class Node(TemplateBase):
 
     def validate(self):
         if not self.data['vdc']:
-            raise RuntimeError('vdc name should be given')
-        # ensure uploaded key
-        self.sshkey
+            raise ValueError('vdc name should be given')
+
+        if not self.data['sshKey']:
+            raise ValueError('sshKey is required')
+
+        sshkeys = self.api.services.find(template_uid=self.SSH_TEMPLATE, name=self.data['sshKey'])
+        if len(sshkeys) == 0:
+            raise RuntimeError('found %s ssh keys with name "%s"' % (len(sshkeys), self.data['sshKey']))
 
     def update_data(self, data):
         # merge the new data
@@ -36,7 +42,7 @@ class Node(TemplateBase):
         """
         if self._ovc is not None:
             return self._ovc
-        
+
         instance = self.vdc.ovc.instance
         self._ovc = j.clients.openvcloud.get(instance=instance)
 
@@ -51,7 +57,7 @@ class Node(TemplateBase):
         vdc = self.api.services.find(template_uid=self.VDC_TEMPLATE, name=self.data['vdc'])
         if len(vdc) != 1:
             raise RuntimeError('found %s vdc, requires exactly 1' % len(vdc))
-        
+
         self._vdc = vdc[0]
 
         return self._vdc
@@ -64,20 +70,6 @@ class Node(TemplateBase):
             )
 
     @property
-    def sshkey(self):
-        """ Get a path and keyname of the sshkey service """
-
-        sshkeys = self.api.services.find(template_uid=self.SSH_TEMPLATE)
-        if len(sshkeys) == 0:
-            raise RuntimeError('no %s ssh services found' % len(sshkeys))
-
-        # Get key name and path
-        path = sshkeys[0].data['path']
-        key = path.split('/')[-1]
-
-        return key         
-
-    @property
     def machine(self):
         if self._machine:
             return self._machine
@@ -88,7 +80,7 @@ class Node(TemplateBase):
             self.state.check('actions', 'install', 'ok')
             return
         except StateCheckError:
-            pass        
+            pass
 
         machine = self.machine
         if not machine:
@@ -97,7 +89,7 @@ class Node(TemplateBase):
         # Get data from the vm
         ip_private, vm_info = machine.machineip_get()
         self.data['sshLogin'] = vm_info['accounts'][0]['login']
-        self.data['sshPassword']= vm_info['accounts'][0]['password']
+        self.data['sshPassword'] = vm_info['accounts'][0]['password']
         self.data['ipPrivate'] = ip_private
         self.data['ipPublic'] = machine.space.model['publicipaddress']
         self.data['machineId'] = machine.id
@@ -113,7 +105,7 @@ class Node(TemplateBase):
         space = self.space
         self._machine = space.machine_create(
             name=self.name,
-            sshkeyname= self.sshkey,
+            sshkeyname=data['sshKey'],
             image=data['osImage'],
             disksize=data['bootDiskSize'],
             datadisks=[data['dataDiskSize']],
@@ -131,29 +123,29 @@ class Node(TemplateBase):
         if machine:
             machine.start()
         else:
-            raise RuntimeError('machine %s is not found' % self.name)        
+            raise RuntimeError('machine %s is not found' % self.name)
 
         for disk in machine.disks:
             # create a disk service
             service = self.api.services.create(
-                template_uid=self.DISK_TEMPLATE, 
-                service_name= 'Disk%s' % str(disk['id']),
-                data={'vdc' : space_name, 'diskId': disk['id']},
+                template_uid=self.DISK_TEMPLATE,
+                service_name='Disk%s' % str(disk['id']),
+                data={'vdc': space_name, 'diskId': disk['id']},
             )
             # update data in the disk service
-            task = service.schedule_action('update_data', {'data':disk})
+            task = service.schedule_action('update_data', {'data': disk})
             task.wait()
 
         # set default values
         fs_type = 'ext4'
         mount_point = '/var'
         device = '/dev/vdb'
-        
+
         # create file system and mount data disk
         prefab = machine.prefab
         prefab.system.filesystem.create(fs_type=fs_type, device=device)
-        prefab.system.filesystem.mount(mount_point=mount_point, device=device, 
-                                       reboot=True, copy=True, 
+        prefab.system.filesystem.mount(mount_point=mount_point, device=device,
+                                       reboot=True, copy=True,
                                        append_fstab=True, fs_type=fs_type)
 
         # update data
@@ -168,7 +160,7 @@ class Node(TemplateBase):
         self.machine.delete()
         self._machine = None
 
-        self.state.delete('actions','install')
+        self.state.delete('actions', 'install')
 
     def portforward_create(self, ports):
         """ Add portforwards """
@@ -176,24 +168,36 @@ class Node(TemplateBase):
             raise RuntimeError('machine %s is not found' % self.name)
 
         # get vdc service
-        self.vdc.schedule_action('portforward_create', 
-                                {'machineId':self.machine.id, 'port_forwards':ports, 'protocol':'tcp'})
+        self.vdc.schedule_action(
+            'portforward_create',
+            {
+                'machineId': self.machine.id,
+                'port_forwards': ports,
+                'protocol': 'tcp'
+            }
+        )
 
     def portforward_delete(self, ports):
         """ Delete portforwards """
         if not self.machine:
             raise RuntimeError('machine %s is not found' % self.name)
 
-        self.vdc.schedule_action('portforward_delete', 
-                                {'machineId':self.machine.id, 'port_forwards':ports, 'protocol':'tcp'})
+        self.vdc.schedule_action(
+            'portforward_delete',
+            {
+                'machineId': self.machine.id,
+                'port_forwards': ports,
+                'protocol': 'tcp'
+            }
+        )
 
     def start(self):
         """ Start the VM """
         if not self.machine:
             raise RuntimeError('machine %s is not found' % self.name)
-            
+
         self.machine.start()
-    
+
     def stop(self):
         """ Stop the VM """
         if not self.machine:
@@ -230,7 +234,7 @@ class Node(TemplateBase):
         if not self.machine:
             raise RuntimeError('machine %s is not found' % self.name)
 
-        self.machine.reset()    
+        self.machine.reset()
 
     def snapshot(self):
         """
@@ -244,7 +248,7 @@ class Node(TemplateBase):
     def snapshot_rollback(self, snapshot_epoch):
         """
         Action that rolls back the machine to a snapshot
-        """    
+        """
         if not snapshot_epoch:
             raise RuntimeError('"snapshot_epoch" should be given')
 
@@ -262,7 +266,7 @@ class Node(TemplateBase):
             raise RuntimeError('"snapshot_epoch" should be given')
 
         if not self.machine:
-            raise RuntimeError('machine %s is not found' % self.name)       
+            raise RuntimeError('machine %s is not found' % self.name)
 
         self.machine.snapshot_delete(snapshot_epoch)
 
@@ -274,7 +278,7 @@ class Node(TemplateBase):
             raise RuntimeError('machine %s is not found' % self.name)
 
         return self.machine.snapshots
-    
+
     def clone(self, clone_name):
         """
         Action that creates a clone of a machine.
@@ -283,7 +287,7 @@ class Node(TemplateBase):
             raise RuntimeError('"clone_name" should be given')
 
         if not self.machine:
-            raise RuntimeError('machine %s is not found' % self.name)     
+            raise RuntimeError('machine %s is not found' % self.name)
 
         self.machine.clone(clone_name)
         self.machine.start()
