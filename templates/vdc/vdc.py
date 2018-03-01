@@ -67,6 +67,9 @@ class Vdc(TemplateBase):
         self._account = ovc.account_get(self.data['account'], create=False)
         return self._account
 
+    def get_account(self):
+        return self.data['account']
+
     @property
     def space(self):
         if self._space:

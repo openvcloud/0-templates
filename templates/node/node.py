@@ -9,12 +9,15 @@ class Node(TemplateBase):
     template_name = "node"
 
     VDC_TEMPLATE = 'github.com/openvcloud/0-templates/vdc/0.0.1'
+    ACCOUNT_TEMPLATE = 'github.com/openvcloud/0-templates/account/0.0.1'
+
     SSH_TEMPLATE = 'github.com/openvcloud/0-templates/sshkey/0.0.1'
     DISK_TEMPLATE = 'github.com/openvcloud/0-templates/disk/0.0.1'
 
     def __init__(self, name, guid=None, data=None):
         super().__init__(name=name, guid=guid, data=data)
 
+        self._config = None
         self._ovc = None
         self._vdc = None
         self._machine = None
@@ -26,9 +29,51 @@ class Node(TemplateBase):
         if not self.data['sshKey']:
             raise ValueError('sshKey is required')
 
-        sshkeys = self.api.services.find(template_uid=self.SSH_TEMPLATE, name=self.data['sshKey'])
-        if len(sshkeys) == 0:
-            raise RuntimeError('found %s ssh keys with name "%s"' % (len(sshkeys), self.data['sshKey']))
+        matches = self.api.services.find(template_uid=self.VDC_TEMPLATE, name=self.data['vdc'])
+        if len(matches) != 1:
+            raise RuntimeError('found %d vdcs with name "%s"' % (len(matches), self.data['vdc']))
+
+        matches = self.api.services.find(template_uid=self.SSH_TEMPLATE, name=self.data['sshKey'])
+        if len(matches) != 1:
+            raise RuntimeError('found %s ssh keys with name "%s"' % (len(matches), self.data['sshKey']))
+
+    @property
+    def config(self):
+        '''
+        returns an object with names of vdc, account, and ovc
+        '''
+        if self._config is not None:
+            return self._config
+
+        config = {
+            'vdc': self.data['vdc'],
+        }
+        # traverse the tree up words so we have all info we need to return, connection and
+        # account
+        matches = self.api.services.find(template_uid=self.VDC_TEMPLATE, name=config['vdc'])
+        if len(matches) != 1:
+            raise RuntimeError('found %d vdcs with name "%s"' % (len(matches), config['vdc']))
+
+        vdc = matches[0]
+        self._vdc = vdc
+        task = vdc.schedule_action('get_account')
+        task.wait()
+
+        config['account'] = task.result
+
+        matches = self.api.services.find(template_uid=self.ACCOUNT_TEMPLATE, name=config['account'])
+        if len(matches) != 1:
+            raise ValueError('found %s accounts with name "%s"' % (len(matches), config['account']))
+
+        account = matches[0]
+        # get connection
+        task = account.schedule_action('get_openvcloud')
+        task.wait()
+
+        config['ovc'] = task.result
+
+        self._config = config
+        return self._config
 
     def update_data(self, data):
         # merge the new data
@@ -43,31 +88,27 @@ class Node(TemplateBase):
         if self._ovc is not None:
             return self._ovc
 
-        instance = self.vdc.ovc.instance
-        self._ovc = j.clients.openvcloud.get(instance=instance)
+        self._ovc = j.clients.openvcloud.get(instance=self.config['ovc'])
 
         return self._ovc
 
     @property
     def vdc(self):
-        if self._vdc:
-            return self._vdc
-
-        # Get object for an VDC service, make sure exactly one is running
-        vdc = self.api.services.find(template_uid=self.VDC_TEMPLATE, name=self.data['vdc'])
-        if len(vdc) != 1:
-            raise RuntimeError('found %s vdc, requires exactly 1' % len(vdc))
-
-        self._vdc = vdc[0]
-
+        '''
+        vdc service instance
+        '''
+        self.config
         return self._vdc
 
     @property
     def space(self):
+        account = self.config['account']
+        vdc = self.config['vdc']
+
         return self.ovc.space_get(
-            accountName=None,
-            spaceName=self.data['vdc']
-            )
+            accountName=account,
+            spaceName=vdc
+        )
 
     @property
     def machine(self):
@@ -87,11 +128,10 @@ class Node(TemplateBase):
             machine = self._machine_create()
 
         # Get data from the vm
-        ip_private, vm_info = machine.machineip_get()
-        self.data['sshLogin'] = vm_info['accounts'][0]['login']
-        self.data['sshPassword'] = vm_info['accounts'][0]['password']
-        self.data['ipPrivate'] = ip_private
-        self.data['ipPublic'] = machine.space.model['publicipaddress']
+        self.data['sshLogin'] = machine.model['accounts'][0]['login']
+        self.data['sshPassword'] = machine.model['accounts'][0]['password']
+        self.data['ipPrivate'] = machine.ipaddr_priv
+        self.data['ipPublic'] = machine.ipaddr_public
         self.data['machineId'] = machine.id
 
         self.portforward_create(self.data.get('ports', None))
