@@ -20,10 +20,6 @@ class Vdc(TemplateBase):
         self._space = None
 
     def validate(self):
-        for key in ['location']:
-            if not self.data.get('location'):
-                raise ValueError('%s is required' % key)
-
         if not self.data['account']:
             raise ValueError('account is required')
 
@@ -76,7 +72,7 @@ class Vdc(TemplateBase):
         if self._space:
             return self._space
         acc = self.account
-        return acc.space_get(name=self.name, location=self.data['location'])
+        return acc.space_get(name=self.name)
 
     def install(self):
         try:
@@ -94,7 +90,6 @@ class Vdc(TemplateBase):
 
         space = acc.space_get(
             name=self.name,
-            location=self.data['location'],
             create=True,
             maxMemoryCapacity=self.data.get('maxMemoryCapacity', -1),
             maxVDiskCapacity=self.data.get('maxDiskCapacity', -1),
@@ -162,7 +157,7 @@ class Vdc(TemplateBase):
             space.unauthorize_user(username=user)
 
     def uninstall(self):
-        space = self.account.space_get(self.name, self.data['location'])
+        space = self.account.space_get(self.name)
         space.delete()
 
     def enable(self):
@@ -170,7 +165,6 @@ class Vdc(TemplateBase):
         self.state.check('actions', 'install', 'ok')
         space = self.account.space_get(
             name=self.name,
-            location=self.data['location'],
             create=False
         )
 
@@ -182,7 +176,6 @@ class Vdc(TemplateBase):
         self.state.check('actions', 'install', 'ok')
         space = self.account.space_get(
             name=self.name,
-            location=self.data['location'],
             create=False
         )
 
@@ -194,15 +187,15 @@ class Vdc(TemplateBase):
         Create port forwards
         """
         ovc = self.ovc
-        space = self.space  
+        space = self.space
 
         # add portforwards
         for port in port_forwards:
             ovc.api.cloudapi.portforwarding.create(
-                cloudspaceId=space.id, 
-                protocol=protocol, 
-                localPort=port['destination'], 
-                publicPort=port['source'], 
+                cloudspaceId=space.id,
+                protocol=protocol,
+                localPort=port['destination'],
+                publicPort=port['source'],
                 publicIp=space.get_space_ip(),
                 machineId=machineId,
                 )
@@ -212,21 +205,21 @@ class Vdc(TemplateBase):
         Delete port forwards
         """
         ovc = self.ovc
-        space = self.space     
-        existent_ports = [(port['publicPort'], port['localPort'], port['id']) 
+        space = self.space
+        existent_ports = [(port['publicPort'], port['localPort'], port['id'])
                             for port in ovc.api.cloudapi.portforwarding.list(
                                             cloudspaceId=space.id, machineId=machineId,
                                                 )]
         # remove portfrowards
         for publicPort, localPort, id in existent_ports:
-            for port in port_forwards:                    
+            for port in port_forwards:
                 if str(port['source']) == publicPort and str(port['destination']) == localPort:
                     ovc.api.cloudapi.portforwarding.delete(
                         id=id,
-                        cloudspaceId=space.id, 
-                        protocol=protocol, 
-                        localPort=port['destination'], 
-                        publicPort=port['source'], 
+                        cloudspaceId=space.id,
+                        protocol=protocol,
+                        localPort=port['destination'],
+                        publicPort=port['source'],
                         publicIp=space.get_space_ip(),
                         machineId=machineId,
                 )
@@ -263,7 +256,6 @@ class Vdc(TemplateBase):
         self.data['users'] = users
         space = self.account.space_get(
             name=self.name,
-            location=self.data['location'],
             create=False
         )
 
@@ -289,7 +281,6 @@ class Vdc(TemplateBase):
         self.data['users'] = users
         space = self.account.space_get(
             name=self.name,
-            location=self.data['location'],
             create=False
         )
         self._authorize_users(space)
@@ -312,7 +303,6 @@ class Vdc(TemplateBase):
         self.state.check('actions', 'install', 'ok')
         space = self.account.space_get(
             name=self.name,
-            location=self.data['location'],
             create=False
         )
 
