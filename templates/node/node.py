@@ -185,9 +185,10 @@ class Node(TemplateBase):
         prefab = machine.prefab
         prefab.system.filesystem.create(fs_type=fs_type, device=device)
         prefab.system.filesystem.mount(mount_point=mount_point, device=device,
-                                       reboot=True, copy=True,
-                                       append_fstab=True, fs_type=fs_type)
-
+                                       copy=True, append_fstab=True, fs_type=fs_type)
+        machine.restart()
+        machine.prefab.executor.sshclient.connect()
+        
         # update data
         self.data['dataDiskFilesystem'] = fs_type
         self.data['dataDiskMountpoint'] = mount_point
