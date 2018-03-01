@@ -1,27 +1,28 @@
 # 0-templates [![Build Status](https://travis-ci.org/openvcloud/0-templates.svg?branch=master)](https://travis-ci.org/openvcloud/0-templates) [![codecov](https://codecov.io/gh/openvcloud/0-templates/branch/master/graph/badge.svg)](https://codecov.io/gh/openvcloud/0-templates)
 
-This repo contains OpenvCloud (OVC) templates that can be managed by (0-robot)[https://github.com/Jumpscale/0-robot].
+This repo contains OpenvCloud (OVC) templates that can be managed by [0-robot](https://github.com/Jumpscale/0-robot).
 
 Templates:
+
 - [account template](https://github.com/openvcloud/0-templates/tree/master/templates/account):
-    - create and delete accounts
-    - add and delete users
-    - update account flags
+  - create and delete accounts
+  - add and delete users
+  - update account flags
 - [openvcloud template](https://github.com/openvcloud/0-templates/tree/master/templates/openvcloud):
-    - create connection to OVC
+  - create connection to OVC
 - [vdc template](https://github.com/openvcloud/0-templates/tree/master/templates/vdc)
-    - create and delete VDC (Vertual Data Center)
-    - add and delete portforwars
-    - add and delete VDC users
+  - create and delete VDC (Vertual Data Center)
+  - add and delete portforwars
+  - add and delete VDC users
 - [vdcuser template](https://github.com/openvcloud/0-templates/tree/master/templates/vdcuser):
-    - authorise and unauthorize vdc users, create a user if doesn't exist
-    - set user groups
+  - authorize and unauthorize vdc users, create a user if doesn't exists
+  - set user groups
 - [sshkey template](https://github.com/openvcloud/0-templates/tree/master/templates/sshkey):
-    - upload ssh-key
+  - upload ssh-key
 - [node template](https://github.com/openvcloud/0-templates/blob/master/templates/node/node.py):
-    - create virtual machines (VMs)
-    - manage VMs: start, stop, reset, delete, clone
-    - create and delete snapshots of VMs
-    - add and delete portforwards
+  - create virtual machines (VMs)
+  - manage VMs: start, stop, reset, delete, clone
+  - create and delete snapshots of VMs
+  - add and delete portforwards
 - [disk template](https://github.com/openvcloud/0-templates/blob/master/templates/disk/disk.py):
-    - create and delete disks
+  - create and delete disks

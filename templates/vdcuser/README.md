@@ -16,13 +16,16 @@ This template represents a user on an environment. If the user doesn't exist it 
 
 ```yaml
 services:
-    - github.com/openvcloud/0-templates/sshkey/0.0.1__key:
-        path: '/root/.ssh/id_rsa'
-    - github.com/openvcloud/0-templates/openvcloud/0.0.1__ovc:
+    - github.com/openvcloud/0-templates/sshkey/0.0.1__keyname:
+        dir: '/root/.ssh/'
+        passphrase: <passphrase>
+    - github.com/openvcloud/0-templates/openvcloud/0.0.1__myovc:
+        location: be-gen-demo
         address: 'ovc.demo.greenitglobe.com'
         login: '<username>'
         token: '<iyo jwt token>'
     - github.com/openvcloud/0-templates/vdcuser/0.0.1__admin:
+        openvcloud: myovc
         provider: itsyouonline
         email: admin@greenitglobe.com
 

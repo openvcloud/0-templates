@@ -33,7 +33,8 @@ Disk name will be service name.
 services:
     - github.com/openvcloud/0-templates/sshkey/0.0.1__key:
         path: '/root/.ssh/id_rsa'
-    - github.com/openvcloud/0-templates/openvcloud/0.0.1__ovc:
+    - github.com/openvcloud/0-templates/openvcloud/0.0.1__myovc:
+        location: be-gen-demo
         address: 'ovc.demo.greenitglobe.com'
         login: '<username>'
         token: '<iyo jwt token>'
@@ -45,7 +46,7 @@ services:
             - name: admin
               accesstype: CXDRAU
     - github.com/openvcloud/0-templates/vdc/0.0.1__myspace:
-        location: be-gen-1
+        openvcloud: myovc
         users:
             - name: admin
               accesstype: CXDRAU          
