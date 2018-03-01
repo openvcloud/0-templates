@@ -19,7 +19,8 @@ class TestOpenvcloud(TestCase):
     def test_create_success(self, client):
         data = {
             'address': 'some.address.com',
-            'token': 'some-token'
+            'token': 'some-token',
+            'location': 'abc',
         }
         name = 'test'
         self.type(name, None, data)
@@ -27,7 +28,8 @@ class TestOpenvcloud(TestCase):
         client.get.assert_called_once_with(name, {
             'address': data['address'],
             'jwt_': data['token'],
-            'port': data.get('port', 443)
+            'port': data.get('port', 443),
+            'location': 'abc',
         }, create=True)
 
         client.get.return_value.config.save.assert_called_once_with()
@@ -46,7 +48,8 @@ class TestOpenvcloud(TestCase):
     def test_update(self, client):
         data = {
             'address': 'some.address.com',
-            'token': 'some-token'
+            'token': 'some-token',
+            'location': 'abc',
         }
         name = 'test'
         instance = self.type(name, None, data)
@@ -56,7 +59,8 @@ class TestOpenvcloud(TestCase):
         client.get.assert_called_once_with(name, {
             'address': 'new.address.com',
             'jwt_': data['token'],
-            'port': data.get('port', 443)
+            'port': data.get('port', 443),
+            'location': 'abc',
         }, create=True)
 
         client.get.return_value.config.save.assert_called_once_with()

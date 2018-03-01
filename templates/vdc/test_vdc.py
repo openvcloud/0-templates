@@ -19,7 +19,6 @@ class TestVDC(TestCase):
     def test_validate_account(self):
         data = {
             'account': 'test-account',
-            'location': 'some-location'
         }
         name = 'test'
         instance = self.type(name, None, data)
@@ -41,9 +40,7 @@ class TestVDC(TestCase):
         # Next, we test when NO connection is given
         api.reset_mock()
 
-        data = {
-            'location': 'some-location'
-        }
+        data = {}
         instance = self.type(name, None, data)
 
         def find(template_uid, name):
@@ -65,8 +62,7 @@ class TestVDC(TestCase):
         api.reset_mock()
 
         data = {
-            'account': 'test-account',
-            'location': 'some-location'
+            'account': 'test-account'
         }
         instance = self.type(name, None, data)
 
@@ -88,7 +84,6 @@ class TestVDC(TestCase):
     def test_validate_users(self):
         data = {
             'account': 'test-account',
-            'location': 'some-location',
             'users': [
                 {'name': 'test-user'},
             ]
@@ -125,7 +120,6 @@ class TestVDC(TestCase):
     def test_install(self, openvcloud):
         data = {
             'account': 'test-account',
-            'location': 'some-location'
         }
         name = 'test'
         instance = self.type(name, None, data)
@@ -142,7 +136,6 @@ class TestVDC(TestCase):
             instance.install()
             account.space_get.assert_called_once_with(
                 name=name,
-                location=data['location'],
                 create=True,
                 maxMemoryCapacity=-1,
                 maxVDiskCapacity=-1,

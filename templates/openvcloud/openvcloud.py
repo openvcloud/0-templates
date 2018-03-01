@@ -14,8 +14,8 @@ class Openvcloud(TemplateBase):
         self._configure()
 
     def _validate_data(self):
-        for key in ['address', 'token']:
-            if key not in self.data or not self.data[key]:
+        for key in ['address', 'token', 'location']:
+            if not self.data[key]:
                 raise ValueError('%s is required' % key)
 
     def _configure(self):
@@ -24,7 +24,8 @@ class Openvcloud(TemplateBase):
             {
                 'address': self.data['address'],
                 'jwt_': self.data['token'],
-                'port': self.data.get('port', 443)
+                'port': self.data.get('port', 443),
+                'location': self.data['location']
             },
             create=True
         )

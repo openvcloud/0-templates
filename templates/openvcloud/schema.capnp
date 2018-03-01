@@ -12,4 +12,7 @@ struct Schema {
 
     # IYO Token
     token @3 :Text;
+
+    # Location
+    location @4 :Text;
 }

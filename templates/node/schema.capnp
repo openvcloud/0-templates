@@ -45,10 +45,10 @@ struct Schema {
 	bootDiskSize @13 :Int64 = 10;
 
 	# Standard datadisk parameters for creation of VM
-	dataDiskSize @14 :Int64 = 10;	
+	dataDiskSize @14 :Int64 = 10;
 	dataDiskFilesystem @15 :FilesystemType;
 	enum FilesystemType{
-		xfs @0; 
+		xfs @0;
 		ext2 @1;
 		ext3 @2;
 		ext4 @3;
@@ -64,4 +64,5 @@ struct Schema {
 		accesstype @1 :Text = "R";
 	}
 
+	sshKey @18 :Text;
 }
