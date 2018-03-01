@@ -2,7 +2,7 @@
 set -e
 
 # settings
-export BRANCH="merge_branches"
+export BRANCH="development"
 
 for target in /usr/local /opt /opt/cfg /opt/code/github/jumpscale /opt/var/capnp /opt/var/log $HOME/js9host/cfg; do
     mkdir -p $target
