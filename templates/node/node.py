@@ -126,7 +126,7 @@ class Node(TemplateBase):
         # check if machine already exists
         if self.machine:
             raise StateCheckError('machine "%s" already exists' % self.name)
-        
+
         # get new machine
         machine = self._machine_create()
 
@@ -153,7 +153,8 @@ class Node(TemplateBase):
             disksize=data['bootDiskSize'],
             datadisks=[data['dataDiskSize']],
             sizeId=data['sizeId'],
-            )
+            managed_private=self.data.get('managedPrivate', False)
+        )
 
         return self._machine
 
@@ -185,13 +186,21 @@ class Node(TemplateBase):
         device = '/dev/vdb'
 
         # create file system and mount data disk
-        prefab = machine.prefab
+        if self.data.get('managedPrivate', False) is False:
+            prefab = machine.prefab
+        else:
+            prefab = machine.prefab_private
         prefab.system.filesystem.create(fs_type=fs_type, device=device)
         prefab.system.filesystem.mount(mount_point=mount_point, device=device,
                                        copy=True, append_fstab=True, fs_type=fs_type)
+
         machine.restart()
-        machine.prefab.executor.sshclient.connect()
-        
+        if self.data.get('managedPrivate', False) is False:
+            prefab = machine.prefab
+        else:
+            prefab = machine.prefab_private
+        prefab.executor.sshclient.connect()
+
         # update data
         self.data['dataDiskFilesystem'] = fs_type
         self.data['dataDiskMountpoint'] = mount_point
