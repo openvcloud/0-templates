@@ -65,4 +65,7 @@ struct Schema {
 	}
 
 	sshKey @18 :Text;
+
+	# if set to true, will access the VM using private network of the cloudspace
+	managedPrivate @19 :Bool = false;
 }
