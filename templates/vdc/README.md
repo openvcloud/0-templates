@@ -6,9 +6,9 @@ This actor template creates a cloudspace (Virtual Data Center) on the specified 
 
 ## Schema
 
-- description: Description of the cloudspace.
+- openvcloud (required): Name of the [openvcloud](../openvcloud) instance used to connect to the environment.
 - account (required): an [account](../account) used for this space.
-- location: Environment to deploy this cloudspace.
+- description: Description of the cloudspace.
 - users: List of [vcd users](#vdc-user) that will be authorized on the space.
 - cloudspaceID: id of the cloudspace. **Filled in automatically, don't specify it in the blueprint**
 - maxMemoryCapacity: Cloudspace limits, maximum memory(GB).
@@ -31,21 +31,25 @@ For the creation of the vdc the action specified is install, to delete the vdc a
 
 ```yaml
 services:
-    - github.com/openvcloud/0-templates/sshkey/0.0.1__key:
-        path: '/root/.ssh/id_rsa'
-    - github.com/openvcloud/0-templates/openvcloud/0.0.1__ovc:
+    - github.com/openvcloud/0-templates/sshkey/0.0.1__keyname:
+        dir: '/root/.ssh/'
+        passphrase: testpassphrase
+    - github.com/openvcloud/0-templates/openvcloud/0.0.1__myovc:
+        location: be-gen-demo
         address: 'ovc.demo.greenitglobe.com'
         login: '<username>'
         token: '<iyo jwt token>'
     - github.com/openvcloud/0-templates/vdcuser/0.0.1__admin:
+        openvcloud: myovc
         provider: itsyouonline
         email: admin@greenitglobe.com
     - github.com/openvcloud/0-templates/account/0.0.1__myaccount:
+        openvcloud: myovc
         users:
             - name: admin
               accesstype: CXDRAU
     - github.com/openvcloud/0-templates/vdc/0.0.1__myspace:
-        location: be-gen-1
+        openvcloud: myovc
         users:
             - name: admin
               accesstype: CXDRAU
