@@ -54,6 +54,7 @@ class Zrobot(TemplateBase):
             pass
 
         prefab = j.tools.nodemgr.get(self.data['node']).prefab
+        prefab.virtualization.docker.install()
 
         prefab.core.run('docker rm -vf %s' % self.name, die=False)
 
