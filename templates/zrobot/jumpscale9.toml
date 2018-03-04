@@ -1,0 +1,38 @@
+[myconfig]
+path = "{config}"
+sshkeyname = "id_rsa"
+giturl = ""
+
+[redis]
+port = 6379
+enabled = false
+addr = "localhost"
+
+[system]
+container = false
+debug = true
+autopip = "0"
+readonly = false
+
+[dirs]
+TMPDIR = "/tmp"
+JSAPPSDIR = "/opt/jumpscale9/apps"
+LIBDIR = "/opt/lib/"
+LOGDIR = "/opt/var/log"
+VARDIR = "/opt/var"
+CFGDIR = "/opt/cfg"
+BINDIR = "/opt/bin"
+BASEDIR = "/opt"
+HOSTCFGDIR = "/root/js9host/cfg/"
+TEMPLATEDIR = "/opt/var/templates"
+BASEDIRJS = "/opt/jumpscale9"
+DATADIR = "/opt/var/data"
+HOMEDIR = "/root"
+BUILDDIR = "/opt/var/build"
+CODEDIR = "/opt/code"
+HOSTDIR = "/root/js9host/"
+
+[logging]
+level = 20
+enabled = true
+filter = []

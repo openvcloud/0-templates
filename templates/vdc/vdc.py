@@ -199,7 +199,7 @@ class Vdc(TemplateBase):
                 protocol=protocol,
                 localPort=port['destination'],
                 publicPort=port['source'],
-                publicIp=space.get_space_ip(),
+                publicIp=space.ipaddr_pub,
                 machineId=machineId,
                 )
 
@@ -223,9 +223,9 @@ class Vdc(TemplateBase):
                         protocol=protocol,
                         localPort=port['destination'],
                         publicPort=port['source'],
-                        publicIp=space.get_space_ip(),
+                        publicIp=space.ipaddr_pub,
                         machineId=machineId,
-                )
+                    )
 
     def user_add(self, user):
         '''
