@@ -48,4 +48,8 @@ struct Schema {
 		accesstype @1 :Text;
 	}
 
+	# if set to false, the cloudspace will not get created if does not exist, and the
+	# user settings, or space flags, will not get updates. It's useful if the
+	# space is managed by another robot.
+	create @13 :Bool = true;
 }

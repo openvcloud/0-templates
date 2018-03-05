@@ -44,6 +44,16 @@ class Account(TemplateBase):
             pass
 
         cl = self.ovc
+
+        if not self.data['create']:
+            account = cl.account_get(
+                name=self.name,
+                create=False
+            )
+
+            self.state.set('actions', 'install', 'ok')
+            return
+
         # Set limits
         # if account does not exist, it will create it
         account = cl.account_get(
@@ -74,6 +84,9 @@ class Account(TemplateBase):
         on the account. Hence, it's better for add_user and delete_user to update the data
         of the instance, and then call this method
         '''
+        if not self.data['create']:
+            raise RuntimeError('readonly account')
+
         users = {}
 
         for user in self.data['users']:
@@ -106,6 +119,8 @@ class Account(TemplateBase):
             account.unauthorize_user(username=user)
 
     def uninstall(self):
+        if not self.data['create']:
+            raise RuntimeError('readonly account')
         self.state.check('actions', 'install', 'ok')
         cl = self.ovc
         acc = cl.account_get(self.name, create=False)
@@ -176,6 +191,9 @@ class Account(TemplateBase):
         :param maxNumPublicIP: The limit on the number of public IPs that can be used by the account.
         :param maxDiskCapacity: The limit on the disk capacity that can be used by the account.
         '''
+        if not self.data['create']:
+            raise RuntimeError('readonly account')
+
         # work around not supporting the **kwargs in actions call
         kwargs = locals()
 
