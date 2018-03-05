@@ -19,8 +19,9 @@ class Zrobot(TemplateBase):
         self._space = None
 
     def validate(self):
-        if not self.data['node']:
-            raise ValueError('node is required')
+        for key in ['node', 'port']:
+            if not self.data[key]:
+                raise ValueError('%s is required' % key)
 
         # validate accounts
         nodes = self.api.services.find(template_uid=self.NODE_TEMPLATE, name=self.data['node'])
@@ -53,7 +54,8 @@ class Zrobot(TemplateBase):
         except StateCheckError:
             pass
 
-        prefab = j.tools.nodemgr.get(self.data['node']).prefab
+        node = j.tools.nodemgr.get(self.data['node'])
+        prefab = node.prefab
         prefab.virtualization.docker.install()
 
         prefab.core.run('docker rm -vf %s' % self.name, die=False)
@@ -93,16 +95,23 @@ class Zrobot(TemplateBase):
             templates=templates
         ))
 
-        if self.data['port'] != 0:
-            # expose port forward
-            self.node.schedule_action(
-                'portforward_create',
-                {
-                    'ports': [{
-                        'source': self.data['port'],
-                        'destination': 6600,
-                    }]
-                }
-            )
+        # expose port forward
+        self.node.schedule_action(
+            'portforward_create',
+            {
+                'ports': [{
+                    'source': self.data['port'],
+                    'destination': 6600,
+                }]
+            }
+        )
+
+        j.clients.zrobot.get(
+            self.name,
+            create=True,
+            data={
+                'url': 'http://%s:%s' % (node.addr, self.data['port'])
+            }
+        )
 
         self.state.set('actions', 'install', 'ok')

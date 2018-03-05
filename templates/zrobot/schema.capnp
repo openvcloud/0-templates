@@ -8,7 +8,7 @@ struct Schema {
 	node @1 :Text;
 
 	# expose public port if set
-	port @2 :UInt16;
+	port @2 :UInt16 = 6600;
 
 	# list of git (https) of template repos to use
 	templates @3 :List(Text);
