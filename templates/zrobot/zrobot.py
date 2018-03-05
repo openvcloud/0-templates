@@ -1,6 +1,7 @@
 from js9 import j
 from zerorobot.template.base import TemplateBase
 from zerorobot.template.state import StateCheckError
+import gevent
 
 
 class Zrobot(TemplateBase):
@@ -105,6 +106,13 @@ class Zrobot(TemplateBase):
                 }]
             }
         )
+
+        for i in range(10):
+            if j.sal.nettools.tcpPortConnectionTest(node.addr, self.data['port']):
+                break
+            gevent.sleep(3)
+        else:
+            raise Exception('can not connect to robot "%s"' % self.name)
 
         j.clients.zrobot.get(
             self.name,
