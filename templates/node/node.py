@@ -112,9 +112,9 @@ class Node(TemplateBase):
 
     @property
     def machine(self):
-        if self._machine:
-            return self._machine
-        return self.space.machines.get(self.name)
+        if not self._machine:
+            self._machine = self.space.machines.get(self.name)
+        return self._machine
 
     def install(self):
         try:
