@@ -1,5 +1,5 @@
 [myconfig]
-path = "{config}"
+path = "/opt/code/github/zrobot/config"
 sshkeyname = "id_rsa"
 giturl = ""
 
