@@ -10,7 +10,6 @@ class Sshkey(TemplateBase):
     def __init__(self, name, guid=None, data=None):
         super().__init__(name=name, guid=guid, data=data)
 
-
         dir = self.data['dir']
         passphrase = self.data['passphrase']
 
@@ -32,6 +31,9 @@ class Sshkey(TemplateBase):
                 'passphrase_': passphrase,
             },
         )
+
+    def install(self):
+        pass
 
     # def update_data(self, data):
     #     if self.data['path'] == data['path']:

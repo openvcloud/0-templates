@@ -42,3 +42,8 @@ class Openvcloud(TemplateBase):
                 self.data[key] = value
 
         self._configure()
+
+    def install(self):
+        # we do nothing in install, but we add it to make calling install
+        # on all services easier
+        pass
