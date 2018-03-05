@@ -43,4 +43,9 @@ struct Schema {
 		# Access type
 		accesstype @1 :Text;
 	}
+
+	# if set to false, the account will not get created if does not exist, and the
+	# user settings, or account flags, will not get updates. It's useful if the
+	# account is managed by another robot.
+	create @11 :Bool = true;
 }

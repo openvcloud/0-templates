@@ -85,6 +85,15 @@ class Vdc(TemplateBase):
             pass
         acc = self.account
 
+        if not self.data['create']:
+            space = acc.space_get(
+                name=self.name,
+                create=True
+            )
+            self.data['cloudspaceID'] = space.model['id']
+            self.state.set('actions', 'install', 'ok')
+            return
+
         # Set limits
         # if space does not exist, it will create it
         externalnetworkId = self.data.get('externalNetworkID', -1)
@@ -128,6 +137,9 @@ class Vdc(TemplateBase):
         self.state.set('actions', 'install', 'ok')
 
     def _authorize_users(self, space):
+        if not self.data['create']:
+            raise RuntimeError('readonly cloudspace')
+
         users = {}
         VDCUSER_TEMPLATE = 'github.com/openvcloud/0-templates/vdcuser/0.0.1'
         for user in self.data['users']:
@@ -160,10 +172,14 @@ class Vdc(TemplateBase):
             space.unauthorize_user(username=user)
 
     def uninstall(self):
+        if not self.data['create']:
+            raise RuntimeError('readonly cloudspace')
         space = self.account.space_get(self.name)
         space.delete()
 
     def enable(self):
+        if not self.data['create']:
+            raise RuntimeError('readonly cloudspace')
         # Get space, raise error if not found
         self.state.check('actions', 'install', 'ok')
         space = self.account.space_get(
@@ -175,6 +191,8 @@ class Vdc(TemplateBase):
         self.data['disabled'] = False
 
     def disable(self):
+        if not self.data['create']:
+            raise RuntimeError('readonly cloudspace')
         # Get space, raise error if not found
         self.state.check('actions', 'install', 'ok')
         space = self.account.space_get(
@@ -189,6 +207,8 @@ class Vdc(TemplateBase):
         """
         Create port forwards
         """
+        if not self.data['create']:
+            raise RuntimeError('readonly cloudspace')
         ovc = self.ovc
         space = self.space
 
@@ -207,6 +227,8 @@ class Vdc(TemplateBase):
         """
         Delete port forwards
         """
+        if not self.data['create']:
+            raise RuntimeError('readonly cloudspace')
         ovc = self.ovc
         space = self.space
         existent_ports = [(port['publicPort'], port['localPort'], port['id'])
@@ -299,6 +321,8 @@ class Vdc(TemplateBase):
         :param maxDiskCapacity: The limit on the disk capacity that can be used by the account.
         :param maxNetworkPeerTransfer: Cloudspace limits, max sent/received network transfer peering(GB).
         '''
+        if not self.data['create']:
+            raise RuntimeError('readonly cloudspace')
         # work around not supporting the **kwargs in actions call
         kwargs = locals()
         kwargs.pop('self')
