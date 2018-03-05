@@ -46,6 +46,10 @@ class Zrobot(TemplateBase):
 
         return nodes[0]
 
+    def get_url(self):
+        node = j.tools.nodemgr.get(self.data['node'])
+        return 'http://%s:%s' % (node.addr, self.data['port'])
+
     def install(self, force=False):
         try:
             self.state.check('actions', 'install', 'ok')
@@ -106,12 +110,15 @@ class Zrobot(TemplateBase):
             }
         )
 
-        j.clients.zrobot.get(
-            self.name,
-            create=True,
-            data={
-                'url': 'http://%s:%s' % (node.addr, self.data['port'])
-            }
-        )
+        # this will make the robot part of the cluster, we do not need
+        # that atm
+
+        # j.clients.zrobot.get(
+        #     self.name,
+        #     create=True,
+        #     data={
+        #         'url': 'http://%s:%s' % (node.addr, self.data['port'])
+        #     }
+        # )
 
         self.state.set('actions', 'install', 'ok')
