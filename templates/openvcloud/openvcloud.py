@@ -14,16 +14,30 @@ class Openvcloud(TemplateBase):
         self._configure()
 
     def _validate_data(self):
-        for key in ['address', 'token', 'location']:
+        for key in ['address', 'location']:
             if not self.data[key]:
                 raise ValueError('%s is required' % key)
 
     def _configure(self):
+        # find IYO service
+        IYO_TEMPLATE = 'github.com/openvcloud/0-templates/iyo/0.0.1'
+        matches = self.api.services.find(template_uid=IYO_TEMPLATE, name=self.data['iyo'])
+        if len(matches) != 1:
+            raise RuntimeError('found %d iyo with name "%s"' % (len(matches), self.data['iyo']))
+        iyo = matches[0]
+        self.iyo = iyo.name
+
+        # get jwt token from IYO service
+        task = iyo.schedule_action('get_jwt')
+        task.wait()
+        jwt = task.result
+        
+        # get ovc client
         ovc = j.clients.openvcloud.get(
             self.name,
             {
                 'address': self.data['address'],
-                'jwt_': self.data['token'],
+                'jwt_': jwt,
                 'port': self.data.get('port', 443),
                 'location': self.data['location']
             },
@@ -33,10 +47,10 @@ class Openvcloud(TemplateBase):
         # No, the create flag is not enough, we need to save
         ovc.config.save()
 
-    def update(self, address=None, login=None, token=None, port=None):
+    def update(self, address=None, port=None):
         kwargs = locals()
 
-        for key in ['address', 'token', 'port']:
+        for key in ['address', 'port']:
             value = kwargs[key]
             if value is not None:
                 self.data[key] = value

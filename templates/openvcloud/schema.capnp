@@ -10,8 +10,8 @@ struct Schema {
     # Port
     port @2 :UInt16 = 443;
 
-    # IYO Token
-    token @3 :Text;
+    # IYO service name
+    iyo @3 :Text;
 
     # Location
     location @4 :Text;
