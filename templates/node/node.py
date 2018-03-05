@@ -169,16 +169,18 @@ class Node(TemplateBase):
         else:
             raise RuntimeError('machine %s is not found' % self.name)
 
-        for disk in machine.disks:
-            # create a disk service
-            service = self.api.services.create(
-                template_uid=self.DISK_TEMPLATE,
-                service_name='Disk%s' % str(disk['id']),
-                data={'vdc': space_name, 'diskId': disk['id']},
-            )
-            # update data in the disk service
-            task = service.schedule_action('update_data', {'data': disk})
-            task.wait()
+        # TODO: fix the disk template first @katia-e
+
+        # for disk in machine.disks:
+        #     # create a disk service
+        #     service = self.api.services.create(
+        #         template_uid=self.DISK_TEMPLATE,
+        #         service_name='Disk%s' % str(disk['id']),
+        #         data={'vdc': space_name, 'diskId': disk['id']},
+        #     )
+        #     # update data in the disk service
+        #     task = service.schedule_action('update_data', {'data': disk})
+        #     task.wait()
 
         # set default values
         fs_type = 'ext4'
@@ -217,6 +219,9 @@ class Node(TemplateBase):
 
     def portforward_create(self, ports):
         """ Add portforwards """
+        if self.data['managedPrivate']:
+            return
+
         if not self.machine:
             raise RuntimeError('machine %s is not found' % self.name)
 
@@ -232,6 +237,8 @@ class Node(TemplateBase):
 
     def portforward_delete(self, ports):
         """ Delete portforwards """
+        if self.data['managedPrivate']:
+            return
         if not self.machine:
             raise RuntimeError('machine %s is not found' % self.name)
 
