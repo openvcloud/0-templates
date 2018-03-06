@@ -17,7 +17,6 @@ class Disk(TemplateBase):
         self.data['devicename'] = name
         self._ovc = None
         self._account = None
-        self._vdc = None
         self._config = None
 
     def validate(self):
@@ -77,7 +76,7 @@ class Disk(TemplateBase):
             raise RuntimeError('found %d vdcs with name "%s"' % (len(matches), config['vdc']))
 
         vdc = matches[0]
-        self._vdc = vdc
+#        self._vdc = vdc
         task = vdc.schedule_action('get_account')
         task.wait()
 
@@ -88,6 +87,7 @@ class Disk(TemplateBase):
             raise ValueError('found %s accounts with name "%s"' % (len(matches), config['account']))
 
         account = matches[0]
+
         # get connection
         task = account.schedule_action('get_openvcloud')
         task.wait()
@@ -96,14 +96,6 @@ class Disk(TemplateBase):
 
         self._config = config
         return self._config
-
-    @property
-    def vdc(self):
-        '''
-        vdc service instance
-        '''
-        self.config
-        return self._vdc
 
     @property
     def ovc(self):
@@ -117,22 +109,20 @@ class Disk(TemplateBase):
 
         return self._ovc
 
+    @property
+    def space(self):
+        account = self.config['account']
+        vdc = self.config['vdc']
+
+        return self.ovc.space_get(
+            accountName=account,
+            spaceName=vdc
+        )
 
     @property
     def account(self):
-        """
-        Return an account
-        """
-        if self._account is not None:
-            return self._account
-
-        # Get object for an OVC service, make sure exactly one is running
-        accounts = self.api.services.find(template_uid=self.ACCOUNT_TEMPLATE, name=self.data.get('account', None))
-        if len(accounts) != 1:
-            raise RuntimeError('found %s openvcloud connections, requires exactly 1' % len(accounts))
-        account = accounts[0].name
-        self._account = self.ovc.account_get(account, create=True)
-
+        if not self._account:
+            self._account = self.space.account
         return self._account
 
     def create(self):
