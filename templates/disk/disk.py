@@ -17,7 +17,7 @@ class Disk(TemplateBase):
         self.data['devicename'] = name
         self._ovc = None
         self._account = None
-        self._vdc = None
+        self._config = None
 
     def validate(self):
         if not self.data['vdc']:
@@ -59,18 +59,43 @@ class Disk(TemplateBase):
             raise RuntimeError("total and read/write of iops_sec_max cannot be set at the same time")
 
     @property
-    def vdc(self):
-        if self._vdc:
-            return self._vdc
+    def config(self):
+        '''
+        returns an object with names of vdc, account, and ovc
+        '''
+        if self._config is not None:
+            return self._config
 
-        # Get object for an VDC service, make sure exactly one is running
-        vdc = self.api.services.find(template_uid=self.VDC_TEMPLATE, name=self.data['vdc'])
-        if len(vdc) != 1:
-            raise RuntimeError('found %s vdc, requires exactly 1' % len(vdc))
+        config = {
+            'vdc': self.data['vdc'],
+        }
+        # traverse the tree up words so we have all info we need to return, connection and
+        # account
+        matches = self.api.services.find(template_uid=self.VDC_TEMPLATE, name=config['vdc'])
+        if len(matches) != 1:
+            raise RuntimeError('found %d vdcs with name "%s"' % (len(matches), config['vdc']))
 
-        self._vdc = vdc[0]
+        vdc = matches[0]
+#        self._vdc = vdc
+        task = vdc.schedule_action('get_account')
+        task.wait()
 
-        return self._vdc
+        config['account'] = task.result
+
+        matches = self.api.services.find(template_uid=self.ACCOUNT_TEMPLATE, name=config['account'])
+        if len(matches) != 1:
+            raise ValueError('found %s accounts with name "%s"' % (len(matches), config['account']))
+
+        account = matches[0]
+
+        # get connection
+        task = account.schedule_action('get_openvcloud')
+        task.wait()
+
+        config['ovc'] = task.result
+
+        self._config = config
+        return self._config
 
     @property
     def ovc(self):
@@ -80,27 +105,24 @@ class Disk(TemplateBase):
         if self._ovc is not None:
             return self._ovc
 
-        vdc = self.vdc
-        instance = vdc.ovc.instance
-        self._ovc = j.clients.openvcloud.get(instance=instance)
+        self._ovc = j.clients.openvcloud.get(instance=self.config['ovc'])
 
         return self._ovc
 
     @property
+    def space(self):
+        account = self.config['account']
+        vdc = self.config['vdc']
+
+        return self.ovc.space_get(
+            accountName=account,
+            spaceName=vdc
+        )
+
+    @property
     def account(self):
-        """
-        Return an account
-        """
-        if self._account is not None:
-            return self._account
-
-        # Get object for an OVC service, make sure exactly one is running
-        accounts = self.api.services.find(template_uid=self.ACCOUNT_TEMPLATE, name=self.data.get('account', None))
-        if len(accounts) != 1:
-            raise RuntimeError('found %s openvcloud connections, requires exactly 1' % len(accounts))
-        account = accounts[0].name
-        self._account = self.ovc.account_get(account, create=True)
-
+        if not self._account:
+            self._account = self.space.account
         return self._account
 
     def create(self):
