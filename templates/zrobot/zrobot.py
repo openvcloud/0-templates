@@ -10,7 +10,7 @@ class Zrobot(TemplateBase):
     template_name = "zrobot"
 
     NODE_TEMPLATE = 'github.com/openvcloud/0-templates/node/0.0.1'
-    DOCKER_IMAGE = 'jumpscale/0-robot:telegram'
+    DOCKER_IMAGE = 'jumpscale/0-robot:latest'
 
     def __init__(self, name, guid=None, data=None):
         super().__init__(name=name, guid=guid, data=data)
