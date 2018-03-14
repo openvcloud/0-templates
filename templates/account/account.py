@@ -126,6 +126,9 @@ class Account(TemplateBase):
         '''
         Add/Update user access to an account
         '''
+        if not self.data['create']:
+            raise RuntimeError('readonly account')
+
         self.state.check('actions', 'install', 'ok')
         name = user['name']
 
@@ -161,6 +164,9 @@ class Account(TemplateBase):
 
         :param username: user instance name
         '''
+        if not self.data['create']:
+            raise RuntimeError('readonly account')
+
         self.state.check('actions', 'install', 'ok')
         users = self.data['users']
 

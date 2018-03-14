@@ -203,8 +203,6 @@ class Vdc(TemplateBase):
         """
         Create port forwards
         """
-        if not self.data['create']:
-            raise RuntimeError('readonly cloudspace')
         ovc = self.ovc
         space = self.space
 
@@ -223,8 +221,6 @@ class Vdc(TemplateBase):
         """
         Delete port forwards
         """
-        if not self.data['create']:
-            raise RuntimeError('readonly cloudspace')
         ovc = self.ovc
         space = self.space
         existent_ports = [(port['publicPort'], port['localPort'], port['id'])
@@ -249,6 +245,9 @@ class Vdc(TemplateBase):
         '''
         Add/Update user access to an space
         '''
+        if not self.data['create']:
+            raise RuntimeError('readonly cloudspace')
+
         self.state.check('actions', 'install', 'ok')
 
         name = user['name']
@@ -288,6 +287,9 @@ class Vdc(TemplateBase):
 
         :param username: user instance name
         '''
+        if not self.data['create']:
+            raise RuntimeError('readonly cloudspace')
+
         self.state.check('actions', 'install', 'ok')
         users = self.data['users']
 
