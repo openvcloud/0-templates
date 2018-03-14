@@ -217,7 +217,7 @@ class TestAccount(TestCase):
 
         account.update_access.assert_not_called()
         account.authorize_user.assert_not_called()
-        account.unauthorize_user.assert_called_once_with(username='test3')
+        account.unauthorize_user.assert_not_called()
 
         account.reset_mock()
         # change the account model to force a change
@@ -328,7 +328,7 @@ class TestAccount(TestCase):
         with mock.patch.object(instance, '_authorize_users') as authorize:
             instance.user_delete('test1')
 
-            authorize.assert_called_once_with(account)
+            account.unauthorize_user.assert_called_once_with(username='test1')
             self.assertEqual(
                 instance.data['users'], [])
 

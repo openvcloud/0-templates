@@ -102,21 +102,20 @@ class Account(TemplateBase):
 
         authorized = {user['userGroupId']: user['right'] for user in account.model['acl']}
 
-        toremove = []
         for user, current_perm in authorized.items():
             new_perm = users.pop(user, None)
             if new_perm is None:
-                # user has been removed
-                # we delay removing the user to avoid deleting the last admin, in case a new one is added
-                toremove.append(user)
+                # user is not configured on this instance.
+                # we don't update this user
+                continue
             elif set(new_perm) != set(current_perm):
                 account.update_access(username=user, right=new_perm)
 
         for user, new_perm in users.items():
             account.authorize_user(username=user, right=new_perm)
 
-        for user in toremove:
-            account.unauthorize_user(username=user)
+        # for user in toremove:
+        #     account.unauthorize_user(username=user)
 
     def uninstall(self):
         if not self.data['create']:
@@ -176,10 +175,10 @@ class Account(TemplateBase):
             # user not found (looped over all users)
             return
 
-        self.data['users'] = users
         cl = self.ovc
         account = cl.account_get(name=self.name, create=False)
-        self._authorize_users(account)
+        account.unauthorize_user(username=username)
+        self.data['users'] = users
 
     def update(self, maxMemoryCapacity=None, maxDiskCapacity=None,
                maxNumPublicIP=None, maxCPUCapacity=None):
