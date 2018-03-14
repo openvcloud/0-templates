@@ -1,3 +1,5 @@
+{% include 'openvcloud.yaml'%}
+
 {% for vdcuser in vdcusers %}
 {% for vdcusername in vdcuser.keys() %}
   - github.com/openvcloud/0-templates/vdcuser/{{config_params('version')}}__{{vdcusername}}:

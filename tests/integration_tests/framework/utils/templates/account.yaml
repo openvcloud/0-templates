@@ -1,5 +1,3 @@
-{% include 'openvcloud.yaml'%}
-
 {% include 'vdcuser.yaml'%}
 
 {% for account in accounts %}
