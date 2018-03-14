@@ -1,0 +1,6 @@
+{% for key, value in temp_actions.items() %}
+  - template: github.com/openvcloud/0-templates/{{key}}/{{config_params('version')}}
+{% for key2, value2 in value.items() %}
+    {{key2}}: {{value2}}
+{% endfor %}
+{% endfor %}
