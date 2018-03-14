@@ -29,12 +29,6 @@ class Vdc(TemplateBase):
         if len(accounts) != 1:
             raise RuntimeError('found %s accounts, requires exactly one' % len(accounts))
 
-        # validate users
-        for user in self.data['users']:
-            users = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=user['name'])
-            if len(users) != 1:
-                raise ValueError('no vdcuser found with name "%s"', user['name'])
-
     @property
     def ovc(self):
         """
@@ -77,6 +71,17 @@ class Vdc(TemplateBase):
         acc = self.account
         return acc.space_get(name=self.name)
 
+    @property
+    def users(self):
+        '''
+        Fetch authorized vdc users
+        '''
+        self.data['users'] = []
+        for user in self.space.model['acl']:
+            self.data['users'].append({'name' : user['userGroupId'], 'accesstype' : user['right']} )
+        
+        return self.data['users']
+
     def install(self):
         try:
             self.state.check('actions', 'install', 'ok')
@@ -114,7 +119,8 @@ class Vdc(TemplateBase):
         # add space ID to data
         self.data['cloudspaceID'] = space.model['id']
 
-        self._authorize_users(space)
+        # get list of authorized users
+        self.users
 
         # update capacity incase cloudspace already existed update it
         space.model['maxMemoryCapacity'] = self.data.get('maxMemoryCapacity', -1)
@@ -135,37 +141,6 @@ class Vdc(TemplateBase):
             raise j.exceptions.Timeout("VDC not yet deployed")
 
         self.state.set('actions', 'install', 'ok')
-
-    def _authorize_users(self, space):
-        if not self.data['create']:
-            raise RuntimeError('readonly cloudspace')
-
-        users = {}
-        VDCUSER_TEMPLATE = 'github.com/openvcloud/0-templates/vdcuser/0.0.1'
-        for user in self.data['users']:
-            found = self.api.services.find(template_uid=VDCUSER_TEMPLATE, name=user['name'])
-            if len(found) != 1:
-                raise ValueError('no vdcuser found with name "%s"', user['name'])
-
-            instance = found[0]
-            task = instance.schedule_action('get_fqid')
-            task.wait()
-
-            users[task.result] = user.get('accesstype', 'ACDRUX')
-
-        authorized = {user['userGroupId']: user['right'] for user in space.model['acl']}
-
-        for user, current_perm in authorized.items():
-            new_perm = users.pop(user, None)
-            if new_perm is None:
-                # user is not configured on this instance.
-                # we don't update this user
-                continue
-            elif set(new_perm) != set(current_perm):
-                space.update_access(username=user, right=new_perm)
-
-        for user, new_perm in users.items():
-            space.authorize_user(username=user, right=new_perm)
 
     def uninstall(self):
         if not self.data['create']:
@@ -244,72 +219,58 @@ class Vdc(TemplateBase):
                         machineId=machineId,
                     )
 
-    def user_add(self, user):
+    def user_add(self, users):
         '''
-        Add/Update user access to an space
+        Add/Update user access to a space
+        :param users: list of users if form of dictionary {'name': , 'accesstype': }
         '''
         if not self.data['create']:
             raise RuntimeError('readonly cloudspace')
 
         self.state.check('actions', 'install', 'ok')
 
-        name = user['name']
-
-        found = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=name)
-        if len(found) != 1:
-            raise ValueError('no vdcuser found with name "%s"', name)
-
-        accesstype = user.get('accesstype', 'ACDRUX')
-        users = self.data['users']
-
+        existent_users = self.users
         for user in users:
-            if user['name'] != name:
-                continue
+            name = user['name']
+            accesstype = user.get('accesstype')
+            
+            for existent_user in existent_users:
+                if existent_user['name'] != name:
+                    continue
 
-            if user['accesstype'] == accesstype:
-                # nothing to do here
-                return
+                if existent_user['accesstype'] == accesstype:
+                    # nothing to do here
+                    break
 
-            user['accesstype'] = accesstype
-            break
-        else:
-            # user not found (looped over all users)
-            users.append({'name': name, 'accesstype': accesstype})
+                self.space.update_access(username=name, right=accesstype)
+                break
+            else:
+                # user not found (looped over all users)
+                self.space.authorize_user(username=name, right=accesstype)
+            
+        self.users
+        self.save()
 
-        self.data['users'] = users
-        space = self.account.space_get(
-            name=self.name,
-            create=False
-        )
-
-        self._authorize_users(space)
-
-    def user_delete(self, username):
+    def user_delete(self, usernames):
         '''
         Delete user access
 
-        :param username: user instance name
+        :param usernames: list of user instance names
         '''
         if not self.data['create']:
             raise RuntimeError('readonly cloudspace')
 
         self.state.check('actions', 'install', 'ok')
-        users = self.data['users']
+        users = self.users
 
-        for user in users[:]:
-            if user['name'] == username:
-                users.remove(user)
-                break
-        else:
-            # user not found (looped over all users)
-            return
-
-        space = self.account.space_get(
-            name=self.name,
-            create=False
-        )
-        space.unauthorize_user(username=username)
-        self.data['users'] = users
+        for username in usernames:
+            for user in users:
+                if username == user['name']:
+                    self.space.unauthorize_user(username=user['name'])
+                    break
+        
+        self.users
+        self.save()
 
     def update(self, maxMemoryCapacity=None, maxDiskCapacity=None, maxNumPublicIP=None,
                maxCPUCapacity=None, maxNetworkPeerTransfer=None):
@@ -346,24 +307,3 @@ class Vdc(TemplateBase):
         if updated:
             space.save()
 
-
-def get_user_accessright(username, service):
-    for u in service.model.data.uservdc:
-        if u.name == username:
-            return u.accesstype
-
-
-def execute_routeros_script(job):
-    service = job.service
-    if 'g8client' not in service.producers:
-        raise j.exceptions.AYSNotFound("No producer g8client found. Cannot continue executing of %s" % service)
-    script = service.model.data.script
-    if not script:
-        raise j.exceptions.AYSNotFound("Param script can't be empty. Cannot continue executing of %s" % service)
-    script.replace("\n", ";")
-    g8client = service.producers["g8client"][0]
-    config_instance = "{}_{}".format(g8client.aysrepo.name, g8client.model.data.instance)
-    cl = j.clients.openvcloud.get(instance=config_instance, create=False, die=True, sshkey_path="/root/.ssh/ays_repos_key")
-    acc = cl.account_get(service.model.data.account)
-    space = acc.space_get(service.model.dbobj.name, service.model.data.location)
-    space.execute_routeros_script(script)
