@@ -219,9 +219,6 @@ class Node(TemplateBase):
 
     def portforward_create(self, ports):
         """ Add portforwards """
-        if self.data['managedPrivate']:
-            return
-
         if not self.machine:
             raise RuntimeError('machine %s is not found' % self.name)
 
