@@ -1,0 +1,8 @@
+{% for vdcuser in vdcusers %}
+{% for vdcusername in vdcuser.keys() %}
+  - github.com/openvcloud/0-templates/vdcuser/{{config_params('version')}}__{{vdcusername}}:
+{% for key in vdcuser[vdcusername].keys() %}
+      {{key}}: {{vdcuser[vdcusername][key]}}
+{% endfor %}
+{% endfor %}
+{% endfor %}
