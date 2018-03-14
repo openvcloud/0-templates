@@ -199,6 +199,9 @@ class Vdc(TemplateBase):
         space.disable('The space should be disabled.')
         self.data['disabled'] = True
 
+    def get_public_ip(self):
+        return self.space.ipaddr_pub
+
     def portforward_create(self, machineId=None, port_forwards=[], protocol='tcp'):
         """
         Create port forwards
