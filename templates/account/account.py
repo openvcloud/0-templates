@@ -13,6 +13,7 @@ class Account(TemplateBase):
 
     def __init__(self, name, guid=None, data=None):
         super().__init__(name=name, guid=guid, data=data)
+        self._account = None
 
     def validate(self):
         if not self.data['openvcloud']:
@@ -23,15 +24,29 @@ class Account(TemplateBase):
         if len(ovcs) != 1:
             raise RuntimeError('found %s openvcloud connections, requires exactly 1' % len(ovcs))
 
-        # validate users
-        for user in self.data['users']:
-            users = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=user['name'])
-            if len(users) != 1:
-                raise ValueError('no vdcuser found with name "%s"', user['name'])
-
     @property
     def ovc(self):
         return j.clients.openvcloud.get(self.data['openvcloud'])
+
+    @property
+    def account(self):
+        if not self._account:
+            self._account = self.ovc.account_get(
+                                        name=self.name,
+                                        create=False
+                                     )
+        return self._account
+
+    @property
+    def users(self):
+        '''
+        Fetch authorized account users
+        '''
+        self.data['users'] = []
+        for user in self.account.model['acl']:
+            self.data['users'].append({'name' : user['userGroupId'], 'accesstype' : user['right']} )
+        
+        return self.data['users']
 
     def get_openvcloud(self):
         return self.data['openvcloud']
@@ -46,17 +61,14 @@ class Account(TemplateBase):
         cl = self.ovc
 
         if not self.data['create']:
-            account = cl.account_get(
-                name=self.name,
-                create=False
-            )
+            self.account
 
             self.state.set('actions', 'install', 'ok')
             return
 
         # Set limits
         # if account does not exist, it will create it
-        account = cl.account_get(
+        self._account = cl.account_get(
             name=self.name,
             create=True,
             maxMemoryCapacity=self.data['maxMemoryCapacity'],
@@ -65,54 +77,18 @@ class Account(TemplateBase):
             maxNumPublicIP=self.data['maxNumPublicIP'],
         )
 
-        self.data['accountID'] = account.model['id']
-
-        self._authorize_users(account)
+        self.data['accountID'] = self.account.model['id']
+        # get list of authorized users
+        self.data['users'] = self.account.authorized_users
 
         # update capacity in case account already existed
-        account.model['maxMemoryCapacity'] = self.data['maxMemoryCapacity']
-        account.model['maxVDiskCapacity'] = self.data['maxDiskCapacity']
-        account.model['maxNumPublicIP'] = self.data['maxNumPublicIP']
-        account.model['maxCPUCapacity'] = self.data['maxCPUCapacity']
-        account.save()
+        self.account.model['maxMemoryCapacity'] = self.data['maxMemoryCapacity']
+        self.account.model['maxVDiskCapacity'] = self.data['maxDiskCapacity']
+        self.account.model['maxNumPublicIP'] = self.data['maxNumPublicIP']
+        self.account.model['maxCPUCapacity'] = self.data['maxCPUCapacity']
+        self.account.save()
 
         self.state.set('actions', 'install', 'ok')
-
-    def _authorize_users(self, account):
-        '''
-        Authorize users will make sure the account users are synced to the userd configured
-        on the account. Hence, it's better for add_user and delete_user to update the data
-        of the instance, and then call this method
-        '''
-        if not self.data['create']:
-            raise RuntimeError('readonly account')
-
-        users = {}
-
-        for user in self.data['users']:
-            found = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=user['name'])
-            if len(found) != 1:
-                raise ValueError('no vdcuser found with name "%s"', user['name'])
-
-            instance = found[0]
-            task = instance.schedule_action('get_fqid')
-            task.wait()
-
-            users[task.result] = user.get('accesstype', 'ACDRUX')
-
-        authorized = {user['userGroupId']: user['right'] for user in account.model['acl']}
-
-        for user, current_perm in authorized.items():
-            new_perm = users.pop(user, None)
-            if new_perm is None:
-                # user is not configured on this instance.
-                # we don't update this user
-                continue
-            elif set(new_perm) != set(current_perm):
-                account.update_access(username=user, right=new_perm)
-
-        for user, new_perm in users.items():
-            account.authorize_user(username=user, right=new_perm)
 
     def uninstall(self):
         if not self.data['create']:
@@ -122,66 +98,56 @@ class Account(TemplateBase):
         acc = cl.account_get(self.name, create=False)
         acc.delete()
 
-    def user_add(self, user):
+    def user_add(self, users):
         '''
         Add/Update user access to an account
+        :param users: list of users if form of dictionary {'name': , 'accesstype': }
         '''
         if not self.data['create']:
             raise RuntimeError('readonly account')
 
         self.state.check('actions', 'install', 'ok')
-        name = user['name']
-
-        found = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=name)
-        if len(found) != 1:
-            raise ValueError('no vdcuser found with name "%s"', name)
-
-        accesstype = user.get('accesstype', 'ACDRUX')
-        users = self.data['users']
-
+        import ipdb; ipdb.set_trace()
+        existent_users = self.users
         for user in users:
-            if user['name'] != name:
-                continue
+            name = user['name']
+            accesstype = user.get('accesstype')
+            
+            for existent_user in existent_users:
+                if existent_user['name'] != name:
+                    continue
 
-            if user['accesstype'] == accesstype:
-                # nothing to do here
-                return
+                if existent_user['accesstype'] == accesstype:
+                    # nothing to do here
+                    break
 
-            user['accesstype'] = accesstype
-            break
-        else:
-            # user not found (looped over all users)
-            users.append({'name': name, 'accesstype': accesstype})
+                self.account.update_access(username=name, right=accesstype)
+                break
+            else:
+                # user not found (looped over all users)
+                self.account.authorize_user(username=name, right=accesstype)
+            
+        self.users
+        self.save()
 
-        self.data['users'] = users
-        cl = self.ovc
-        account = cl.account_get(name=self.name, create=False)
-        self._authorize_users(account)
-
-    def user_delete(self, username):
+    def user_delete(self, usernames):
         '''
         Delete user access
-
-        :param username: user instance name
+        :param usernames: list of user instance names
         '''
         if not self.data['create']:
             raise RuntimeError('readonly account')
 
         self.state.check('actions', 'install', 'ok')
-        users = self.data['users']
-
-        for user in users[:]:
-            if user['name'] == username:
-                users.remove(user)
-                break
-        else:
-            # user not found (looped over all users)
-            return
-
-        cl = self.ovc
-        account = cl.account_get(name=self.name, create=False)
-        account.unauthorize_user(username=username)
-        self.data['users'] = users
+        users = self.users
+        for username in usernames:
+            for user in users:
+                if username == user['name']:
+                    self.account.unauthorize_user(username=user['name'])
+                    break
+        
+        self.users
+        self.save()
 
     def update(self, maxMemoryCapacity=None, maxDiskCapacity=None,
                maxNumPublicIP=None, maxCPUCapacity=None):
