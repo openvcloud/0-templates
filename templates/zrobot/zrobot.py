@@ -31,16 +31,15 @@ class Zrobot(TemplateBase):
             raise RuntimeError('found %s nodes, requires exactly one' % len(nodes))
 
     def _prepare_repos(self, prefab, base):
-        """
-        return the location of the generated sshkey
-        """
         for dir in ['data', 'config', 'ssh']:
             prefab.core.dir_ensure(j.sal.fs.joinPaths(base, dir))
 
         for dir in ['data', 'config']:
             prefab.core.run('cd %s && git init' % j.sal.fs.joinPaths(base, dir))
 
-        return prefab.system.ssh.keygen(user='root', name='id_rsa')
+        key_dir = j.sal.fs.joinPaths(base, 'ssh')
+        if not prefab.core.exists('%s/id_rsa' % key_dir):
+            prefab.core.run('ssh-keygen -b 2048 -t rsa -f %s/id_rsa -q -N ""' % key_dir)
 
     @property
     def node(self):
@@ -64,7 +63,7 @@ class Zrobot(TemplateBase):
 
         prefab.core.run('docker pull %s' % self.DOCKER_IMAGE)
         base = '/opt/zrobot'
-        key_path = self._prepare_repos(prefab, base)
+        self._prepare_repos(prefab, base)
 
         cfg = j.sal.fs.fileGetContents(
             j.sal.fs.joinPaths(j.sal.fs.getDirName(__file__), 'jumpscale9.toml')
@@ -83,7 +82,7 @@ class Zrobot(TemplateBase):
         docker run -d --name {name} \
                 -v {base}/data:/opt/code/github/zrobot/data \
                 -v {base}/config:/opt/code/github/zrobot/config \
-                -v {ssh}:/root/.ssh \
+                -v {base}/ssh:/root/.ssh \
                 -v {base}/jumpscale9.toml:/root/js9host/cfg/jumpscale9.toml \
                 -p 6600:6600 \
                 {image} \
@@ -93,7 +92,6 @@ class Zrobot(TemplateBase):
         '''.format(
             name=self.name,
             base=base,
-            ssh=j.sal.fs.getParent(key_path),
             image=self.DOCKER_IMAGE,
             templates=templates
         ))
