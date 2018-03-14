@@ -1,5 +1,4 @@
-import time
-from zerorobot.dsl.ZeroRobotAPI import ZeroRobotAPI
+import unittest
 from framework.utils.utils import OVC_BaseTest
 from collections import OrderedDict
 from random import randint
@@ -16,6 +15,7 @@ class accounts(OVC_BaseTest):
         self.temp_actions = {'account': {'actions': ['install']},
                              'vdcuser': {'actions': ['install']}}
 
+    @unittest.skip('https://github.com/openvcloud/0-templates/issues/47')
     def test001_create_account_with_wrong_params(self):
         """ ZRT-OVC-001
         *Test case for creating account with different or missing parameters*
@@ -27,14 +27,17 @@ class accounts(OVC_BaseTest):
         """
         self.log('%s STARTED' % self._testID)
 
-        self.accounts = [{self.acc1: {}}]
-
         self.log('Create an account without providing openvcloud parameter, should fail')
+        self.accounts = [{self.acc1: {}}]
         res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
                                   accounts=self.accounts, temp_actions=self.temp_actions)
         self.assertEqual(res, 'openvcloud is mandatory')
 
         self.log('Create an account with providing non existing parameter, should fail')
+        self.accounts = [{self.acc1: {self.random_string(): self.random_string()}}]
+        res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
+                                  accounts=self.accounts, temp_actions=self.temp_actions)
+        self.assertEqual(res, 'parameter provided is wrong')
 
         self.log('%s ENDED' % self._testID)
 
@@ -46,7 +49,6 @@ class accounts(OVC_BaseTest):
 
         #. Create an account, should succeed.
         #. Check if the account parameters are reflected correctly on OVC.
-        #. Update some parameters and make sure it is updated.
         """
         self.log('%s STARTED' % self._testID)
 
@@ -71,6 +73,39 @@ class accounts(OVC_BaseTest):
         self.assertEqual(account['resourceLimits']['CU_C'], CU_C)
         self.assertEqual(account['resourceLimits']['CU_I'], CU_I)
         self.assertEqual(account['resourceLimits']['CU_M'], CU_M)
+
+        self.log('%s ENDED' % self._testID)
+
+    @unitest.skip('https://github.com/openvcloud/0-templates/issues/50')
+    def test003_update_account__params(self):
+        """ ZRT-OVC-003
+        *Test case for updating account's parameters*
+
+        **Test Scenario:**
+
+        #. Create an account, should succeed
+        #. Check if the account parameters are reflected correctly on OVC.
+        #. Update some parameters and make sure it is updated.
+        """
+        self.log('%s STARTED' % self._testID)
+
+        CU_D = randint(15, 30)
+        CU_C = randint(15, 30)
+        CU_I = randint(15, 30)
+        CU_M = randint(15, 30)
+        self.accounts = [{self.acc1: {'openvcloud': self.openvcloud, 'maxMemoryCapacity': CU_M,
+                                      'maxCPUCapacity': CU_C, 'maxDiskCapacity': CU_D,
+                                      'maxNumPublicIP': CU_I}}]
+
+        self.log('Create an account, should succeed')
+        res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
+                                  accounts=self.accounts, temp_actions=self.temp_actions)
+        self.assertTrue(type(res), type(dict()))
+        self.wait_for_service_action_status(self.acc1, res[self.acc1])
+
+        self.log('Check if the account parameters are reflected correctly on OVC')
+        account = self.get_account(self.acc1)
+        self.assertEqual(account['status'], 'CONFIRMED')
 
         self.log('Update some parameters and make sure it is updated')
         self.accounts = [{self.acc1: {'openvcloud': self.openvcloud, 'maxMemoryCapacity': CU_M - 1,
