@@ -155,21 +155,17 @@ class Vdc(TemplateBase):
 
         authorized = {user['userGroupId']: user['right'] for user in space.model['acl']}
 
-        toremove = []
         for user, current_perm in authorized.items():
             new_perm = users.pop(user, None)
             if new_perm is None:
-                # user has been removed
-                # we delay removing the user to avoid deleting the last admin, in case a new one is added
-                toremove.append(user)
+                # user is not configured on this instance.
+                # we don't update this user
+                continue
             elif set(new_perm) != set(current_perm):
                 space.update_access(username=user, right=new_perm)
 
         for user, new_perm in users.items():
             space.authorize_user(username=user, right=new_perm)
-
-        for user in toremove:
-            space.unauthorize_user(username=user)
 
     def uninstall(self):
         if not self.data['create']:
@@ -303,12 +299,12 @@ class Vdc(TemplateBase):
             # user not found (looped over all users)
             return
 
-        self.data['users'] = users
         space = self.account.space_get(
             name=self.name,
             create=False
         )
-        self._authorize_users(space)
+        space.unauthorize_user(username=username)
+        self.data['users'] = users
 
     def update(self, maxMemoryCapacity=None, maxDiskCapacity=None, maxNumPublicIP=None,
                maxCPUCapacity=None, maxNetworkPeerTransfer=None):

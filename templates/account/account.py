@@ -114,9 +114,6 @@ class Account(TemplateBase):
         for user, new_perm in users.items():
             account.authorize_user(username=user, right=new_perm)
 
-        # for user in toremove:
-        #     account.unauthorize_user(username=user)
-
     def uninstall(self):
         if not self.data['create']:
             raise RuntimeError('readonly account')

@@ -230,7 +230,7 @@ class TestVDC(TestCase):
 
         space.update_access.assert_not_called()
         space.authorize_user.assert_not_called()
-        space.unauthorize_user.assert_called_once_with(username='test3')
+        space.unauthorize_user.assert_not_called()
 
         space.reset_mock()
         # change the account model to force a change
@@ -339,7 +339,7 @@ class TestVDC(TestCase):
                 space = account.space_get.return_value
                 instance.user_delete('test1')
 
-                authorize.assert_called_once_with(space)
+                space.unauthorize_user.assert_called_once_with(username='test1')
             self.assertEqual(
                 instance.data['users'], [])
 
