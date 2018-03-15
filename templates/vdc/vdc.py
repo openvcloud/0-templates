@@ -25,7 +25,6 @@ class Vdc(TemplateBase):
 
         # validate accounts
         accounts = self.api.services.find(template_uid=self.ACCOUNT_TEMPLATE, name=self.data['account'])
-
         if len(accounts) != 1:
             raise RuntimeError('found %s accounts, requires exactly one' % len(accounts))
 
@@ -72,14 +71,15 @@ class Vdc(TemplateBase):
         return acc.space_get(name=self.name)
 
     @property
-    def users(self):
+    def get_users(self):
         '''
         Fetch authorized vdc users
         '''
-        self.data['users'] = []
+        self.space.refresh()
+        users = []
         for user in self.space.model['acl']:
-            self.data['users'].append({'name' : user['userGroupId'], 'accesstype' : user['right']} )
-        
+            users.append({'name' : user['userGroupId'], 'accesstype' : user['right']})
+        self.data['users'] = users
         return self.data['users']
 
     def install(self):
@@ -104,7 +104,6 @@ class Vdc(TemplateBase):
         externalnetworkId = self.data.get('externalNetworkID', -1)
         if externalnetworkId == -1:
             externalnetworkId = None
-
         space = acc.space_get(
             name=self.name,
             create=True,
@@ -119,8 +118,8 @@ class Vdc(TemplateBase):
         # add space ID to data
         self.data['cloudspaceID'] = space.model['id']
 
-        # get list of authorized users
-        self.users
+        # fetch list of authorized users to self.data['users']
+        self.get_users
 
         # update capacity incase cloudspace already existed update it
         space.model['maxMemoryCapacity'] = self.data.get('maxMemoryCapacity', -1)
@@ -219,57 +218,70 @@ class Vdc(TemplateBase):
                         machineId=machineId,
                     )
 
-    def user_add(self, users):
+    def user_add(self, user):
         '''
         Add/Update user access to a space
-        :param users: list of users if form of dictionary {'name': , 'accesstype': }
+        :param user: user dictionary {'name': , 'accesstype': }
         '''
         if not self.data['create']:
             raise RuntimeError('readonly cloudspace')
 
         self.state.check('actions', 'install', 'ok')
 
-        existent_users = self.users
-        for user in users:
-            name = user['name']
-            accesstype = user.get('accesstype')
-            
-            for existent_user in existent_users:
-                if existent_user['name'] != name:
-                    continue
+        # fetch list of authorized users to self.data['users']
+        self.get_users
+        users = self.data['users']
 
-                if existent_user['accesstype'] == accesstype:
-                    # nothing to do here
-                    break
+        name = user['name']
+        accesstype = user.get('accesstype')
+        
+        for existent_user in users:
+            if existent_user['name'] != name:
+                continue
 
-                self.space.update_access(username=name, right=accesstype)
+            if existent_user['accesstype'] == accesstype:
+                # nothing to do here
                 break
+
+            if self.space.update_access(username=name, right=accesstype) == True:
+                existent_user['accesstype'] = accesstype
+                break
+            # fail to update access type
+            raise RuntimeError('failed to update accesstype of user "%s"' % name)
+
+        else:
+            # user not found (looped over all users)
+            if self.space.authorize_user(username=name, right=accesstype) == True:
+                users.append(user)
             else:
-                # user not found (looped over all users)
-                self.space.authorize_user(username=name, right=accesstype)
-            
-        self.users
+                raise RuntimeError('failed to add user "%s"' % name)
+
         self.save()
 
-    def user_delete(self, usernames):
+    def user_delete(self, username):
         '''
         Delete user access
 
-        :param usernames: list of user instance names
+        :param username: user instance name
         '''
         if not self.data['create']:
             raise RuntimeError('readonly cloudspace')
 
         self.state.check('actions', 'install', 'ok')
-        users = self.users
 
-        for username in usernames:
-            for user in users:
-                if username == user['name']:
-                    self.space.unauthorize_user(username=user['name'])
+        import ipdb; ipdb.set_trace()
+        # fetch list of authorized users to self.data['users']
+        self.get_users
+        users = self.data['users']
+
+        for user in users:
+            if username == user['name']:
+                if self.space.unauthorize_user(username=user['name']):
+                    users.remove(user)
                     break
+                else:
+                    raise RuntimeError('failed to delete user "%s"' % user['name'])
         
-        self.users
         self.save()
 
     def update(self, maxMemoryCapacity=None, maxDiskCapacity=None, maxNumPublicIP=None,

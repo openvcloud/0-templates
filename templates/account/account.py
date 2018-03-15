@@ -38,14 +38,15 @@ class Account(TemplateBase):
         return self._account
 
     @property
-    def users(self):
+    def get_users(self):
         '''
         Fetch authorized account users
         '''
-        self.data['users'] = []
+        self.account.refresh()
+        users = []
         for user in self.account.model['acl']:
-            self.data['users'].append({'name' : user['userGroupId'], 'accesstype' : user['right']} )
-        
+            users.append({'name' : user['userGroupId'], 'accesstype' : user['right']})
+        self.data['users'] = users
         return self.data['users']
 
     def get_openvcloud(self):
@@ -60,9 +61,9 @@ class Account(TemplateBase):
 
         cl = self.ovc
 
-        if not self.data['create']:
-            self.account
-
+        if not self.account:
+            if not self.data['create']:
+                raise RuntimeError("account %s not found" % self.name)
             self.state.set('actions', 'install', 'ok')
             return
 
@@ -98,55 +99,60 @@ class Account(TemplateBase):
         acc = cl.account_get(self.name, create=False)
         acc.delete()
 
-    def user_add(self, users):
+    def user_add(self, user):
         '''
         Add/Update user access to an account
-        :param users: list of users if form of dictionary {'name': , 'accesstype': }
+        :param user: user dictionary {'name': , 'accesstype': }
         '''
         if not self.data['create']:
             raise RuntimeError('readonly account')
 
         self.state.check('actions', 'install', 'ok')
-        import ipdb; ipdb.set_trace()
-        existent_users = self.users
-        for user in users:
-            name = user['name']
-            accesstype = user.get('accesstype')
-            
-            for existent_user in existent_users:
-                if existent_user['name'] != name:
-                    continue
+        self.get_users
+        users = self.data['users']
 
-                if existent_user['accesstype'] == accesstype:
-                    # nothing to do here
-                    break
+        name = user['name']
+        accesstype = user.get('accesstype')
+        
+        for existent_user in users:
+            if existent_user['name'] != name:
+                continue
 
-                self.account.update_access(username=name, right=accesstype)
+            if existent_user['accesstype'] == accesstype:
+                # nothing to do here
                 break
+            if self.account.update_access(username=name, right=accesstype) == True:
+                existent_user['accesstype'] = accesstype
+                break
+            raise RuntimeError('failed to update access type of user "%s"' % name)
+        else:
+            # user not found (looped over all users)
+            if self.account.authorize_user(username=name, right=accesstype) == True:
+                users.append(user)
             else:
-                # user not found (looped over all users)
-                self.account.authorize_user(username=name, right=accesstype)
-            
-        self.users
+                raise RuntimeError('failed to add user "%s"' % name)
+                            
         self.save()
 
-    def user_delete(self, usernames):
+    def user_delete(self, username):
         '''
         Delete user access
-        :param usernames: list of user instance names
+        :param username: user instance name
         '''
         if not self.data['create']:
             raise RuntimeError('readonly account')
 
         self.state.check('actions', 'install', 'ok')
-        users = self.users
-        for username in usernames:
-            for user in users:
-                if username == user['name']:
-                    self.account.unauthorize_user(username=user['name'])
+        self.get_users
+        users = self.data['users']
+
+        for user in users:
+            if username == user['name']:
+                if self.account.unauthorize_user(username=user['name']) == True:
+                    users.remove(user)
                     break
+                raise RuntimeError('failed to remove user "%s"' % username)
         
-        self.users
         self.save()
 
     def update(self, maxMemoryCapacity=None, maxDiskCapacity=None,
