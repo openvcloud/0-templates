@@ -12,7 +12,16 @@ class Zrobot(TemplateBase):
     NODE_TEMPLATE = 'github.com/openvcloud/0-templates/node/0.0.1'
     DOCKER_IMAGE = 'jumpscale/0-robot:latest'
 
+    # allowed service arguments
+    _ARGS = [
+        'description',
+        'node',
+        'port',
+        'templates',
+    ]
+
     def __init__(self, name, guid=None, data=None):
+        self._validate_args(data)
         super().__init__(name=name, guid=guid, data=data)
 
         self._ovc = None
@@ -29,6 +38,17 @@ class Zrobot(TemplateBase):
 
         if len(nodes) != 1:
             raise RuntimeError('found %s nodes, requires exactly one' % len(nodes))
+
+    def _validate_args(self, data):
+        """
+        Validates if provided data object contains supported args
+        """
+        if data is None:
+            return
+
+        for arg in data:
+            if arg not in self._ARGS:
+                raise ValueError('%s is not a supported argument' % str(arg))
 
     def _prepare_repos(self, prefab, base):
         for dir in ['data', 'config', 'ssh']:

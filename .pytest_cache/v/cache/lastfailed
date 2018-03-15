@@ -1,0 +1,6 @@
+{
+  "templates/sshkey/test_sshkey.py::TestSshKey::test_create": true,
+  "templates/sshkey/test_sshkey.py::TestSshKey::test_create_bad_pass": true,
+  "templates/sshkey/test_sshkey.py::TestSshKey::test_create_default_dir": true,
+  "templates/sshkey/test_sshkey.py::TestSshKey::test_validate_args": true
+}
