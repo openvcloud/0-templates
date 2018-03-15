@@ -1,11 +1,10 @@
-from js9 import j
 import os
 
 from unittest import TestCase
 
 from zerorobot import config, template_collection
 
-class Testdisk(TestCase):
+class TestDisk(TestCase):
     def setUp(self):
         config.DATA_DIR = '/tmp'
         self.type = template_collection._load_template(
@@ -119,6 +118,11 @@ class Testdisk(TestCase):
                 "data": {"sizeIopsSec" : "dummy value"},
                 "valid": True,
                 "msg": "sizeIopsSec is a valid argument",
+            },
+            {
+                "data": {"sizeIopsSec" : "dummy value", "readBytesSecMax" : "dummy value"},
+                "valid": True,
+                "msg": "sizeIopsSec and readBytesSecMax are valid arguments",
             },
             {
                 "data": {"foo" : "dummy value"},

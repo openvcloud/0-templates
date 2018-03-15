@@ -14,7 +14,31 @@ class Node(TemplateBase):
     SSH_TEMPLATE = 'github.com/openvcloud/0-templates/sshkey/0.0.1'
     DISK_TEMPLATE = 'github.com/openvcloud/0-templates/disk/0.0.1'
 
+    _ARGS = [
+        'description',
+        'vdc',
+        'osImage',
+        'sizeId',
+        'vCpus',
+        'memSize',
+        'ports',
+        'machineId',
+        'ipPublic',
+        'ipPrivate',
+        'sshLogin',
+        'sshPassword',
+        'disks',
+        'bootDiskSize',
+        'dataDiskSize',
+        'dataDiskFilesystem',
+        'dataDiskMountpoint',
+        'uservdc',
+        'sshKey',
+        'managedPrivate',
+    ]
+
     def __init__(self, name, guid=None, data=None):
+        self._validate_args(data)
         super().__init__(name=name, guid=guid, data=data)
 
         self._config = None
@@ -36,6 +60,17 @@ class Node(TemplateBase):
         matches = self.api.services.find(template_uid=self.SSH_TEMPLATE, name=self.data['sshKey'])
         if len(matches) != 1:
             raise RuntimeError('found %s ssh keys with name "%s"' % (len(matches), self.data['sshKey']))
+
+    def _validate_args(self, data):
+        """
+        Validates if provided data object contains supported args
+        """
+        if data is None:
+            return
+
+        for arg in data:
+            if arg not in self._ARGS:
+                raise ValueError('%s is not a supported argument' % str(arg))
 
     @property
     def config(self):
