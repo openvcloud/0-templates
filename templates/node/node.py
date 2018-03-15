@@ -14,6 +14,7 @@ class Node(TemplateBase):
     SSH_TEMPLATE = 'github.com/openvcloud/0-templates/sshkey/0.0.1'
     DISK_TEMPLATE = 'github.com/openvcloud/0-templates/disk/0.0.1'
 
+    # allowed service arguments
     _ARGS = [
         'description',
         'vdc',
