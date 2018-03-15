@@ -11,7 +11,33 @@ class Disk(TemplateBase):
     SSH_TEMPLATE = 'github.com/openvcloud/0-templates/sshkey/0.0.1'
     ACCOUNT_TEMPLATE = 'github.com/openvcloud/0-templates/account/0.0.1'
 
+    # allowed service arguments
+    _ARGS = [
+        'size',
+        'type',
+        'description',
+        'deviceName',
+        'diskId',
+        'vdc',
+        'location',
+        'maxIops',
+        'totalBytesSec',
+        'readBytesSec',
+        'writeBytesSec',
+        'totalIopsSec',
+        'readIopsSec',
+        'writeIopsSec',
+        'totalBytesSecMax',
+        'readBytesSecMax',
+        'writeBytesSecMax',
+        'totalIopsSecMax',
+        'readIopsSecMax',
+        'writeIopsSecMax',
+        'sizeIopsSec',
+    ]
+
     def __init__(self, name, guid=None, data=None):
+        self._validate_args(data)
         super().__init__(name=name, guid=guid, data=data)
 
         self.data['devicename'] = name
@@ -23,6 +49,17 @@ class Disk(TemplateBase):
         if not self.data['vdc']:
             raise RuntimeError('vdc name should be given')
         self._validate_limits()
+
+    def _validate_args(self, data):
+        """
+        Validates if provided data object contains supported args
+        """
+        if data is None:
+            return
+
+        for arg in data:
+            if arg not in self._ARGS:
+                raise ValueError('%s is not a supported argument' % str(arg))
 
     def update_data(self, data):
         # merge new data

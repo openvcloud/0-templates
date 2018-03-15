@@ -24,6 +24,7 @@ class Account(TemplateBase):
         'consumptionFrom',
         'consumptionTo',
         'consumptionData',
+        'create',
     ]
 
     def __init__(self, name, guid=None, data=None):

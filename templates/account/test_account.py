@@ -330,6 +330,11 @@ class TestAccount(TestCase):
                 "msg": "consumptionData is a valid argument",
             },
             {
+                "data": {"create" : "dummy value"},
+                "valid": True,
+                "msg": "create is a valid argument",
+            },
+            {
                 "data": {"consumptionData" : "dummy value", "description" : "dummy value"},
                 "valid": True,
                 "msg": "consumptionData and description are valid arguments",
