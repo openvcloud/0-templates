@@ -290,3 +290,118 @@ class TestVDC(TestCase):
                 'maxNumPublicIP': 3,
                 'maxCPUCapacity': 4
             })
+
+    def test_validate_args(self):
+        tt = [
+            {
+                "data": {"description" : "dummy value"},
+                "valid": True,
+                "msg": "description is a valid argument",
+            },
+            {
+                "data": {"account" : "dummy value"},
+                "valid": True,
+                "msg": "account is a valid argument",
+            },
+            {
+                "data": {"users" : "dummy value"},
+                "valid": True,
+                "msg": "users is a valid argument",
+            },
+            {
+                "data": {"allowedVMSizes" : "dummy value"},
+                "valid": True,
+                "msg": "allowedVMSizes is a valid argument",
+            },
+            {
+                "data": {"cloudspaceID" : "dummy value"},
+                "valid": True,
+                "msg": "cloudspaceID is a valid argument",
+            },
+            {
+                "data": {"maxMemoryCapacity" : "dummy value"},
+                "valid": True,
+                "msg": "maxMemoryCapacity is a valid argument",
+            },
+            {
+                "data": {"maxCPUCapacity" : "dummy value"},
+                "valid": True,
+                "msg": "maxCPUCapacity is a valid argument",
+            },
+            {
+                "data": {"maxDiskCapacity" : "dummy value"},
+                "valid": True,
+                "msg": "maxDiskCapacity is a valid argument",
+            },
+            {
+                "data": {"maxNumPublicIP" : "dummy value"},
+                "valid": True,
+                "msg": "maxNumPublicIP is a valid argument",
+            },
+            {
+                "data": {"externalNetworkID" : "dummy value"},
+                "valid": True,
+                "msg": "externalNetworkID is a valid argument",
+            },
+            {
+                "data": {"maxNetworkPeerTransfer" : "dummy value"},
+                "valid": True,
+                "msg": "maxNetworkPeerTransfer is a valid argument",
+            },
+            {
+                "data": {"disabled" : "dummy value"},
+                "valid": True,
+                "msg": "disabled is a valid argument",
+            },
+            {
+                "data": {"script" : "dummy value"},
+                "valid": True,
+                "msg": "script is a valid argument",
+            },
+            {
+                "data": {"create" : "dummy value"},
+                "valid": True,
+                "msg": "create is a valid argument",
+            },
+            {
+                "data": {"allowedVMSizes" : "dummy value", "users" : "dummy value"},
+                "valid": True,
+                "msg": "allowedVMSizes and users are valid arguments",
+            },
+            {
+                "data": {"foo" : "dummy value"},
+                "valid": False,
+                "msg": "foo is an invalid argument",
+            },
+            {
+                "data": {"accounts" : "dummy value"},
+                "valid": False,
+                "msg": "accounts is an invalid argument",
+            },
+            {
+                "data": {"user" : "dummy value"},
+                "valid": False,
+                "msg": "user is an invalid argument",
+            },
+            {
+                "data": {"allowedVMSizes" : "dummy value", "foo" : "dummy value"},
+                "valid": False,
+                "msg": "foo is an invalid argument",
+            },
+        ]
+
+        name = 'test'
+        instance = self.type(name)
+
+        for tc in tt:
+            result = False
+
+            try:
+                instance._validate_args(data=tc['data'])
+                result = True
+            except Exception as err:
+                print(err)
+                if not isinstance(err, ValueError):
+                    self.fail(msg="received unexpected exception:\n\t%s" % (str(err)))
+            
+            self.assertEqual(tc['valid'], result, tc['msg'])
