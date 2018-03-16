@@ -5,35 +5,47 @@ This template is responsible for creating an account on any openVCloud environme
 
 ## Schema:
 
-- description: (optional) Arbitrary description of the account.
-- openvcloud (required): Name of the [openvcloud](../openvcloud) instance used to connect to the environment.
-- users: List of [vcd users](#vdc-user) that will be authorized on the account.
-- accountID: The ID of the account. **Filled in automatically, don't specify it in the blueprint**
-- maxMemoryCapacity: The limit on the memory capacity that can be used by the account. Default: -1 (unlimited)
-- maxCPUCapacity: The limit on the CPUs that can be used by the account. Default: -1 (unlimited)
-- maxNumPublicIP: The limit on the number of public IPs that can be used by the account. Default: -1 (unlimited)
-- maxDiskCapacity: The limit on the disk capacity that can be used by the account. Default: -1 (unlimited)
-- consumptionFrom: determines the start date of the required period to fetch the account consumption info from. If left empty will be creation time of the account.
-- consumptionTo: determines the end date of the required period to fetch the account consumption info from. If left empty will be consumptionfrom + 1 hour.
-- consumptionData: consumption data will be saved here as series of bytes which represents a zip file. Example of writing the data:
+- `openvcloud`: Name of the [openvcloud](../openvcloud) instance used to connect to the environment.  **required**
+- `description`: Arbitrary description of the account. **optional**
+- `users`: List of [vcd users](#vdc-user) that will be authorized on the account.
+- `accountID`: The ID of the account. **Filled in automatically, don't specify it in the blueprint**
+- `maxMemoryCapacity`: The limit on the memory capacity that can be used by the account. Default to -1 (unlimited)
+- `maxCPUCapacity`: The limit on the CPUs that can be used by the account. Default: -1 (unlimited)
+- `maxNumPublicIP`: The limit on the number of public IPs that can be used by the account. Default to -1 (unlimited)
+- `maxDiskCapacity`: The limit on the disk capacity that can be used by the account. Default to -1 (unlimited)
+- `consumptionFrom`: determines the start date of the required period to fetch the account consumption info from. If left empty will be creation time of the account.
+- `consumptionTo`: determines the end date of the required period to fetch the account consumption info from. If left empty will be `consumptionfrom` + 1 hour.
+- `consumptionData`: consumption data will be saved here as series of bytes which represents a zip file. Example of writing the data:
+- `create`: defines whether nonexistent account will be created or not. Default to `True`.
 
-## Vdc User
+### Vdc User
 - name: name of the [vdcuser](../vdcuser)
 - accesstype: access type (check OVC documentation for supported access types)
 
-## Access rights
+### Access rights
 
-For information about the different access rights check docs at [openvcloud](https://github.com/0-complexity/openvcloud/blob/2.1.7/docs/EndUserPortal/Authorization/AuthorizationModel.md).
+For information about the different access rights, check docs at [openvcloud](https://github.com/0-complexity/openvcloud/blob/2.1.7/docs/EndUserPortal/Authorization/AuthorizationModel.md).
 
-## Example for creating an account
+
+## Actions
+
+- `install`: creates an account or gets an existent account.
+- `uninstall`: delete an account.
+- `user_add`: adds a user to the account or updates access rights.
+- `user_delete`: deletes a user from the account.
+- `update`: updates the account attributes:
+
+  - `maxMemoryCapacity`
+  - `maxCPUCapacity`
+  - `maxNumPublicIP`
+  - `maxDiskCapacity`
+
 
 ```yaml
 services:
-    - github.com/openvcloud/0-templates/sshkey/0.0.1__key:
-        path: '/root/.ssh/id_rsa'
     - github.com/openvcloud/0-templates/openvcloud/0.0.1__ovc:
+        location: <ovc.demo>
         address: 'ovc.demo.greenitglobe.com'
-        login: '<username>'
         token: '<iyo jwt token>'
     - github.com/openvcloud/0-templates/vdcuser/0.0.1__admin:
         provider: itsyouonline
@@ -47,25 +59,15 @@ actions:
       actions: ['install']
 ```
 
-## Actions
-### `user_add` action
-Add user to an account
-
-params:
-- user object
-  - name: username reference to user instance
-  - accesstype: (optional) access type
+```yaml
+actions:
+  - template: github.com/openvcloud/0-templates/account/0.0.1:
+    service: myaccount
+    action: ['uninstall']
+```
 
 ```yaml
-# Create the user instance if it doesn't already exist
-services:
-  - github.com/openvcloud/0-templates/vdcuser/0.0.1__testuser:
-      provider: itsyouonline
-      email: testuser@greenitglobe.com
 actions:
-  - service: testuser
-    action: ['install']
-
   - service: myaccount
     actions: ['user_add']
      args:
@@ -74,11 +76,6 @@ actions:
           accesstype: R
 ```
 
-### `user_delete` action
-Remove users from an account
-
-params:
-- username: user name to delete
 ```yaml
 actions:
   - service: myaccount
@@ -86,16 +83,6 @@ actions:
     args:
       username: testuser
 ```
-
-
-### `update` action
-Update account attributes
-
-params:
-- maxMemoryCapacity (optional): The limit on the memory capacity that can be used by the account.
-- maxCPUCapacity (optional): The limit on the CPUs that can be used by the account.
-- maxNumPublicIP (optional): The limit on the number of public IPs that can be used by the account.
-- maxDiskCapacity (optional): The limit on the disk capacity that can be used by the account.
 
 ```yaml
 actions:
