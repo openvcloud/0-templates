@@ -48,9 +48,11 @@ services:
         address: 'ovc.demo.greenitglobe.com'
         token: '<iyo jwt token>'
     - github.com/openvcloud/0-templates/vdcuser/0.0.1__admin:
+        openvcloud: ovc
         provider: itsyouonline
         email: admin@greenitglobe.com
     - github.com/openvcloud/0-templates/account/0.0.1__myaccount:
+       openvcloud: ovc
         users:
             - name: admin
               accesstype: CXDRAU

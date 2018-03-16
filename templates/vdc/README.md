@@ -6,18 +6,17 @@ This actor template creates a cloudspace (Virtual Data Center) on the specified 
 
 ## Schema
 
-- openvcloud (required): Name of the [openvcloud](../openvcloud) instance used to connect to the environment.
-- account (required): an [account](../account) used for this space.
-- description: Description of the cloudspace.
-- users: List of [vcd users](#vdc-user) that will be authorized on the space.
-- cloudspaceID: id of the cloudspace. **Filled in automatically, don't specify it in the blueprint**
-- maxMemoryCapacity: Cloudspace limits, maximum memory(GB).
-- maxCPUCapacity: Cloudspace limits, maximum CPU capacity.
-- maxDiskCapacity: Cloudspace limits, maximum disk capacity(GB).
-- maxNumPublicIP: Cloudspace limits, maximum allowed number of public IPs.
-- externalNetworkID: External network to be attached to this cloudspace.
-- maxNetworkPeerTransfer: Cloudspace limits, max sent/received network transfer peering(GB).
-- disabled: True if the cloudspace is disabled. **Filled in automatically, don't specify it in the blueprint**
+- `account` (required): an [account](../account) used for this space.
+- `description`: Description of the cloudspace.
+- `users`: List of [vcd users](#vdc-user) that will be authorized on the space.
+- `cloudspaceID`: id of the cloudspace. **Filled in automatically, don't specify it in the blueprint**
+- `maxMemoryCapacity`: Cloudspace limits, maximum memory(GB).
+- `maxCPUCapacity`: Cloudspace limits, maximum CPU capacity.
+- `maxDiskCapacity`: Cloudspace limits, maximum disk capacity(GB).
+- `maxNumPublicIP`: Cloudspace limits, maximum allowed number of public IPs.
+- `externalNetworkID`: External network to be attached to this cloudspace.
+- `maxNetworkPeerTransfer`: Cloudspace limits, max sent/received network transfer peering(GB).
+- `disabled`: True if the cloudspace is disabled. **Filled in automatically, don't specify it in the blueprint**
 
 ## Access rights
 
@@ -31,32 +30,28 @@ For the creation of the vdc the action specified is install, to delete the vdc a
 
 ```yaml
 services:
-    - github.com/openvcloud/0-templates/sshkey/0.0.1__keyname:
-        dir: '/root/.ssh/'
-        passphrase: testpassphrase
-    - github.com/openvcloud/0-templates/openvcloud/0.0.1__myovc:
-        location: be-gen-demo
+    - github.com/openvcloud/0-templates/openvcloud/0.0.1__ovc:
+        location: <ovc.demo>
         address: 'ovc.demo.greenitglobe.com'
-        login: '<username>'
         token: '<iyo jwt token>'
     - github.com/openvcloud/0-templates/vdcuser/0.0.1__admin:
-        openvcloud: myovc
+        openvcloud: ovc
         provider: itsyouonline
         email: admin@greenitglobe.com
     - github.com/openvcloud/0-templates/account/0.0.1__myaccount:
-        openvcloud: myovc
+       openvcloud: ovc
         users:
             - name: admin
               accesstype: CXDRAU
     - github.com/openvcloud/0-templates/vdc/0.0.1__myspace:
-        openvcloud: myovc
+        account: myaccount
         users:
             - name: admin
               accesstype: CXDRAU
-
 actions:
-    - actions: ['install']
+      actions: ['install']
 ```
+
 ## Actions
 ### `user_add` action
 Add user to an account
@@ -67,20 +62,13 @@ params:
   - accesstype: (optional) access type
 
 ```yaml
-# Create the user instance if it doesn't already exist
-services:
-  - github.com/openvcloud/0-templates/vdcuser/0.0.1__testuser:
-      provider: itsyouonline
-      email: testuser@greenitglobe.com
 actions:
-  - service: testuser
-    action: ['install']
-
-  - service: myspace
+  - temlate: github.com/openvcloud/0-templates/vdcuser/0.0.1
+    service: myspace
     actions: ['user_add']
      args:
         user:
-          name: thabet
+          name: username
           accesstype: R
 ```
 
