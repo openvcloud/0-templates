@@ -65,17 +65,22 @@ class Vdc(TemplateBase):
 
     @property
     def space(self):
+        """
+        A space getter
+        """
         if self._space:
             return self._space
-        acc = self.account
-        return acc.space_get(name=self.name)
 
-    @property
-    def get_users(self):
+        acc = self.account
+        self._space = acc.space_get(name=self.name)
+        return self._space
+
+    def get_users(self, refresh=True):
         '''
         Fetch authorized vdc users
         '''
-        self.space.refresh()
+        if refresh:
+            self.space.refresh()
         users = []
         for user in self.space.model['acl']:
             users.append({'name' : user['userGroupId'], 'accesstype' : user['right']})
@@ -89,12 +94,9 @@ class Vdc(TemplateBase):
         except StateCheckError:
             pass
         acc = self.account
-
         if not self.data['create']:
-            space = acc.space_get(
-                name=self.name,
-                create=True
-            )
+            space = self.space
+            self.get_users(refresh=False)
             self.data['cloudspaceID'] = space.model['id']
             self.state.set('actions', 'install', 'ok')
             return
@@ -104,7 +106,7 @@ class Vdc(TemplateBase):
         externalnetworkId = self.data.get('externalNetworkID', -1)
         if externalnetworkId == -1:
             externalnetworkId = None
-        space = acc.space_get(
+        self._space = acc.space_get(
             name=self.name,
             create=True,
             maxMemoryCapacity=self.data.get('maxMemoryCapacity', -1),
@@ -114,12 +116,11 @@ class Vdc(TemplateBase):
             maxNetworkPeerTransfer=self.data.get('maxNetworkPeerTransfer', -1),
             externalnetworkId=externalnetworkId
         )
-
+        space = self.space
         # add space ID to data
         self.data['cloudspaceID'] = space.model['id']
-
         # fetch list of authorized users to self.data['users']
-        self.get_users
+        self.get_users(refresh=False)
 
         # update capacity incase cloudspace already existed update it
         space.model['maxMemoryCapacity'] = self.data.get('maxMemoryCapacity', -1)
@@ -223,18 +224,21 @@ class Vdc(TemplateBase):
         Add/Update user access to a space
         :param user: user dictionary {'name': , 'accesstype': }
         '''
+        self.state.check('actions', 'install', 'ok')
+
         if not self.data['create']:
             raise RuntimeError('readonly cloudspace')
 
-        self.state.check('actions', 'install', 'ok')
+        find = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=user['name'])
+        if len(find) != 1:
+            raise ValueError('no vdcuser service found with name "%s"', user['name'])
 
         # fetch list of authorized users to self.data['users']
-        self.get_users
+        self.get_users()
         users = self.data['users']
 
         name = user['name']
         accesstype = user.get('accesstype')
-        
         for existent_user in users:
             if existent_user['name'] != name:
                 continue
@@ -269,18 +273,18 @@ class Vdc(TemplateBase):
 
         self.state.check('actions', 'install', 'ok')
 
-        import ipdb; ipdb.set_trace()
         # fetch list of authorized users to self.data['users']
-        self.get_users
+        self.get_users()
         users = self.data['users']
-
         for user in users:
             if username == user['name']:
                 if self.space.unauthorize_user(username=user['name']):
                     users.remove(user)
                     break
                 else:
-                    raise RuntimeError('failed to delete user "%s"' % user['name'])
+                    raise RuntimeError('failed to delete user "%s"' % username)
+        else:
+            raise RuntimeError('user "%s" is not found' % username)
         
         self.save()
 

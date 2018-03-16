@@ -21,9 +21,6 @@ class TestVDC(TestCase):
         space_mock = MagicMock(model={'acl': []})
         acc_mock = MagicMock(space_get=MagicMock(return_value=space_mock))
         self.ovc_mock = MagicMock(account_get=MagicMock(return_value=acc_mock))        
-        
-    def tearDown(self):
-        patch.stopall()
 
     def test_validate_account(self):
         data = {
@@ -117,11 +114,9 @@ class TestVDC(TestCase):
         with mock.patch.object(instance, 'api') as api:
             api.services.find.side_effect = find
             instance.validate()
-
         api.services.find.assert_has_calls(
             [
                 mock.call(template_uid=self.type.ACCOUNT_TEMPLATE, name=data['account']),
-                mock.call(template_uid=self.type.VDCUSER_TEMPLATE, name=data['users'][0]['name'])
             ]
         )
 
@@ -163,7 +158,6 @@ class TestVDC(TestCase):
                 'maxNetworkPeerTransfer': -1,
                 'status': 'DEPLOYED'
             })
-
             space.save.assert_called_once_with()
 
     def test_user_add(self):
@@ -172,29 +166,37 @@ class TestVDC(TestCase):
         '''
         instance = self.type('test', None)
 
+        # user to add
+        user = {'name': 'test1', 'accesstype': 'R'}
         with pytest.raises(StateCheckError):
             # fails if not installed
-            instance.user_add({'name': 'test1', 'accesstype': 'R'})
+            instance.user_add(user)
 
         instance.state.set('actions', 'install', 'ok')
+        with pytest.raises(ValueError,
+                           message='no vdcuser service found with name "%s"' % user['name']):
+            # fails if no vdcuser service is running for this user
+            instance.user_add(user)
 
         with patch.object(instance, 'api') as api:
             api.services.find.return_value = [MagicMock(schedule_action=MagicMock())]
-            with patch('js9.j.clients.openvcloud.get', return_value=self.ovc_mock) as ovc:
-                # user to add
-                user = {'name': 'test1', 'accesstype': 'R'}
+            with patch('js9.j.clients.openvcloud.get', return_value=self.ovc_mock) as ovc:               
                 
                 # test success
                 ovc.return_value.account_get.return_value.space_get.return_value.authorize_user.return_value=True
                 instance.user_add(user)
                 instance.space.authorize_user.assert_called_once_with(username=user['name'], right=user['accesstype'])
+                api.services.find.assert_has_calls(
+                    [mock.call(template_uid=self.type.VDCUSER_TEMPLATE, name=user['name'])]
+                )
 
                 self.assertEqual(instance.data['users'], [user])
 
                 # test fail
                 ovc.return_value.account_get.return_value.space_get.return_value.authorize_user.return_value=False
+                user = {'name': 'test2', 'accesstype': 'R'}
                 with pytest.raises(RuntimeError,
-                                   message='failed to add user "test1"'):
+                                   message='failed to add user "%s"' % user['name']):
                     instance.user_add(user)
 
     def test_user_update_access_right(self):
