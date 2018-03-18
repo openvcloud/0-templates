@@ -84,6 +84,7 @@ class accounts(OVC_BaseTest):
                                     'maxNumPublicIP': CU_I,
                                     'users': OrderedDict([('name', self.vdcuser),
                                                           ('accesstype', 'CXDRAU')])}
+        self.acc2 = self.random_string()
         self.accounts[self.acc2] = {'openvcloud': self.openvcloud}
 
         self.log('Create two accounts, should succeed')
