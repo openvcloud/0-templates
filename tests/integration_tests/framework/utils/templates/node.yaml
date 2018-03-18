@@ -1,0 +1,19 @@
+{% include 'vdc.yaml'%}
+
+{% for vmname, value in vms.items() %}
+  - github.com/openvcloud/0-templates/node/{{config_params('version')}}__{{vmname}}:
+{% for vmparam, value2 in value.items() %}
+{% if value2 is mapping %}
+      {{vmparam}}:
+{% for userparam, value3 in value2.items() %}
+{% if userparam == 'name' %}
+        - {{userparam}}: {{value3}}
+{% else %}
+          {{userparam}}: {{value3}}
+{% endif %}
+{% endfor %}
+{% else %}
+      {{vmparam}}: {{value2}}
+{% endif %}
+{% endfor %}
+{% endfor %}
