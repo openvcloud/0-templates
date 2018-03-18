@@ -12,10 +12,11 @@ class accounts(OVC_BaseTest):
         super(accounts, self).setUp()
         self.acc1 = self.random_string()
         self.vdcuser = self.random_string()
-        self.vdcusers.extend([{self.vdcuser: {'openvcloud': self.openvcloud,
-                                              'provider': 'itsyouonline',
-                                              'email': '%s@test.com'% self.random_string(),
-                                              'groups': ['user'] }}])
+        self.vdcusers[self.vdcuser] = {'openvcloud': self.openvcloud,
+                                       'provider': 'itsyouonline',
+                                       'email': '%s@test.com' % self.random_string(),
+                                       'groups': ['user']}
+        self.accounts = dict()
         self.temp_actions = {'account': {'actions': ['install']},
                              'vdcuser': {'actions': ['install']}}
 
@@ -34,27 +35,27 @@ class accounts(OVC_BaseTest):
         self.log('%s STARTED' % self._testID)
 
         self.log('Create an account without providing openvcloud parameter, should fail')
-        self.accounts = [{self.acc1: {}}]
+        self.accounts[self.acc1] = {}
         res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
                                   accounts=self.accounts, temp_actions=self.temp_actions)
         self.assertEqual(res, 'openvcloud is mandatory')
 
         self.log('Create an account with providing wrong openvcloud value, should fail.')
-        self.accounts = [{self.acc1: {'openvcloud': self.random_string()}}]
+        self.accounts[self.acc1] = {'openvcloud': self.random_string()}
         res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
                                   accounts=self.accounts, temp_actions=self.temp_actions)
         self.assertEqual(res, 'found 0 openvcloud connections, requires exactly 1')
 
         self.log('Create an account with providing non existing user, should fail')
-        self.accounts = [{self.acc1: {'openvcloud': self.openvcloud,
-                                      'users': OrderedDict([('name', self.random_string()),
-                                                            ('accesstype', 'CXDRAU')])}}]
+        self.accounts[self.acc1] = {'openvcloud': self.openvcloud,
+                                    'users': OrderedDict([('name', self.random_string()),
+                                                          ('accesstype', 'CXDRAU')])}
         res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
                                   accounts=self.accounts, temp_actions=self.temp_actions)
         self.assertIn('no vdcuser found', res)
 
         self.log('Create an account with providing non existing parameter, should fail')
-        self.accounts = [{self.acc1: {self.random_string(): self.random_string()}}]
+        self.accounts[self.acc1] = {self.random_string(): self.random_string()}
         res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
                                   accounts=self.accounts, temp_actions=self.temp_actions)
         self.assertEqual(res, 'parameter provided is wrong')
@@ -78,12 +79,13 @@ class accounts(OVC_BaseTest):
         CU_C = randint(15, 30)
         CU_I = randint(15, 30)
         CU_M = randint(15, 30)
-        self.accounts = [{self.acc1: {'openvcloud': self.openvcloud, 'maxMemoryCapacity': CU_M,
-                                      'maxCPUCapacity': CU_C, 'maxDiskCapacity': CU_D,
-                                      'maxNumPublicIP': CU_I,
-                                      'users': OrderedDict([('name', self.vdcuser),
-                                                             ('accesstype', 'CXDRAU')])}},
-                         {self.acc2: {'openvcloud': self.openvcloud}}]
+        self.accounts[self.acc1] = {'openvcloud': self.openvcloud, 'maxMemoryCapacity': CU_M,
+                                    'maxCPUCapacity': CU_C, 'maxDiskCapacity': CU_D,
+                                    'maxNumPublicIP': CU_I,
+                                    'users': OrderedDict([('name', self.vdcuser),
+                                                          ('accesstype', 'CXDRAU')])}
+        self.acc2 = self.random_string()
+        self.accounts[self.acc2] = {'openvcloud': self.openvcloud}
 
         self.log('Create two accounts, should succeed')
         res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
@@ -106,7 +108,6 @@ class accounts(OVC_BaseTest):
         account = self.get_account(self.acc2)
         self.assertEqual(account['status'], 'CONFIRMED')
 
-
         self.log('%s ENDED' % self._testID)
 
     @unittest.skip('https://github.com/openvcloud/0-templates/issues/50')
@@ -126,9 +127,9 @@ class accounts(OVC_BaseTest):
         CU_C = randint(15, 30)
         CU_I = randint(15, 30)
         CU_M = randint(15, 30)
-        self.accounts = [{self.acc1: {'openvcloud': self.openvcloud, 'maxMemoryCapacity': CU_M,
-                                      'maxCPUCapacity': CU_C, 'maxDiskCapacity': CU_D,
-                                      'maxNumPublicIP': CU_I}}]
+        self.accounts[self.acc1] = {'openvcloud': self.openvcloud, 'maxMemoryCapacity': CU_M,
+                                    'maxCPUCapacity': CU_C, 'maxDiskCapacity': CU_D,
+                                    'maxNumPublicIP': CU_I}
 
         self.log('Create an account, should succeed')
         res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
@@ -141,9 +142,9 @@ class accounts(OVC_BaseTest):
         self.assertEqual(account['status'], 'CONFIRMED')
 
         self.log('Update some parameters and make sure it is updated')
-        self.accounts = [{self.acc1: {'openvcloud': self.openvcloud, 'maxMemoryCapacity': CU_M - 1,
-                                      'maxCPUCapacity': CU_C - 1, 'maxDiskCapacity': CU_D - 1,
-                                      'maxNumPublicIP': CU_I - 1}}]
+        self.accounts[self.acc1] = {'openvcloud': self.openvcloud, 'maxMemoryCapacity': CU_M - 1,
+                                    'maxCPUCapacity': CU_C - 1, 'maxDiskCapacity': CU_D - 1,
+                                    'maxNumPublicIP': CU_I - 1}
         res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
                                   accounts=self.accounts, temp_actions=self.temp_actions)
         self.assertTrue(type(res), type(dict()))
@@ -168,9 +169,9 @@ class accounts(OVC_BaseTest):
         """
         self.log('%s STARTED' % self._testID)
 
-        self.accounts = [{self.acc1: {'openvcloud': self.openvcloud,
-                                      'users': OrderedDict([('name', self.vdcuser),
-                                                             ('accesstype', 'CXDRAU')])}}]
+        self.accounts[self.acc1] = {'openvcloud': self.openvcloud,
+                                    'users': OrderedDict([('name', self.vdcuser),
+                                                          ('accesstype', 'CXDRAU')])}
 
         self.log('Create an account, should succeed')
         res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
@@ -181,7 +182,7 @@ class accounts(OVC_BaseTest):
         self.assertEqual(account['status'], 'CONFIRMED')
 
         self.log('Update the account with fake user, should fail')
-        accounts[0][self.acc1]['users']['name'] = self.random_string()
+        self.accounts[self.acc1]['users']['name'] = self.random_string()
         res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
                                   accounts=self.accounts, temp_actions=self.temp_actions)
         self.assertIn('no vdcuser found', res)
@@ -189,8 +190,8 @@ class accounts(OVC_BaseTest):
         self.log('%s ENDED' % self._testID)
 
     def tearDown(self):
-        for account in self.accounts:
-            if self.check_if_service_exist(list(account.keys())[0]):
+        for accountname in self.accounts.keys():
+            if self.check_if_service_exist(accountname):
                 self.temp_actions = {'account': {'actions': ['uninstall']}}
                 self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
                                     accounts=self.accounts, temp_actions=self.temp_actions)

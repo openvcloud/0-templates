@@ -1,22 +1,19 @@
 {% include 'account.yaml'%}
 
-{% for cs in cloudspaces %}
-{% for csname in cs.keys() %}
+{% for csname, value in cloudspaces.items() %}
   - github.com/openvcloud/0-templates/vdc/{{config_params('version')}}__{{csname}}:
-      location: {{config_params('location')}}
-{% for key in cs[csname].keys() %}
-{% if cs[csname][key] is mapping %}
-      {{key}}:
-{% for v in cs[csname][key].keys() %}
-{% if v == 'name' %}
-         - {{v}}: {{cs[csname][key][v]}}
+{% for csparam, value2 in value.items() %}
+{% if value2 is mapping %}
+      {{csparam}}:
+{% for userparam, value3 in value2.items() %}
+{% if userparam == 'name' %}
+        - {{userparam}}: {{value3}}
 {% else %}
-           {{v}}: {{cs[csname][key][v]}}
+          {{userparam}}: {{value3}}
 {% endif %}
 {% endfor %}
 {% else %}
-      {{key}}: {{cs[csname][key]}}
+      {{csparam}}: {{value2}}
 {% endif %}
-{% endfor %}
 {% endfor %}
 {% endfor %}
