@@ -11,13 +11,12 @@ class vms(OVC_BaseTest):
     def setUp(self):
         super(vms, self).setUp()
         self.acc1 = self.random_string()
-        self.accounts[self.acc1] = {'openvcloud': self.openvcloud}
+        self.accounts = {self.acc1: {'openvcloud': self.openvcloud}}
         self.cs1 = self.random_string()
-        self.cs1_id = self.get_cloudspace(self.cs1)['id']
         self.vm1 = self.random_string()
         self.accounts[self.acc1] = {'openvcloud': self.openvcloud}
-        self.cloudspaces[self.cs1] = {'account': self.acc1}
-        self.vms[self.vm1] = {}
+        self.cloudspaces = {self.cs1: {'account': self.acc1}}
+        self.vms = dict()
         self.temp_actions = {'account': {'actions': ['install']},
                              'vdcuser': {'actions': ['install']},
                              'vdc': {'actions': ['install']},
@@ -80,13 +79,14 @@ class vms(OVC_BaseTest):
         """
         self.log('%s STARTED' % self._testID)
 
-        self.lg('Create two vms, should succeed')
+        self.log('Create two vms, should succeed')
         self.vms[self.vm1] = {'sshKey': self.key, 'vdc': self.cs1}
         res = self.create_vm(vdcusers=self.vdcusers, accounts=self.accounts,
                              cloudspaces=self.cloudspaces, vms=self.vms,
                              temp_actions=self.temp_actions)
         self.assertTrue(type(res), type(dict()))
         self.wait_for_service_action_status(self.vm1, res[self.vm1])
+        self.cs1_id = self.get_cloudspace(self.cs1)['id']
 
         self.log("Check if the 1st vm's parameters are reflected correctly on OVC")
         vm = self.get_vm(cloudspaceId=self.cs1_id, vmname=self.vm1)

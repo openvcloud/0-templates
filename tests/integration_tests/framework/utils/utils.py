@@ -42,7 +42,7 @@ class OVC_BaseTest(constructor):
         return self.handle_blueprint('vdc.yaml', **kwargs)
 
     def create_vm(self, **kwargs):
-        return self.handle_blueprint('vm.yaml', key=self.key,
+        return self.handle_blueprint('node.yaml', key=self.key,
                                      openvcloud=self.openvcloud, **kwargs)
 
     def get_cloudspace(self, name):
