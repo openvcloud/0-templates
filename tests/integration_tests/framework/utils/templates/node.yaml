@@ -5,11 +5,13 @@
 {% for vmparam, value2 in value.items() %}
 {% if value2 is mapping %}
       {{vmparam}}:
-{% for userparam, value3 in value2.items() %}
-{% if userparam == 'name' %}
-        - {{userparam}}: {{value3}}
+{% for user_port_param, value3 in value2.items() %}
+{% if disk == 'name' %}
+        - {{user_port_param}}: {{value3}}
+{% elif user_port_param == 'source' %}
+        - {{user_port_param}}: {{value3}}
 {% else %}
-          {{userparam}}: {{value3}}
+          {{user_port_param}}: {{value3}}
 {% endif %}
 {% endfor %}
 {% else %}

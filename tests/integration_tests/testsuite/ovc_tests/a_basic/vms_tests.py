@@ -14,7 +14,6 @@ class vms(OVC_BaseTest):
         self.accounts = {self.acc1: {'openvcloud': self.openvcloud}}
         self.cs1 = self.random_string()
         self.vm1 = self.random_string()
-        self.accounts[self.acc1] = {'openvcloud': self.openvcloud}
         self.cloudspaces = {self.cs1: {'account': self.acc1}}
         self.vms = dict()
         self.temp_actions = {'account': {'actions': ['install']},
@@ -37,32 +36,28 @@ class vms(OVC_BaseTest):
 
         self.log('Create a vm without providing sshKey parameter, should fail.')
         self.vms[self.vm1] = {'vdc': self.cs1}
-        res = self.create_vm(vdcusers=self.vdcusers, accounts=self.accounts,
-                             cloudspaces=self.cloudspaces, vms=self.vms,
-                             temp_actions=self.temp_actions)
+        res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
+                             vms=self.vms, temp_actions=self.temp_actions)
         self.assertEqual(res, 'sshKey is required')
 
         self.log('Create a vm without providing vdc parameter, should fail.')
         self.vms[self.vm1] = {'sshKey': self.key}
-        res = self.create_vm(ovdcusers=self.vdcusers, accounts=self.accounts,
-                             cloudspaces=self.cloudspaces, vms=self.vms,
-                             temp_actions=self.temp_actions)
+        res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
+                             vms=self.vms, temp_actions=self.temp_actions)
         self.assertEqual(res, 'vdc name should be given')
 
         self.log('Create a vm with providing non existing parameter, should fail.')
         self.vms[self.vm1].update({'vdc': self.cs1, self.random_string(): self.random_string()})
-        res = self.create_vm(vdcusers=self.vdcusers, accounts=self.accounts,
-                             cloudspaces=self.cloudspaces, vms=self.vms,
-                             temp_actions=self.temp_actions)
+        res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
+                             vms=self.vms, temp_actions=self.temp_actions)
         self.assertEqual(res, 'parameter provided is wrong')
 
         self.log('Create a vm with providing non existing user, should fail')
         self.vms[self.vm1] = {'sshKey': self.key, 'vdc': self.cs1,
                               'users': OrderedDict([('name', self.random_string()),
                                                     ('accesstype', 'CXDRAU')])}
-        res = self.create_vm(vdcusers=self.vdcusers, accounts=self.accounts,
-                             cloudspaces=self.cloudspaces, vms=self.vms,
-                             temp_actions=self.temp_actions)
+        res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
+                             vms=self.vms, temp_actions=self.temp_actions)
         self.assertIn('no vdcuser found', res)
 
         self.log('%s ENDED' % self._testID)
@@ -81,16 +76,39 @@ class vms(OVC_BaseTest):
 
         self.log('Create two vms, should succeed')
         self.vms[self.vm1] = {'sshKey': self.key, 'vdc': self.cs1}
-        res = self.create_vm(vdcusers=self.vdcusers, accounts=self.accounts,
-                             cloudspaces=self.cloudspaces, vms=self.vms,
-                             temp_actions=self.temp_actions)
+        res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
+                             vms=self.vms, temp_actions=self.temp_actions)
         self.assertTrue(type(res), type(dict()))
+        self.vm2 = self.random_string()
+        self.vdcuser = self.random_string()
+        self.vdcusers[self.vdcuser] = {'openvcloud': self.openvcloud,
+                                       'provider': 'itsyouonline',
+                                       'email': '%s@test.com' % self.random_string(),
+                                       'groups': ['user']}
+        bds = randint(10, 20)
+        dds = randint(10, 20)
+        self.vms[self.vm2] = {'sshKey': self.key, 'vdc': self.cs1,
+                              'bootDiskSize': bds, 'dataDiskSize': dds,
+                              'users': OrderedDict([('name', self.vdcuser),
+                                                    ('accesstype', 'CXDRAU')]),
+                              'ports': OrderedDict([('source', 2222),
+                                                    ('destination', 22)])}
+
         self.wait_for_service_action_status(self.vm1, res[self.vm1])
         self.cs1_id = self.get_cloudspace(self.cs1)['id']
 
         self.log("Check if the 1st vm's parameters are reflected correctly on OVC")
         vm = self.get_vm(cloudspaceId=self.cs1_id, vmname=self.vm1)
         self.assertEqual(self.cs1_id, vm['cloudspaceid'])
+
+        self.log('Check if the 2nd vm is created, should succeed')
+        vm2 = self.get_vm(cloudspaceId=self.cs1_id, vmname=self.vm2)
+        self.assertEqual([disk['sizeMax'] for disk in vm2['disks'] if disk['type'] == 'B'][0], bds)
+        self.assertEqual([disk['sizeMax'] for disk in vm2['disks'] if disk['type'] == 'D'][0], dds)
+        self.assertEqual(vm2['memory'], 512)
+        self.assertEqual(vm2['vcpus'], 1)
+        self.assertIn('%s@itsyouonline' % self.vdcuser,
+                      [user['userGroupId'] for user in vm2['acl']])
 
         self.log('%s ENDED' % self._testID)
 

@@ -41,9 +41,9 @@ class OVC_BaseTest(constructor):
     def create_cs(self, **kwargs):
         return self.handle_blueprint('vdc.yaml', **kwargs)
 
-    def create_vm(self, **kwargs):
-        return self.handle_blueprint('node.yaml', key=self.key,
-                                     openvcloud=self.openvcloud, **kwargs)
+    def create_vm(self, vdcusers=self.vdcusers, **kwargs):
+        return self.handle_blueprint('node.yaml', key=self.key, openvcloud=self.openvcloud,
+                                     vdcusers=self.vdcusers, **kwargs)
 
     def get_cloudspace(self, name):
         time.sleep(2)
