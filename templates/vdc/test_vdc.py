@@ -233,12 +233,13 @@ class TestVDC(TestCase):
         '''
         instance = self.type('test', None)
         instance.state.set('actions', 'install', 'ok')
+        
+        users = [{'userGroupId': 'test1', 'right': 'R'}]
 
         with patch.object(instance, 'api') as api:
             api.services.find.return_value = [MagicMock(schedule_action=MagicMock())]
             with patch('js9.j.clients.openvcloud.get', return_value=self.ovc_mock) as ovc:
-                users = [{'userGroupId': 'test1', 'right': 'R'}]
-                # user to update
+                # user to delete
                 username = 'test1'
 
                 # test success

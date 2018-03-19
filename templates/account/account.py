@@ -37,12 +37,12 @@ class Account(TemplateBase):
                                      )
         return self._account
 
-    @property
-    def get_users(self):
+    def get_users(self, refresh=True):
         '''
-        Fetch authorized account users
+        Fetch authorized vdc users
         '''
-        self.account.refresh()
+        if refresh:
+            self.account.refresh()
         users = []
         for user in self.account.model['acl']:
             users.append({'name' : user['userGroupId'], 'accesstype' : user['right']})
@@ -59,19 +59,13 @@ class Account(TemplateBase):
         except StateCheckError:
             pass
 
-        cl = self.ovc
-
-        if not self.account:
-            if not self.data['create']:
-                raise RuntimeError("account %s not found" % self.name)
-            self.state.set('actions', 'install', 'ok')
-            return
 
         # Set limits
-        # if account does not exist, it will create it
-        self._account = cl.account_get(
+        # if account does not exist, it will create it, 
+        # unless 'create' flag is set to False
+        self._account = self.ovc.account_get(
             name=self.name,
-            create=True,
+            create=self.data['create'],
             maxMemoryCapacity=self.data['maxMemoryCapacity'],
             maxVDiskCapacity=self.data['maxDiskCapacity'],
             maxCPUCapacity=self.data['maxCPUCapacity'],
@@ -80,7 +74,7 @@ class Account(TemplateBase):
 
         self.data['accountID'] = self.account.model['id']
         # get list of authorized users
-        self.data['users'] = self.account.authorized_users
+        self.get_users(refresh=False)
 
         # update capacity in case account already existed
         self.account.model['maxMemoryCapacity'] = self.data['maxMemoryCapacity']
@@ -95,8 +89,7 @@ class Account(TemplateBase):
         if not self.data['create']:
             raise RuntimeError('readonly account')
         self.state.check('actions', 'install', 'ok')
-        cl = self.ovc
-        acc = cl.account_get(self.name, create=False)
+        acc = self.ovc.account_get(self.name, create=False)
         acc.delete()
 
     def user_add(self, user):
@@ -104,11 +97,16 @@ class Account(TemplateBase):
         Add/Update user access to an account
         :param user: user dictionary {'name': , 'accesstype': }
         '''
+        self.state.check('actions', 'install', 'ok')
+
         if not self.data['create']:
             raise RuntimeError('readonly account')
 
-        self.state.check('actions', 'install', 'ok')
-        self.get_users
+        find = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=user['name'])
+        if len(find) != 1:
+            raise ValueError('no account service found with name "%s"', user['name'])
+
+        self.get_users()
         users = self.data['users']
 
         name = user['name']
@@ -143,7 +141,7 @@ class Account(TemplateBase):
             raise RuntimeError('readonly account')
 
         self.state.check('actions', 'install', 'ok')
-        self.get_users
+        self.get_users()
         users = self.data['users']
 
         for user in users:
@@ -152,7 +150,8 @@ class Account(TemplateBase):
                     users.remove(user)
                     break
                 raise RuntimeError('failed to remove user "%s"' % username)
-        
+        else:
+            raise RuntimeError('user "%s" is not found' % username)
         self.save()
 
     def update(self, maxMemoryCapacity=None, maxDiskCapacity=None,
