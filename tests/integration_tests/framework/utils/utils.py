@@ -66,5 +66,5 @@ class OVC_BaseTest(constructor):
         vms = self.ovc_client.api.cloudapi.machines.list(cloudspaceId=cloudspaceId)
         for vm in vms:
             if vm['name'] == vmname:
-                return ovc_client.api.cloudapi.machines.get(machineId=vm['id'])
+                return self.ovc_client.api.cloudapi.machines.get(machineId=vm['id'])
         return False
