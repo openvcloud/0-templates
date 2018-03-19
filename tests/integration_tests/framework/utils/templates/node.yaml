@@ -6,7 +6,7 @@
 {% if value2 is mapping %}
       {{vmparam}}:
 {% for user_port_param, value3 in value2.items() %}
-{% if disk == 'name' %}
+{% if user_port_param == 'name' %}
         - {{user_port_param}}: {{value3}}
 {% elif user_port_param == 'source' %}
         - {{user_port_param}}: {{value3}}

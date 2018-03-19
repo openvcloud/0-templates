@@ -79,7 +79,7 @@ class constructor(unittest.TestCase):
             if task.action_name == action:
                 for i in range(timeout):
                     time.sleep(1)
-                    if task.state != 'new':
+                    if task.state == 'ok' or task.state == 'error':
                         break
                 break
 

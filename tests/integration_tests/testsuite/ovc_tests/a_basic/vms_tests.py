@@ -76,9 +76,6 @@ class vms(OVC_BaseTest):
 
         self.log('Create two vms, should succeed')
         self.vms[self.vm1] = {'sshKey': self.key, 'vdc': self.cs1}
-        res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
-                             vms=self.vms, temp_actions=self.temp_actions)
-        self.assertTrue(type(res), type(dict()))
         self.vm2 = self.random_string()
         self.vdcuser = self.random_string()
         self.vdcusers[self.vdcuser] = {'openvcloud': self.openvcloud,
@@ -93,16 +90,21 @@ class vms(OVC_BaseTest):
                                                     ('accesstype', 'CXDRAU')]),
                               'ports': OrderedDict([('source', 2222),
                                                     ('destination', 22)])}
-
+        res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
+                             vms=self.vms, temp_actions=self.temp_actions)
+        self.assertTrue(type(res), type(dict()))
         self.wait_for_service_action_status(self.vm1, res[self.vm1])
-        self.cs1_id = self.get_cloudspace(self.cs1)['id']
+        self.wait_for_service_action_status(self.vm2, res[self.vm2])
 
         self.log("Check if the 1st vm's parameters are reflected correctly on OVC")
+        self.cs1_id = self.get_cloudspace(self.cs1)['id']
         vm = self.get_vm(cloudspaceId=self.cs1_id, vmname=self.vm1)
+        self.assertTrue(vm, "No vm has been found")
         self.assertEqual(self.cs1_id, vm['cloudspaceid'])
 
         self.log('Check if the 2nd vm is created, should succeed')
         vm2 = self.get_vm(cloudspaceId=self.cs1_id, vmname=self.vm2)
+        self.assertTrue(vm2, "No vm has been found")
         self.assertEqual([disk['sizeMax'] for disk in vm2['disks'] if disk['type'] == 'B'][0], bds)
         self.assertEqual([disk['sizeMax'] for disk in vm2['disks'] if disk['type'] == 'D'][0], dds)
         self.assertEqual(vm2['memory'], 512)
