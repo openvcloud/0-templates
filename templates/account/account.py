@@ -25,6 +25,8 @@ class Account(TemplateBase):
 
         # validate users
         for user in self.data['users']:
+            if 'name' not in user:
+                raise KeyError("A user in account %s does not contain a name" % self.name)
             users = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=user['name'])
             if len(users) != 1:
                 raise ValueError('no vdcuser found with name "%s"', user['name'])
