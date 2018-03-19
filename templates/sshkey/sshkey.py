@@ -14,11 +14,6 @@ class Sshkey(TemplateBase):
         dir = self.data['dir']
         passphrase = self.data['passphrase']
 
-        if dir == '':
-            raise ValueError('path is required')
-
-        if len(passphrase) < 5:
-            raise ValueError('passphrase must be min of 5 characters')
         path = j.sal.fs.joinPaths(dir, name)
         if not j.sal.fs.exists(path):
             j.clients.sshkey.key_generate(path, passphrase=passphrase, overwrite=True, returnObj=False)
@@ -33,6 +28,17 @@ class Sshkey(TemplateBase):
                 'passphrase_': passphrase,
             },
         )
+    
+    def validate(self):
+        # validate dir
+        if 'dir' not in self.data:
+            raise ValueError('dir is required')
+
+        # validate passphrase
+        if 'passphrase' not in self.data:
+            raise ValueError('passphrase is required')
+        if len(self.data['passphrase']) < 5:
+            raise ValueError('passphrase must be min of 5 characters')
 
     def install(self):
         pass
