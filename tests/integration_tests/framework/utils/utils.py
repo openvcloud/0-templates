@@ -26,12 +26,14 @@ class OVC_BaseTest(constructor):
 
     def ovc_client(self):
         data = {'address': OVC_BaseTest.env,
-                'port': 443
+                'port': 443,
+                'jwt_': self.iyo_jwt()
                 }
         return j.clients.openvcloud.get(instance='main', data=data)
 
     def handle_blueprint(self, yaml, **kwargs):
         kwargs['token'] = self.iyo_jwt()
+
         blueprint = self.create_blueprint(yaml, **kwargs)
         return self.execute_blueprint(blueprint)
 
@@ -50,7 +52,7 @@ class OVC_BaseTest(constructor):
         cloudspaces = self.ovc_client.api.cloudapi.cloudspaces.list()
         for cs in cloudspaces:
             if cs['name'] == name:
-                return cs
+                return self.ovc_client.api.cloudapi.cloudspaces.get(cloudspaceId=cs['id'])
         return False
 
     def get_account(self, name):
