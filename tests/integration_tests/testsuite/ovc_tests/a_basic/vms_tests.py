@@ -112,6 +112,8 @@ class vms(OVC_BaseTest):
         self.assertEqual(vm2['vcpus'], 1)
         self.assertIn('%s@itsyouonline' % self.vdcuser,
                       [user['userGroupId'] for user in vm2['acl']])
+        # to do
+        # check on the port forward creation
 
         self.log('%s ENDED' % self._testID)
 
