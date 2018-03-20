@@ -3,6 +3,8 @@ import os
 
 from unittest import TestCase
 from unittest import mock
+from unittest.mock import MagicMock, patch
+import pytest
 
 from zerorobot import config, template_collection
 from zerorobot.template.state import StateCheckError
@@ -15,6 +17,10 @@ class TestVDC(TestCase):
             "https://github.com/openvcloud/0-templates",
             os.path.dirname(__file__)
         )
+        # define properties of space mock
+        space_mock = MagicMock(model={'acl': []})
+        acc_mock = MagicMock(space_get=MagicMock(return_value=space_mock))
+        self.ovc_mock = MagicMock(account_get=MagicMock(return_value=acc_mock))        
 
     def test_validate_account(self):
         data = {
@@ -51,7 +57,7 @@ class TestVDC(TestCase):
             result.name = name
             return [result]
 
-        with mock.patch.object(instance, 'api') as api:
+        with patch.object(instance, 'api') as api:
             api.services.find.side_effect = find
             with self.assertRaises(ValueError):
                 instance.validate()
@@ -74,7 +80,7 @@ class TestVDC(TestCase):
             result.name = name
             return [result, result]  # return 2
 
-        with mock.patch.object(instance, 'api') as api:
+        with patch.object(instance, 'api') as api:
             api.services.find.side_effect = find
             with self.assertRaises(RuntimeError):
                 instance.validate()
@@ -108,11 +114,9 @@ class TestVDC(TestCase):
         with mock.patch.object(instance, 'api') as api:
             api.services.find.side_effect = find
             instance.validate()
-
         api.services.find.assert_has_calls(
             [
                 mock.call(template_uid=self.type.ACCOUNT_TEMPLATE, name=data['account']),
-                mock.call(template_uid=self.type.VDCUSER_TEMPLATE, name=data['users'][0]['name'])
             ]
         )
 
@@ -154,194 +158,111 @@ class TestVDC(TestCase):
                 'maxNetworkPeerTransfer': -1,
                 'status': 'DEPLOYED'
             })
-
             space.save.assert_called_once_with()
 
-    def test_authorize_users(self):
-        data = {
-            'users': [
-                {'name': 'test1'},
-                {'name': 'test2', 'accesstype': 'R'}
-            ]
-        }
-
-        instance = self.type('test', None, data)
-
-        def find(template_uid, name):
-            self.assertRegex(template_uid, self.type.VDCUSER_TEMPLATE)
-            for user in data['users']:
-                if name == user['name']:
-                    u = mock.MagicMock()
-                    u.schedule_action.return_value.result = name
-                    return [u]
-            raise ValueError('user not found')
-
-        space = mock.MagicMock()
-
-        # we set the account ACL to match the
-        # configured data. this should has no
-        # effect
-        space.model = {
-            'acl': [
-                {'userGroupId': 'test1', 'right': 'ACDRUX'},
-                {'userGroupId': 'test2', 'right': 'R'},
-            ]
-        }
-
-        with mock.patch.object(instance, 'api') as api:
-            api.services.find.side_effect = find
-            instance._authorize_users(space)
-
-        space.update_access.assert_not_called()
-        space.authorize_user.assert_not_called()
-        space.unauthorize_user.assert_not_called()
-
-        space.reset_mock()
-        # change the account model to force a change
-        # account model is missing a user, we expect a call to authorize_user
-        space.model = {
-            'acl': [
-                {'userGroupId': 'test2', 'right': 'R'},
-            ]
-        }
-
-        with mock.patch.object(instance, 'api') as api:
-            api.services.find.side_effect = find
-            instance._authorize_users(space)
-
-        space.update_access.assert_not_called()
-        space.authorize_user.assert_called_once_with(username='test1', right='ACDRUX')
-        space.unauthorize_user.assert_not_called()
-
-        space.reset_mock()
-        # change the account model to force a change
-        # account model has an extra user, we expect a call to unauthorize_user
-        space.model = {
-            'acl': [
-                {'userGroupId': 'test1', 'right': 'ACDRUX'},
-                {'userGroupId': 'test2', 'right': 'R'},
-                {'userGroupId': 'test3', 'right': 'R'},
-            ]
-        }
-
-        with mock.patch.object(instance, 'api') as api:
-            api.services.find.side_effect = find
-            instance._authorize_users(space)
-
-        space.update_access.assert_not_called()
-        space.authorize_user.assert_not_called()
-        space.unauthorize_user.assert_not_called()
-
-        space.reset_mock()
-        # change the account model to force a change
-        # account model has a missmatching user, we expect a call to update_access
-        space.model = {
-            'acl': [
-                {'userGroupId': 'test1', 'right': 'ACDRUX'},
-                {'userGroupId': 'test2', 'right': 'ACDRUX'},
-            ]
-        }
-
-        with mock.patch.object(instance, 'api') as api:
-            api.services.find.side_effect = find
-            instance._authorize_users(space)
-
-        space.update_access.assert_called_once_with(username='test2', right='R')
-        space.authorize_user.assert_not_called()
-        space.unauthorize_user.assert_not_called()
-
     def test_user_add(self):
-        data = {
-            'users': [
-                {'name': 'test1', 'accesstype': 'R'},
-            ]
-        }
+        '''
+        Test authorizing a new user
+        '''
+        instance = self.type('test', None)
 
-        instance = self.type('test', None, data)
-
-        with self.assertRaises(StateCheckError):
+        # user to add
+        user = {'name': 'test1', 'accesstype': 'R'}
+        with pytest.raises(StateCheckError):
             # fails if not installed
-            instance.user_add({'name': 'test1', 'accesstype': 'R'})
+            instance.user_add(user)
 
         instance.state.set('actions', 'install', 'ok')
-        with mock.patch.object(instance, '_authorize_users') as authorize:
-            with mock.patch.object(instance, 'api') as api:
-                api.services.find.return_value = [None]
-                instance.user_add({'name': 'test1', 'accesstype': 'R'})
+        with pytest.raises(ValueError,
+                           message='no vdcuser service found with name "%s"' % user['name']):
+            # fails if no vdcuser service is running for this user
+            instance.user_add(user)
 
-            authorize.assert_not_called()
-            self.assertEqual(
-                instance.data['users'],
-                [
-                    {'name': 'test1', 'accesstype': 'R'},
-                ]
-            )
+        with patch.object(instance, 'api') as api:
+            api.services.find.return_value = [MagicMock(schedule_action=MagicMock())]
+            with patch('js9.j.clients.openvcloud.get', return_value=self.ovc_mock) as ovc:               
+                
+                # test success
+                ovc.return_value.account_get.return_value.space_get.return_value.authorize_user.return_value=True
+                instance.user_add(user)
+                instance.space.authorize_user.assert_called_once_with(username=user['name'], right=user['accesstype'])
+                api.services.find.assert_has_calls(
+                    [mock.call(template_uid=self.type.VDCUSER_TEMPLATE, name=user['name'])]
+                )
 
-        # Add a user that does not exist
-        with mock.patch.object(instance, '_authorize_users') as authorize:
-            with mock.patch.object(instance, 'api') as api:
-                api.services.find.return_value = [None]
-                with mock.patch.object(instance, '_account') as account:
-                    space = account.space_get.return_value
-                    instance.user_add({'name': 'test2'})
-                    authorize.assert_called_once_with(space)
+                self.assertEqual(instance.data['users'], [user])
 
-            self.assertEqual(
-                instance.data['users'], [
-                    {'name': 'test1', 'accesstype': 'R'},
-                    {'name': 'test2', 'accesstype': 'ACDRUX'},
-                ])
+                # test fail
+                ovc.return_value.account_get.return_value.space_get.return_value.authorize_user.return_value=False
+                user = {'name': 'test2', 'accesstype': 'R'}
+                with pytest.raises(RuntimeError,
+                                   message='failed to add user "%s"' % user['name']):
+                    instance.user_add(user)
 
-        # Add a user that exists but with different accesstype
-        with mock.patch.object(instance, '_authorize_users') as authorize:
-            with mock.patch.object(instance, 'api') as api:
-                api.services.find.return_value = [None]
-                with mock.patch.object(instance, '_account') as account:
-                    space = account.space_get.return_value
-                    instance.user_add({'name': 'test2', 'accesstype': 'R'})
+    def test_user_update_access_right(self):
+        '''
+        Test updating access right of an authorized user
+        '''
+        instance = self.type('test', None)
+        instance.state.set('actions', 'install', 'ok')
 
-            authorize.assert_called_once_with(space)
-            self.assertEqual(
-                instance.data['users'], [
-                    {'name': 'test1', 'accesstype': 'R'},
-                    {'name': 'test2', 'accesstype': 'R'},
-                ])
+        with patch.object(instance, 'api') as api:
+            api.services.find.return_value = [MagicMock(schedule_action=MagicMock())]
+            with patch('js9.j.clients.openvcloud.get', return_value=self.ovc_mock) as ovc:
+                users = [{'userGroupId': 'test1', 'right': 'R'}]
+                # user to update
+                user = {'name': 'test1', 'accesstype': 'W'}
+
+                # test success
+                ovc.return_value.account_get.return_value.space_get.return_value.update_access.return_value=True
+                ovc.return_value.account_get.return_value.space_get.return_value.model = {'acl': users}
+                instance.user_add(user)
+                instance.space.update_access.assert_called_once_with(username=user['name'], right=user['accesstype'])
+                self.assertEqual(instance.data['users'],
+                                [{'name': 'test1', 'accesstype': 'W'}])
+
+                # test fail
+                ovc.return_value.account_get.return_value.space_get.return_value.update_access.return_value=False
+                with pytest.raises(RuntimeError,
+                                   message='failed to update accesstype of user "test1"'):
+                    instance.user_add(user)
 
     def test_user_delete(self):
-        data = {
-            'users': [
-                {'name': 'test1', 'accesstype': 'R'},
-            ]
-        }
-
-        instance = self.type('test', None, data)
-
-        with self.assertRaises(StateCheckError):
-            # fails if not installed
-            instance.user_delete({'name': 'test1', 'accesstype': 'R'})
-
-        # delete a user that does not exist
+        '''
+        Test deleting a user
+        '''
+        instance = self.type('test', None)
         instance.state.set('actions', 'install', 'ok')
-        with mock.patch.object(instance, '_authorize_users') as authorize:
-            instance.user_delete('test2')
+        
+        users = [{'userGroupId': 'test1', 'right': 'R'}]
 
-            authorize.assert_not_called()
-            self.assertEqual(
-                instance.data['users'],
-                [
-                    {'name': 'test1', 'accesstype': 'R'},
-                ]
-            )
+        with patch.object(instance, 'api') as api:
+            api.services.find.return_value = [MagicMock(schedule_action=MagicMock())]
+            with patch('js9.j.clients.openvcloud.get', return_value=self.ovc_mock) as ovc:
+                # user to delete
+                username = 'test1'
 
-        # delete a user that exists
-        with mock.patch.object(instance, '_authorize_users') as authorize:
-            with mock.patch.object(instance, '_account') as account:
-                space = account.space_get.return_value
-                instance.user_delete('test1')
+                # test success
+                ovc.return_value.account_get.return_value.space_get.return_value.unauthorize_user.return_value=True
+                ovc.return_value.account_get.return_value.space_get.return_value.model = {'acl': users}
+                instance.user_delete(username)
+                instance.space.unauthorize_user.assert_called_once_with(username=username)
+                self.assertEqual(instance.data['users'], [])
 
-                space.unauthorize_user.assert_called_once_with(username='test1')
-            self.assertEqual(
-                instance.data['users'], [])
+                # test fail
+                ovc.return_value.account_get.return_value.space_get.return_value.unauthorize_user.return_value=False
+                with pytest.raises(RuntimeError,
+                                   message='failed to update accesstype of user "test1"'):
+                    instance.user_delete(username)
+                
+                # test deliting nonexistent user
+                instance.space.unauthorize_user.reset_mock()
+                nonexistent_username = 'nonexistent_username'
+                with pytest.raises(RuntimeError,
+                                   message='user "%s" is not found' % nonexistent_username):
+                    instance.user_delete(nonexistent_username)
+                
+
 
     def test_update(self):
         instance = self.type('test', None, {})

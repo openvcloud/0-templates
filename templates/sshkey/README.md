@@ -3,11 +3,13 @@
 ## Description
 This templates makes sure an ssh key is loaded in the agent.
 Name of the service corresponds to the name of the key.
-If doesn't exist, the key will be generated.
+If doesn't exist, the key will be generated with given passphrase.
+If the sshkey exists in the given directory, the service will try to use this key with provided passphrase.
 
 ## Schema
 
-- path: path to the ssh private key
+- `dir`: path to the ssh private key. **required**
+- `passphrase`: passphrase of the sshkey key with minimum length 5 symbols. **required**
 
 ## Example
 

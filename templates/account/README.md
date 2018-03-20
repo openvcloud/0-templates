@@ -1,14 +1,13 @@
 # template: account
 
-## Description:
+## Description
+
 This template is responsible for creating an account on any openVCloud environment.
 
-## Schema:
+## Schema
 
 - `openvcloud`: Name of the [openvcloud](../openvcloud) instance used to connect to the environment.  **required**
 - `description`: Arbitrary description of the account. **optional**
-- `users`: List of [vcd users](#vdc-user) that will be authorized on the account.
-- `accountID`: The ID of the account. **Filled in automatically, don't specify it in the blueprint**
 - `maxMemoryCapacity`: The limit on the memory capacity that can be used by the account. Default to -1 (unlimited)
 - `maxCPUCapacity`: The limit on the CPUs that can be used by the account. Default: -1 (unlimited)
 - `maxNumPublicIP`: The limit on the number of public IPs that can be used by the account. Default to -1 (unlimited)
@@ -16,16 +15,18 @@ This template is responsible for creating an account on any openVCloud environme
 - `consumptionFrom`: determines the start date of the required period to fetch the account consumption info from. If left empty will be creation time of the account.
 - `consumptionTo`: determines the end date of the required period to fetch the account consumption info from. If left empty will be `consumptionfrom` + 1 hour.
 - `consumptionData`: consumption data will be saved here as series of bytes which represents a zip file. Example of writing the data:
-- `create`: defines whether nonexistent account will be created or not. Default to `True`.
+- `create`: defines whether account can be created or deleted. Default to `True`.
+- `users`: List of [vcd users](#vdc-user)  authorized on the account. **Filled in automatically, don't specify it in the blueprint**
+- `accountID`: The ID of the account. **Filled in automatically, don't specify it in the blueprint**
 
 ### Vdc User
-- name: name of the [vdcuser](../vdcuser)
-- accesstype: access type (check OVC documentation for supported access types)
+
+- `name`: name of the [vdcuser](../vdcuser)
+- `accesstype`: access type (check OVC documentation for supported access types)
 
 ### Access rights
 
 For information about the different access rights, check docs at [openvcloud](https://github.com/0-complexity/openvcloud/blob/2.1.7/docs/EndUserPortal/Authorization/AuthorizationModel.md).
-
 
 ## Actions
 
@@ -40,7 +41,6 @@ For information about the different access rights, check docs at [openvcloud](ht
   - `maxNumPublicIP`
   - `maxDiskCapacity`
 
-
 ```yaml
 services:
     - github.com/openvcloud/0-templates/openvcloud/0.0.1__ovc:
@@ -53,10 +53,6 @@ services:
         email: admin@greenitglobe.com
     - github.com/openvcloud/0-templates/account/0.0.1__myaccount:
        openvcloud: ovc
-        users:
-            - name: admin
-              accesstype: CXDRAU
-
 actions:
       actions: ['install']
 ```
