@@ -268,8 +268,6 @@ class Vdc(TemplateBase):
             else:
                 raise RuntimeError('failed to add user "%s"' % name)
 
-        self.save()
-
     def user_delete(self, username):
         '''
         Delete user access
@@ -293,8 +291,6 @@ class Vdc(TemplateBase):
                     raise RuntimeError('failed to delete user "%s"' % username)
         else:
             raise RuntimeError('user "%s" is not found' % username)
-        
-        self.save()
 
     def update(self, maxMemoryCapacity=None, maxDiskCapacity=None, maxNumPublicIP=None,
                maxCPUCapacity=None, maxNetworkPeerTransfer=None):

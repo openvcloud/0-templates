@@ -129,8 +129,6 @@ class Account(TemplateBase):
                 users.append(user)
             else:
                 raise RuntimeError('failed to add user "%s"' % name)
-                            
-        self.save()
 
     def user_delete(self, username):
         '''
@@ -152,7 +150,6 @@ class Account(TemplateBase):
                 raise RuntimeError('failed to remove user "%s"' % username)
         else:
             raise RuntimeError('user "%s" is not found' % username)
-        self.save()
 
     def update(self, maxMemoryCapacity=None, maxDiskCapacity=None,
                maxNumPublicIP=None, maxCPUCapacity=None):
