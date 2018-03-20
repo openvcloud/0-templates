@@ -64,7 +64,7 @@ class TestAccount(TestCase):
 
         api.services.find.assert_not_called()
 
-        # Finally, if the search retuned more than one object
+        # Finally, if the search returned more than one object
         api.reset_mock()
 
         data = {
@@ -88,6 +88,9 @@ class TestAccount(TestCase):
         api.services.find.assert_called_once_with(template_uid=self.type.OVC_TEMPLATE, name=data['openvcloud'])
 
     def test_validate(self):
+        '''
+        Test validate method
+        '''
         data = {
             'openvcloud': 'connection',
         }

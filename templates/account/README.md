@@ -7,8 +7,6 @@ This template is responsible for creating an account on any openVCloud environme
 
 - `openvcloud`: Name of the [openvcloud](../openvcloud) instance used to connect to the environment.  **required**
 - `description`: Arbitrary description of the account. **optional**
-- `users`: List of [vcd users](#vdc-user) that will be authorized on the account.
-- `accountID`: The ID of the account. **Filled in automatically, don't specify it in the blueprint**
 - `maxMemoryCapacity`: The limit on the memory capacity that can be used by the account. Default to -1 (unlimited)
 - `maxCPUCapacity`: The limit on the CPUs that can be used by the account. Default: -1 (unlimited)
 - `maxNumPublicIP`: The limit on the number of public IPs that can be used by the account. Default to -1 (unlimited)
@@ -17,6 +15,8 @@ This template is responsible for creating an account on any openVCloud environme
 - `consumptionTo`: determines the end date of the required period to fetch the account consumption info from. If left empty will be `consumptionfrom` + 1 hour.
 - `consumptionData`: consumption data will be saved here as series of bytes which represents a zip file. Example of writing the data:
 - `create`: defines whether nonexistent account will be created or not. Default to `True`.
+- `users`: List of [vcd users](#vdc-user)  authorized on the account. **Filled in automatically, don't specify it in the blueprint**
+- `accountID`: The ID of the account. **Filled in automatically, don't specify it in the blueprint**
 
 ### Vdc User
 - name: name of the [vdcuser](../vdcuser)
