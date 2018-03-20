@@ -71,7 +71,7 @@ class constructor(unittest.TestCase):
                 service.delete()
 
     def wait_for_service_action_status(self, servicename, task_guid,
-                                       action='install', timeout=100):
+                                       action='install', timeout=200):
         for r in self.api.robots.keys():
             robot = self.api.robots[r]
             service = robot.services.names[servicename]
