@@ -2,31 +2,38 @@
 
 ## Description
 
-This actor template creates a cloudspace (Virtual Data Center) on the specified environment. If required cloudspace already exists it will be used.
+This actor template creates a VDC (Virtual Data Center) on the specified environment. If required VDC already exists it will be used.
 
 ## Schema
 
-- `account` (required): an [account](../account) used for this space.
+- `account`: an [account](../account) used for this space. **required**
 - `description`: Description of the cloudspace.
-- `users`: List of [vcd users](#vdc-user) that will be authorized on the space.
-- `cloudspaceID`: id of the cloudspace. **Filled in automatically, don't specify it in the blueprint**
+- `create`: defines whether VDC can be created or deleted. Default to `True`.
 - `maxMemoryCapacity`: Cloudspace limits, maximum memory(GB).
 - `maxCPUCapacity`: Cloudspace limits, maximum CPU capacity.
 - `maxDiskCapacity`: Cloudspace limits, maximum disk capacity(GB).
 - `maxNumPublicIP`: Cloudspace limits, maximum allowed number of public IPs.
 - `externalNetworkID`: External network to be attached to this cloudspace.
 - `maxNetworkPeerTransfer`: Cloudspace limits, max sent/received network transfer peering(GB).
+- `users`: List of [vcd users](#vdc-user) authorized on the space. **Filled in automatically, don't specify it in the blueprint**
+- `cloudspaceID`: id of the cloudspace. **Filled in automatically, don't specify it in the blueprint**
 - `disabled`: True if the cloudspace is disabled. **Filled in automatically, don't specify it in the blueprint**
 
 ## Access rights
 
 For information about the different access rights check docs at [openvcloud](https://github.com/0-complexity/openvcloud/blob/2.1.7/docs/EndUserPortal/Authorization/AuthorizationModel.md).
 
-## Example for creating VDC
+## Actions
 
-VDC requires an [account](../account).
-
-For the creation of the vdc the action specified is install, to delete the vdc action uninstall needs to be specified in the `actions` parameter as seen in the second example below.
+- `install`: create a VDC in given `account` if doesn't exist.
+- `uninstall`: delete a VDC.
+- `user_add`: authorize a new user on the VDC, or update access rights of the existent user.
+- `user_delete`: unauthorize user.
+- `enable`: enable VDC.
+- `disable`: disable VDC.
+- `portforward_create`: create a portforward.
+- `portforward_delete`: delete a portforward.
+- `update`: update limits of the VDC.
 
 ```yaml
 services:
@@ -40,26 +47,11 @@ services:
         email: admin@greenitglobe.com
     - github.com/openvcloud/0-templates/account/0.0.1__myaccount:
        openvcloud: ovc
-        users:
-            - name: admin
-              accesstype: CXDRAU
     - github.com/openvcloud/0-templates/vdc/0.0.1__myspace:
         account: myaccount
-        users:
-            - name: admin
-              accesstype: CXDRAU
 actions:
       actions: ['install']
 ```
-
-## Actions
-### `user_add` action
-Add user to an account
-
-params:
-- user object
-  - name: username reference to user instance
-  - accesstype: (optional) access type
 
 ```yaml
 actions:
@@ -72,59 +64,68 @@ actions:
           accesstype: R
 ```
 
-## Actions
-### `user_delete` action
-Remove users from an account
-
-params:
-- username: user name to delete
 ```yaml
 actions:
-  - service: myspace
+  - temlate: github.com/openvcloud/0-templates/vdcuser/0.0.1
+    service: myspace
     actions: ['user_delete']
     args:
       username: testuser
 ```
 
-
-### `update` action
-Update account attributes
-
-params:
-- maxMemoryCapacity: Cloudspace limits, maximum memory(GB).
-- maxCPUCapacity: Cloudspace limits, maximum CPU capacity.
-- maxDiskCapacity: Cloudspace limits, maximum disk capacity(GB).
-- maxNumPublicIP: Cloudspace limits, maximum allowed number of public IPs.
-- externalNetworkID: External network to be attached to this cloudspace.
-- maxNetworkPeerTransfer: Cloudspace limits, max sent/received network transfer peering(GB).
-
 ```yaml
 actions:
-  - service: myspace
+  - temlate: github.com/openvcloud/0-templates/vdcuser/0.0.1
+    service: myspace
     actions: ['update']
     args:
       maxMemoryCapacity: 5
+      maxCPUCapacity: 1
+      maxDiskCapacity: 20
+      maxNumPublicIP: 1
+      externalNetworkID: -1
+      maxNetworkPeerTransfer: 10
 ```
-
-### Example for Deleting VDC
 
 ```yaml
 actions:
-  - service: myspace
+  - template: temlate: github.com/openvcloud/0-templates/vdcuser/0.0.1
+    service: myspace
     actions: ['uninstall']
 ```
 
-### Example for disabling VDC
-
 ```yaml
 actions:
-  - service: myspace
+  - temlate: github.com/openvcloud/0-templates/vdcuser/0.0.1
+    service: myspace
     actions: ['disable']
 ```
 
-### Example for enabling VDC
 ```yaml
 actions:
-  - service: myspace
+  - temlate: github.com/openvcloud/0-templates/vdcuser/0.0.1
+    service: myspace
     actions: ['enable']
+```
+
+```yaml
+actions:
+  - temlate: github.com/openvcloud/0-templates/vdcuser/0.0.1
+    service: myspace
+    actions: ['portforward_create']
+    args:
+      port_forwards:
+        - destination: <local port>
+          source: <public port>
+```
+
+```yaml
+actions:
+  - temlate: github.com/openvcloud/0-templates/vdcuser/0.0.1
+    service: myspace
+    actions: ['portforward_delete']
+    args:
+      port_forwards:
+        - destination: <local port>
+          source: <public port>
 ```

@@ -143,14 +143,21 @@ class Vdc(TemplateBase):
         self.state.set('actions', 'install', 'ok')
 
     def uninstall(self):
+        '''
+        Delete VDC
+        '''
         if not self.data['create']:
             raise RuntimeError('readonly cloudspace')
         space = self.account.space_get(self.name)
         space.delete()
 
     def enable(self):
+        '''
+        Enable VDC
+        '''        
         if not self.data['create']:
             raise RuntimeError('readonly cloudspace')
+
         # Get space, raise error if not found
         self.state.check('actions', 'install', 'ok')
         space = self.account.space_get(
@@ -162,8 +169,12 @@ class Vdc(TemplateBase):
         self.data['disabled'] = False
 
     def disable(self):
+        '''
+        Disable VDC
+        '''        
         if not self.data['create']:
             raise RuntimeError('readonly cloudspace')
+            
         # Get space, raise error if not found
         self.state.check('actions', 'install', 'ok')
         space = self.account.space_get(
@@ -173,9 +184,6 @@ class Vdc(TemplateBase):
 
         space.disable('The space should be disabled.')
         self.data['disabled'] = True
-
-    def get_public_ip(self):
-        return self.space.ipaddr_pub
 
     def portforward_create(self, machineId=None, port_forwards=[], protocol='tcp'):
         """

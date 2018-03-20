@@ -48,6 +48,4 @@ struct Schema {
 		accesstype @1 :Text;
 	}
 
-	# routor os script
-	script @13 :Text;
 }
