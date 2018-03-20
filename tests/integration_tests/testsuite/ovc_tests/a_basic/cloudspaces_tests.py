@@ -27,23 +27,25 @@ class BasicTests(OVC_BaseTest):
                              'vdc': {'actions': ['install']}
                             }
 
+
     @unittest.skip('https://github.com/openvcloud/0-templates/issues/47')
     def test001_create_cloudspace_with_wrong_params(self):
         """ ZRT-OVC-001
         *Test case for creating acloudspace with wrong parameters .*
 
         **Test Scenario:**
+        #. Create an cloudspace with providing non existing parameter, should fail.
+        #. Create an cloudspace with non-exist account , should fail.
+        #. Create an cloudspace with providing non existing parameter, should fail.
 
-        #. Create an account without providing account parameter, should fail.
-        #. Create an account with providing non existing parameter, should fail.
         """
         self.log('%s STARTED' % self._testID)
-
-        self.log('Create an cloudspace without providing account parameter, should fail')
-        self.cloudspaces[self.cs1] = {}
-        res = self.create_cs(openvcloud=self.openvcloud, vdcusers=self.vdcusers, accounts=self.accounts,
-                       cloudspaces=self.cloudspaces, temp_actions=self.temp_actions)
-        self.assertEqual(res, 'account is required')
+     
+        self.log('Create an cloudspace with providing non existing parameter, should fail')
+        self.cloudspaces[self.cs1] =  {'account': self.acc1, self.random_string(): self.random_string()}
+        res = self.create_cs(openvcloud=self.openvcloud, accounts=self.accounts, vdcusers=self.vdcusers,
+                             cloudspaces=self.cloudspaces, temp_actions=self.temp_actions)
+        self.assertEqual(res,'parameter provided is wrong' )
 
         self.log('Create an cloudspace with non-exist account , should fail')
         self.cloudspaces[self.cs1] =  {'account': self.random_string}
@@ -51,12 +53,11 @@ class BasicTests(OVC_BaseTest):
                              cloudspaces=self.cloudspaces, temp_actions=self.temp_actions)
         self.assertEqual(res,"account doesn't exist" )
 
-
-        self.log('Create an cloudspace with providing non existing parameter, should fail')
-        self.cloudspaces[self.cs1] =  {'account': self.acc1, self.random_string(): self.random_string()}
-        res = self.create_cs(openvcloud=self.openvcloud, accounts=self.accounts, vdcusers=self.vdcusers,
-                             cloudspaces=self.cloudspaces, temp_actions=self.temp_actions)
-        self.assertEqual(res,'parameter provided is wrong' )
+        self.log('Create an cloudspace without providing account parameter, should fail')
+        self.cloudspaces[self.cs1] = {}
+        res = self.create_cs(openvcloud=self.openvcloud, vdcusers=self.vdcusers, accounts=self.accounts,
+                       cloudspaces=self.cloudspaces, temp_actions=self.temp_actions)
+        self.assertEqual(res, 'account is required')
 
         self.log('%s ENDED' % self._testID)
 
@@ -136,4 +137,3 @@ class BasicTests(OVC_BaseTest):
             self.assertEqual(cloudspace['resourceLimits']['CU_M'], CU_M)
 
         self.log('%s ENDED' % self._testID)
-
