@@ -14,6 +14,7 @@ class OVC_BaseTest(constructor):
 
     def setUp(self):
         super(OVC_BaseTest, self).setUp()
+        self.key = self.random_string()
         self.openvcloud = self.random_string()
         self.vdcusers = {'gig_qa_1': {'openvcloud': self.openvcloud,
                                       'provider': 'itsyouonline',
@@ -29,19 +30,20 @@ class OVC_BaseTest(constructor):
                 }
         return j.clients.openvcloud.get(instance='main', data=data)
 
-    def handle_blueprint(self, yaml, *args, **kwargs):
+    def handle_blueprint(self, yaml, **kwargs):
         kwargs['token'] = self.iyo_jwt()
         blueprint = self.create_blueprint(yaml, **kwargs)
         return self.execute_blueprint(blueprint)
 
-    def create_account(self, *args, **kwargs):
-        return self.handle_blueprint('account.yaml', *args, **kwargs)
+    def create_account(self, **kwargs):
+        return self.handle_blueprint('account.yaml', **kwargs)
 
-    def create_cs(self, *args, **kwargs):
-        return self.handle_blueprint('vdc.yaml', *args, **kwargs)
+    def create_cs(self, **kwargs):
+        return self.handle_blueprint('vdc.yaml', **kwargs)
 
-    def create_vm(self, *args, **kwargs):
-        return self.handle_blueprint('vm.yaml', *args, **kwargs)
+    def create_vm(self, **kwargs):
+        return self.handle_blueprint('node.yaml', key=self.key, openvcloud=self.openvcloud,
+                                     vdcusers=self.vdcusers, **kwargs)
 
     def get_cloudspace(self, name):
         time.sleep(2)
@@ -57,4 +59,12 @@ class OVC_BaseTest(constructor):
         for account in accounts:
             if account['name'] == name:
                 return self.ovc_client.api.cloudapi.accounts.get(accountId=account['id'])
+        return False
+
+    def get_vm(self, cloudspaceId, vmname):
+        time.sleep(3)
+        vms = self.ovc_client.api.cloudapi.machines.list(cloudspaceId=cloudspaceId)
+        for vm in vms:
+            if vm['name'] == vmname:
+                return self.ovc_client.api.cloudapi.machines.get(machineId=vm['id'])
         return False

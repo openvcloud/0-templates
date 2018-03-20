@@ -79,7 +79,10 @@ class constructor(unittest.TestCase):
             if task.action_name == action:
                 for i in range(timeout):
                     time.sleep(1)
-                    if task.state != 'new':
+                    if task.state == 'ok':
+                        break
+                    elif task.state == 'error':
+                        self.log(task.eco.printTraceback())
                         break
                 break
 
