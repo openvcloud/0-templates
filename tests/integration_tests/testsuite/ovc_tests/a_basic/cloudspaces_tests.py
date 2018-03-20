@@ -1,6 +1,6 @@
 import time
 import unittest
-from framework.utils.utils import OVC_BaseTest
+from framework.ovc_utils.utils import OVC_BaseTest
 from collections import OrderedDict
 from random import randint
 from nose_parameterized import parameterized
@@ -39,7 +39,7 @@ class BasicTests(OVC_BaseTest):
         #. Create an cloudspace with providing non existing user, should fail
         """
         self.log('%s STARTED' % self._testID)
-     
+
         self.log('Create an cloudspace with providing non existing parameter, should fail')
         self.cloudspaces[self.cs1] =  {'account': self.acc1, self.random_string(): self.random_string()}
         res = self.create_cs(openvcloud=self.openvcloud, accounts=self.accounts, vdcusers=self.vdcusers,
@@ -67,7 +67,7 @@ class BasicTests(OVC_BaseTest):
         self.assertEqual(res, 'account is required')
 
         self.log('%s ENDED' % self._testID)
-    
+
     @unittest.skip("https://github.com/openvcloud/0-templates/issues/49")
     def test002_create_cloudspaces(self):
         """ ZRT-OVC-006
@@ -76,7 +76,7 @@ class BasicTests(OVC_BaseTest):
         **Test Scenario:**
 
         #. Create 2 cloudspaces  with right parametrs , should succeed.
-        #. Check that the cloudspaces have been created.       
+        #. Check that the cloudspaces have been created.
         """
         self.log('%s STARTED' % self._testID)
         cs2 = self.random_string()
@@ -97,7 +97,7 @@ class BasicTests(OVC_BaseTest):
         self.log('%s ENDED' % self._testID)
 
     @parameterized.expand([("Negative values", -1),
-                           ("Positive values", 1)])    
+                           ("Positive values", 1)])
     def test003_create_cloudspace_with_different_limitaions(self, type, factor):
         """ ZRT-OVC-007
         *Test case for creating cloudspaces with different limitaions*
@@ -106,18 +106,18 @@ class BasicTests(OVC_BaseTest):
 
         #. Create cloudspace with different limitations , should succeed.
         #. Check that the cloudspaces have been created with right limitaions.
-        #. Create cloudspace with negative values on limitations, should fail.        
+        #. Create cloudspace with negative values on limitations, should fail.
         """
 
 
         self.log('%s STARTED' % self._testID)
 
-        
-        CU_D = randint(2, 1000)*factor
-        CU_C = randint(2, 1000)*factor
-        CU_I = randint(2, 1000)*factor
-        CU_M = randint(2, 1000)*factor
-        CU_NP = randint(2, 1000)*factor
+
+        CU_D = randint(2, 1000) * factor
+        CU_C = randint(2, 1000) * factor
+        CU_I = randint(2, 1000) * factor
+        CU_M = randint(2, 1000) * factor
+        CU_NP = randint(2, 1000) * factor
         self.cloudspaces[self.cs1] = {'account': self.acc1, 'maxMemoryCapacity': CU_M,
                                       'maxCPUCapacity': CU_C, 'maxDiskCapacity': CU_D,
                                       'maxNumPublicIP': CU_I, 'maxNetworkPeerTransfer': CU_NP
@@ -129,10 +129,10 @@ class BasicTests(OVC_BaseTest):
         self.wait_for_service_action_status(self.cs1, res[self.cs1])
         cloudspace = self.get_cloudspace(self.cs1)
         if type == "Negative values":
-            self.assertFalse(cloudspace)            
-        else :
+            self.assertFalse(cloudspace)
+        else:
             self.assertTrue(cloudspace)
-            
+
             self.log('Check that the cloudspaces have been created with right limitaions')
             self.assertEqual(cloudspace['status'], 'DEPLOYED')
             self.assertEqual(cloudspace['resourceLimits']['CU_D'], CU_D)
