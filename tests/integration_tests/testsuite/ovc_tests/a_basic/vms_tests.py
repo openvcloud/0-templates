@@ -62,6 +62,7 @@ class vms(OVC_BaseTest):
 
         self.log('%s ENDED' % self._testID)
 
+    @unittest.skip('https://github.com/openvcloud/0-templates/issues/63 https://github.com/openvcloud/0-templates/issues/67')
     def test002_create_vms_with_correct_params(self):
         """ ZRT-OVC-000
         Test case for creating virtual machine with correct parameters*
