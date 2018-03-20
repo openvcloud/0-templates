@@ -1,5 +1,5 @@
 import unittest
-from framework.utils.utils import OVC_BaseTest
+from framework.ovc_utils.utils import OVC_BaseTest
 from collections import OrderedDict
 from random import randint
 
