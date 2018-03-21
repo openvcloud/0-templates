@@ -26,6 +26,7 @@ class BasicTests(OVC_BaseTest):
                              'vdcuser': {'actions': ['install']},
                              'vdc': {'actions': ['install']}
                             }
+        self.CLEANUP["accounts"].append(self.acc1)
 
     @unittest.skip('https://github.com/openvcloud/0-templates/issues/47')
     def test001_create_cloudspace_with_wrong_params(self):
@@ -108,10 +109,7 @@ class BasicTests(OVC_BaseTest):
         #. Check that the cloudspaces have been created with right limitaions.
         #. Create cloudspace with negative values on limitations, should fail.
         """
-
-
         self.log('%s STARTED' % self._testID)
-
 
         CU_D = randint(2, 1000) * factor
         CU_C = randint(2, 1000) * factor
