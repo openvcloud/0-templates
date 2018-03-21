@@ -8,7 +8,6 @@ The template is responsible for managing a virtual machine(VM) on an openVCloud 
 
 - `vdc`: denotes name of 'vdc' where the VM belongs. **required**
 - `sshKey`: name of ssh-key used to secure ssh connection to the VM. **required**
-- `uservdc`: list of vdc users that have access to the vm.
 - `sizeId`: denotes type of VM, this size impact the number of CPU and memory available for the vm, default: 1.
 - `osImage`: OS image to use for the VM. default:'Ubuntu 16.04'.
 - `bootdiskSize`: boot disk size in GB default: 10.
@@ -17,7 +16,7 @@ The template is responsible for managing a virtual machine(VM) on an openVCloud 
 - `dataDiskMountpoint`: default: `/var`.
 - `dataDiskFilesystem`: type of filesystem
 - `description`: arbitrary description of the VM. **optional**
-- `ports`: list of port forwards of the VM. Ports can be configured during installation of the vm or with actions `['portforward_create']`, `['portforward_delete']`.
+- `ports`: list of port forwards of the VM. Ports can be configured with actions `['portforward_create']`, `['portforward_delete']`.
 - `vCpus`: number of CPUs in the VM **Filled in automatically, don't specify it in the blueprint**
 - `memSize`: memory size in the VM **Filled in automatically, don't specify it in the blueprint**
 - `machineId`: unique identifier of the VM. **Filled in automatically, don't specify it in the blueprint**
@@ -27,7 +26,21 @@ The template is responsible for managing a virtual machine(VM) on an openVCloud 
 - `sshPassword`: password for ssh connection to the VM. **Filled in automatically, don't specify it in the blueprint**
 - `disks`: list of services, managing disks at the VM. **Filled in automatically, don't specify it in the blueprint**
 
-## Example of creating VM
+## Actions
+
+- `install`: install a VM.
+- `uninstall`: delete the VM.
+- `stop`: stop the VM.
+- `start`: start the VM.
+- `restart`: restart the VM.
+- `pause`: pause the VM.
+- `resume`: resume the VM.
+- `clone`: clone the VM.
+- `snapshot`: create a snapshot of the VM.
+- `snapshot_delete`: delete a snapshot of the VM.
+- `list_snapshots`: return a list of snapshots of the VM.
+- `portforward_create`: create a portforward on the VM.
+- `portforward_delete`: delete a portforward on the VM.
 
 ``` yaml
 services:
@@ -37,7 +50,6 @@ services:
     - github.com/openvcloud/0-templates/openvcloud/0.0.1__myovc:
         location: be-gen-demo
         address: 'ovc.demo.greenitglobe.com'
-        login: '<username>'
         token: '<iyo jwt token>'
     - github.com/openvcloud/0-templates/vdcuser/0.0.1__admin:
         openvcloud: myovc
@@ -45,76 +57,100 @@ services:
         email: admin@greenitglobe.com
     - github.com/openvcloud/0-templates/account/0.0.1__myaccount:
         openvcloud: myovc
-        users:
-            - name: admin
-              accesstype: CXDRAU
     - github.com/openvcloud/0-templates/vdc/0.0.1__myspace:
         openvcloud: myovc
-        users:
-            - name: admin
-              accesstype: CXDRAU
     - github.com/openvcloud/0-templates/node/0.0.1__mynode:
         sshKey: mykey
         vdc: myspace
+actions:
+    - actions: ['install']
+```
 
+``` yaml
 actions:
     - template: github.com/openvcloud/0-templates/node/0.0.1
-      actions: ['install']
+      service: mynode
+      actions: ['start']
 ```
 
-By analogy the following actions can be applied to manage VM:
-`['unnstall']`, `['stop']`, `['start']`, `['pause']`, `['resume']`, `['clone']`, `['snapshot']`.
-
-When `template` is given, the actions will be applied to all services of this type.
-In order to apply actions to a specific service, specify a service name.
-
-Following examples show how to schedule actions with arguments.
-
-## Example for cloning machine
-
 ``` yaml
-- service: mynode
-  actions: ['clone']
-  args:
-    clone_name: <clone name>
+actions:
+    - template: github.com/openvcloud/0-templates/node/0.0.1
+      service: mynode
+      actions: ['stop']
 ```
 
-## Example for adding portforwards
+``` yaml
+actions:
+    - template: github.com/openvcloud/0-templates/node/0.0.1
+      service: mynode
+      actions: ['pause']
+```
 
 ``` yaml
-- service: mynode
+actions:
+    - template: github.com/openvcloud/0-templates/node/0.0.1
+      service: mynode
+      actions: ['resume']
+```
+
+``` yaml
+actions:
+    - template: github.com/openvcloud/0-templates/node/0.0.1
+      service: mynode
+      actions: ['restart']
+```
+
+``` yaml
+actions:
+    - template: github.com/openvcloud/0-templates/node/0.0.1
+      service: mynode
+      actions: ['clone']
+      args:
+        clone_name: <clone name>
+```
+
+``` yaml
+actions:
+    - template: github.com/openvcloud/0-templates/node/0.0.1
+      service: mynode
+      actions: ['snapshot']
+```
+
+``` yaml
+actions:
+    - template: github.com/openvcloud/0-templates/node/0.0.1
+      service: mynode
+      args:
+        snapshot_epoch: <epoch>
+```
+
+``` yaml
+actions:
+  - template: github.com/openvcloud/0-templates/node/0.0.1 
+    service: mynode
+    actions: ['snapshot_rollback']
+    args:
+        snapshot_epoch: <epoch>
+```
+
+``` yaml
+- template: github.com/openvcloud/0-templates/node/0.0.1
+  service: mynode
   actions: ['portforward_create']
   args:
     ports:
-    - source: <public port>
-        destination: <local port>
+        - source: <public port>
+          destination: <local port>
 ```
 
-## Example for deleting portforwards
-
 ``` yaml
-- service: mynode
-  actions: ['portforward_delete']
-  args:
-    ports:
-    - source: <public port>
-        destination: <local port>
-```
-
-## Example for rolling back snapshot
-
-``` yaml
-- service: mynode
-    actions: ['snapshot_rollback']
-    args:
-        snapshot_epoch: <epoch>
-```
-
-## Example for deleting snapshot
-
-``` yaml
-- service: mynode
-    actions: ['snapshot_rollback']
-    args:
-        snapshot_epoch: <epoch>
+actions:
+    - template: github.com/openvcloud/0-templates/node/0.0.1
+      service: mynode
+      actions: ['portforward_delete']
+      args:
+        ports:
+            - source: <public port>
+              destination: <local port>
 ```

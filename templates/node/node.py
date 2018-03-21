@@ -24,10 +24,10 @@ class Node(TemplateBase):
 
     def validate(self):
         if not self.data['vdc']:
-            raise ValueError('vdc name should be given')
+            raise ValueError('vdc name is required')
 
         if not self.data['sshKey']:
-            raise ValueError('sshKey is required')
+            raise ValueError('sshKey name is required')
 
         matches = self.api.services.find(template_uid=self.VDC_TEMPLATE, name=self.data['vdc'])
         if len(matches) != 1:
@@ -52,7 +52,7 @@ class Node(TemplateBase):
         # account
         matches = self.api.services.find(template_uid=self.VDC_TEMPLATE, name=config['vdc'])
         if len(matches) != 1:
-            raise RuntimeError('found %d vdcs with name "%s"' % (len(matches), config['vdc']))
+            raise RuntimeError('found %d vdcs with name "%s", required exactly one' % (len(matches), config['vdc']))
 
         vdc = matches[0]
         self._vdc = vdc
@@ -63,7 +63,7 @@ class Node(TemplateBase):
 
         matches = self.api.services.find(template_uid=self.ACCOUNT_TEMPLATE, name=config['account'])
         if len(matches) != 1:
-            raise ValueError('found %s accounts with name "%s"' % (len(matches), config['account']))
+            raise RuntimeError('found %s accounts with name "%s", required exactly one' % (len(matches), config['account']))
 
         account = matches[0]
         # get connection
@@ -75,10 +75,19 @@ class Node(TemplateBase):
         self._config = config
         return self._config
 
-    def update_data(self, data):
-        # merge the new data
-        self.data.update(data)
-        self.save()
+    def update(self, **kwards):
+        '''
+        Update data on the service
+        '''
+        for key, value in kwards.items():
+            if key in self.data.keys():
+                if isinstance(value, type(self.data['key'])):
+                    self.data['key'] = value
+                else:
+                    raise ValueError('argument "%s" is type %s, should be %s' 
+                                     %(key, type(value), type(self.data['key'])))
+            else:
+                raise ValueError('argument "%s" is not supported')
 
     @property
     def ovc(self):
@@ -113,7 +122,10 @@ class Node(TemplateBase):
     @property
     def machine(self):
         if not self._machine:
-            self._machine = self.space.machines.get(self.name)
+            try:
+                self._machine = self.space.machine_get(self.name)
+            except RuntimeError:
+                pass
         return self._machine
 
     def install(self):
@@ -123,9 +135,9 @@ class Node(TemplateBase):
         except StateCheckError:
             pass
 
-        # check if machine already exists
+        # if this vm already exists, delete the vm
         if self.machine:
-            raise StateCheckError('machine "%s" already exists' % self.name)
+            self.machine.delete()
 
         # get new machine
         machine = self._machine_create()
@@ -137,9 +149,7 @@ class Node(TemplateBase):
         self.data['ipPublic'] = machine.ipaddr_public
         self.data['machineId'] = machine.id
 
-        self.portforward_create(self.data.get('ports', None))
         self._configure_disks()
-        self.save()
         self.state.set('actions', 'install', 'ok')
 
     def _machine_create(self):
@@ -168,8 +178,6 @@ class Node(TemplateBase):
             machine.start()
         else:
             raise RuntimeError('machine %s is not found' % self.name)
-
-        # TODO: fix the disk template first @katia-e
 
         for disk in machine.disks:
             # create a disk service
@@ -206,12 +214,12 @@ class Node(TemplateBase):
         # update data
         self.data['dataDiskFilesystem'] = fs_type
         self.data['dataDiskMountpoint'] = mount_point
-        self.save()
 
     def uninstall(self):
         """ Uninstall machine """
-        if not self.machine:
-            raise RuntimeError('machine %s is not found' % self.name)
+
+        self.state.check('actions', 'install', 'ok')
+
         self.machine.delete()
         self._machine = None
 
@@ -219,8 +227,8 @@ class Node(TemplateBase):
 
     def portforward_create(self, ports):
         """ Add portforwards """
-        if not self.machine:
-            raise RuntimeError('machine %s is not found' % self.name)
+
+        self.state.check('actions', 'install', 'ok')
 
         # get vdc service
         self.vdc.schedule_action(
@@ -234,10 +242,11 @@ class Node(TemplateBase):
 
     def portforward_delete(self, ports):
         """ Delete portforwards """
+        
+        self.state.check('actions', 'install', 'ok')
+
         if self.data['managedPrivate']:
             return
-        if not self.machine:
-            raise RuntimeError('machine %s is not found' % self.name)
 
         self.vdc.schedule_action(
             'portforward_delete',
@@ -250,80 +259,65 @@ class Node(TemplateBase):
 
     def start(self):
         """ Start the VM """
-        if not self.machine:
-            raise RuntimeError('machine %s is not found' % self.name)
 
+        self.state.check('actions', 'install', 'ok')
         self.machine.start()
 
     def stop(self):
         """ Stop the VM """
-        if not self.machine:
-            raise RuntimeError('machine %s is not found' % self.name)
 
+        self.state.check('actions', 'install', 'ok')
         self.machine.stop()
 
     def restart(self):
         """ Restart the VM """
-        if not self.machine:
-            raise RuntimeError('machine %s is not found' % self.name)
 
+        self.state.check('actions', 'install', 'ok')
         self.machine.restart()
 
     def pause(self):
         """ Pause the VM """
 
-        if not self.machine:
-            raise RuntimeError('machine %s is not found' % self.name)
-
+        self.state.check('actions', 'install', 'ok')
         self.machine.pause()
 
     def resume(self):
         """ Resume the VM """
 
-        if not self.machine:
-            raise RuntimeError('machine %s is not found' % self.name)
-
+        self.state.check('actions', 'install', 'ok')
         self.machine.resume()
 
     def reset(self):
         """ Reset the VM """
 
-        if not self.machine:
-            raise RuntimeError('machine %s is not found' % self.name)
-
+        self.state.check('actions', 'install', 'ok')
         self.machine.reset()
 
     def snapshot(self):
         """
         Action that creates a snapshot of the machine
         """
-        if not self.machine:
-            raise RuntimeError('machine %s is not found' % self.name)
-
+        self.state.check('actions', 'install', 'ok')
         self.machine.snapshot_create()
 
     def snapshot_rollback(self, snapshot_epoch):
         """
         Action that rolls back the machine to a snapshot
         """
+        self.state.check('actions', 'install', 'ok')
         if not snapshot_epoch:
             raise RuntimeError('"snapshot_epoch" should be given')
-
-        if not self.machine:
-            raise RuntimeError('machine %s is not found' % self.name)
 
         self.machine.snapshot_rollback(snapshot_epoch)
         self.machine.start()
 
-    def snapshot_delete(self,  snapshot_epoch):
+    def snapshot_delete(self, snapshot_epoch):
         """
         Action that deletes a snapshot of the machine
         """
+        self.state.check('actions', 'install', 'ok')
         if not snapshot_epoch:
             raise RuntimeError('"snapshot_epoch" should be given')
-
-        if not self.machine:
-            raise RuntimeError('machine %s is not found' % self.name)
 
         self.machine.snapshot_delete(snapshot_epoch)
 
@@ -331,20 +325,16 @@ class Node(TemplateBase):
         """
         Action that lists snapshots of the machine
         """
-        if not self.machine:
-            raise RuntimeError('machine %s is not found' % self.name)
-
+        self.state.check('actions', 'install', 'ok')
         return self.machine.snapshots
 
     def clone(self, clone_name):
         """
         Action that creates a clone of a machine.
         """
+        self.state.check('actions', 'install', 'ok')
+
         if not clone_name:
             raise RuntimeError('"clone_name" should be given')
 
-        if not self.machine:
-            raise RuntimeError('machine %s is not found' % self.name)
-
         self.machine.clone(clone_name)
-        self.machine.start()
