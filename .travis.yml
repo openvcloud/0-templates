@@ -32,6 +32,3 @@ matrix:
 
       script:
         - bash /tests/integration_tests/prepare.sh -d -s -r testsuite/ovc_tests/a_basic/accounts_tests.py
-
-      after_success:
-        - codecov
