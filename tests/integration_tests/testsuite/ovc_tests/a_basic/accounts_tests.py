@@ -19,6 +19,7 @@ class accounts(OVC_BaseTest):
         self.accounts = dict()
         self.temp_actions = {'account': {'actions': ['install']},
                              'vdcuser': {'actions': ['install']}}
+        self.CLEANUP["accounts"].append(self.acc1)
 
     @unittest.skip('https://github.com/openvcloud/0-templates/issues/47')
     def test001_create_account_with_wrong_params(self):
@@ -86,6 +87,7 @@ class accounts(OVC_BaseTest):
                                                           ('accesstype', 'CXDRAU')])}
         self.acc2 = self.random_string()
         self.accounts[self.acc2] = {'openvcloud': self.openvcloud}
+        self.CLEANUP["accounts"].append(self.acc2)
 
         self.log('Create two accounts, should succeed')
         res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
@@ -188,11 +190,3 @@ class accounts(OVC_BaseTest):
         self.assertIn('no vdcuser found', res)
 
         self.log('%s ENDED' % self._testID)
-
-    def tearDown(self):
-        for accountname in self.accounts.keys():
-            if self.check_if_service_exist(accountname):
-                self.temp_actions = {'account': {'actions': ['uninstall']}}
-                self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
-                                    accounts=self.accounts, temp_actions=self.temp_actions)
-        self.delete_services()
