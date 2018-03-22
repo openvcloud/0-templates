@@ -20,11 +20,9 @@ done
 for target in core9 lib9 prefab9; do
     pushd ${target}
     pip3 install .
-    python3 setup.py install
     popd
 done
 popd
-js9_init
 
 
 # create ssh key for jumpscale config manager
