@@ -4,8 +4,7 @@ matrix:
       sudo: required
       dist: trusty
 
-      python:
-        - "3.5"
+      python: 3.5
 
       install:
         - pip3 install codecov pytest pytest-cov
@@ -19,12 +18,11 @@ matrix:
         - codecov
 
     - language: python
-      sudo: true
+      sudo: required
       dist: trusty
       if: type IN (api, cron)
 
-      python:
-        - "3.5"
+      python: 3.5
 
       install:
         - ./utils/jumspcale_install.sh
