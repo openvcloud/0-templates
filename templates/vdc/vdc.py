@@ -202,7 +202,7 @@ class Vdc(TemplateBase):
         Create port forwards
         """
         self.state.check('actions', 'install', 'ok')
-        
+
         ovc = self.ovc
         space = self.space
 
@@ -252,6 +252,10 @@ class Vdc(TemplateBase):
 
         if not self.data['create']:
             raise RuntimeError('readonly cloudspace')
+
+        # check that username is given 
+        if 'name' not in user.keys():
+            raise KeyError("failed to add user, field 'name' is required")
 
         find = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=user['name'])
         if len(find) != 1:

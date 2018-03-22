@@ -102,6 +102,10 @@ class Account(TemplateBase):
         if not self.data['create']:
             raise RuntimeError('readonly account')
 
+        # check that username is given 
+        if 'name' not in user.keys():
+            raise KeyError("failed to add user, field 'name' is required")
+
         find = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=user['name'])
         if len(find) != 1:
             raise ValueError('no account service found with name "%s"', user['name'])
@@ -172,7 +176,7 @@ class Account(TemplateBase):
         '''
 
         self.state.check('actions', 'install', 'ok')
-        
+
         if not self.data['create']:
             raise RuntimeError('readonly account')
 
