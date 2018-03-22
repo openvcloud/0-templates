@@ -88,11 +88,15 @@ class Vdc(TemplateBase):
         return self.data['users']
 
     def install(self):
+        '''
+        Install vdc. Will be created if doesn't exist
+        '''
         try:
             self.state.check('actions', 'install', 'ok')
             return
         except StateCheckError:
             pass
+
         acc = self.account
         if not self.data['create']:
             space = self.space
@@ -146,15 +150,21 @@ class Vdc(TemplateBase):
         '''
         Delete VDC
         '''
+        self.state.check('actions', 'install', 'ok')
+
         if not self.data['create']:
             raise RuntimeError('readonly cloudspace')
         space = self.account.space_get(self.name)
         space.delete()
 
+        self.state.delete('actions', 'install')
+
     def enable(self):
         '''
         Enable VDC
         '''        
+        self.state.check('actions', 'install', 'ok')
+
         if not self.data['create']:
             raise RuntimeError('readonly cloudspace')
 
@@ -171,7 +181,9 @@ class Vdc(TemplateBase):
     def disable(self):
         '''
         Disable VDC
-        '''        
+        '''
+
+        self.state.check('actions', 'install', 'ok')
         if not self.data['create']:
             raise RuntimeError('readonly cloudspace')
             
@@ -189,6 +201,8 @@ class Vdc(TemplateBase):
         """
         Create port forwards
         """
+        self.state.check('actions', 'install', 'ok')
+        
         ovc = self.ovc
         space = self.space
 
@@ -207,6 +221,8 @@ class Vdc(TemplateBase):
         """
         Delete port forwards
         """
+        self.state.check('actions', 'install', 'ok')
+
         ovc = self.ovc
         space = self.space
         existent_ports = [(port['publicPort'], port['localPort'], port['id'])
@@ -280,6 +296,8 @@ class Vdc(TemplateBase):
 
         :param username: user instance name
         '''
+        self.state.check('actions', 'install', 'ok')
+
         if not self.data['create']:
             raise RuntimeError('readonly cloudspace')
 
@@ -309,6 +327,8 @@ class Vdc(TemplateBase):
         :param maxDiskCapacity: The limit on the disk capacity that can be used by the account.
         :param maxNetworkPeerTransfer: Cloudspace limits, max sent/received network transfer peering(GB).
         '''
+
+        self.state.check('actions', 'install', 'ok')
         if not self.data['create']:
             raise RuntimeError('readonly cloudspace')
         # work around not supporting the **kwargs in actions call

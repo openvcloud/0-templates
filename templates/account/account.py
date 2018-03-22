@@ -141,6 +141,9 @@ class Account(TemplateBase):
         Delete user access
         :param username: user instance name
         '''
+
+        self.state.check('actions', 'install', 'ok')
+
         if not self.data['create']:
             raise RuntimeError('readonly account')
 
@@ -167,6 +170,9 @@ class Account(TemplateBase):
         :param maxNumPublicIP: The limit on the number of public IPs that can be used by the account.
         :param maxDiskCapacity: The limit on the disk capacity that can be used by the account.
         '''
+
+        self.state.check('actions', 'install', 'ok')
+        
         if not self.data['create']:
             raise RuntimeError('readonly account')
 
