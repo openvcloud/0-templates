@@ -101,6 +101,7 @@ class TestVdcUser(TestCase):
         openvcloud.reset_mock()
         client.api.system.usermanager.userexists.return_value = False
 
+        instance.state.delete('actions', 'install')
         instance.install()
 
         client.api.system.usermanager.create.assert_called_once_with(
