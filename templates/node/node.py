@@ -122,10 +122,7 @@ class Node(TemplateBase):
     @property
     def machine(self):
         if not self._machine:
-            try:
-                self._machine = self.space.machine_get(self.name)
-            except RuntimeError:
-                pass
+            self._machine = self.space.machines.get(self.name)
         return self._machine
 
     def install(self):
