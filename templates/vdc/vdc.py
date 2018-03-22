@@ -241,6 +241,12 @@ class Vdc(TemplateBase):
         if len(find) != 1:
             raise ValueError('no vdcuser service found with name "%s"', user['name'])
 
+        # check that user was successfully installed
+        try:
+            find[0].state.check('actions', 'install', 'ok')
+        except StateCheckError:
+            raise StateCheckError('service for vdcuser "%s" in not installed' % user['name'])
+        
         # fetch list of authorized users to self.data['users']
         self.get_users()
         users = self.data['users']

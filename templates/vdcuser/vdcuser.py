@@ -1,6 +1,6 @@
 from js9 import j
 from zerorobot.template.base import TemplateBase
-
+from zerorobot.template.state import StateCheckError
 
 class Vdcuser(TemplateBase):
 
@@ -34,6 +34,16 @@ class Vdcuser(TemplateBase):
         return "%s@%s" % (self.name, provider) if provider else self.name
 
     def install(self):
+        '''
+        Install vdcuser
+        '''
+
+        try:
+            self.state.check('actions', 'install', 'ok')
+            return
+        except StateCheckError:
+            pass
+
         # create user if it doesn't exists
         username = self.get_fqid()
         password = self.data['password']
@@ -62,10 +72,13 @@ class Vdcuser(TemplateBase):
         unauthorize user to all consumed vdc
         """
         self.state.check('actions', 'install', 'ok')
+        
         client = self.ovc
         username = self.get_fqid()
         if client.api.system.usermanager.userexists(name=username):
             client.api.system.usermanager.delete(username=username)
+
+        self.state.delete('actions', 'install')
 
     def groups_set(self, groups):
         """
