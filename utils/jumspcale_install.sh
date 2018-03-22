@@ -23,6 +23,7 @@ for target in core9 lib9 prefab9; do
     popd
 done
 popd
+js9_init
 
 
 # create ssh key for jumpscale config manager
