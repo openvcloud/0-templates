@@ -123,20 +123,32 @@ class TestNode(TestCase):
         Test install VM
         """
         # if installed, do nothing
-        instance = self.type(name='test', data=self.valid_data)
+        name = 'test'
+        instance = self.type(name=name, data=self.valid_data)
         instance.state.set('actions', 'install', 'ok')
         instance.install()
         ovc.get.return_value.space_get.return_value.machine_create.assert_not_called()
-        instance.state.delete('actions', 'install')
 
         # test installing vm
+        instance.state.delete('actions', 'install')
         with patch.object(instance, 'api') as api:
             api.services.find.return_value = [MagicMock(schedule_action=MagicMock())]
             ovc.get.return_value = MagicMock(self.ovc_mock)
-
             # test VM already exists
             instance.install()
-            ovc.get.return_value.space_get.return_value.machine_get.return_value.delete.assert_called_once_with()
+            ovc.get.return_value.space_get.return_value.machines.get.return_value.delete.assert_called_once_with()
+            ovc.get.return_value.space_get.return_value.machine_create.assert_called_once_with(
+                name=name,
+                sshkeyname=self.valid_data['sshKey'],
+                sizeId=1,
+                managed_private=False,
+                datadisks=[10],
+                disksize=10,
+                image='Ubuntu 16.04'
+            )
+            
+            # state install must be ok 
+            instance.state.check('actions', 'install', 'ok')
 
             # test creation of a new VM
             instance.state.delete('actions', 'install')
@@ -159,6 +171,7 @@ class TestNode(TestCase):
             # fails if not installed
             instance.uninstall()
 
+        # test success
         instance.state.set('actions', 'install', 'ok')
         with patch.object(instance, 'api') as api:
             api.services.find.return_value = [MagicMock(schedule_action=MagicMock())]
@@ -166,7 +179,10 @@ class TestNode(TestCase):
             # test uninstall
             ovc.get.return_value = MagicMock(self.ovc_mock)
             instance.uninstall()
-            ovc.get.return_value.space_get.return_value.machine_get.return_value.delete.assert_called_once_with()
+            instance.machine.delete.assert_called_once_with()
+
+        # state install mast be unset
+        self.assertNotEqual('install' in instance.state.get('actions'), True)
 
     def test_start(self):
         '''
@@ -183,6 +199,7 @@ class TestNode(TestCase):
         instance._machine = MagicMock()
         instance.start()
         instance.machine.start.assert_called_once_with()
+
 
     def test_stop(self):
         '''
@@ -204,7 +221,7 @@ class TestNode(TestCase):
         '''
         Test restart action
         '''
-        instance = self.type(name='test', data=self.valid_data)  
+        instance = self.type(name='test', data=self.valid_data)
 
         with pytest.raises(StateCheckError):
             # fails if not installed
@@ -372,7 +389,7 @@ class TestNode(TestCase):
             api.services.find.return_value = [MagicMock(schedule_action=MagicMock())]
             ovc.get.return_value = MagicMock(self.ovc_mock)
             test_machine_id = 1
-            ovc.get.return_value.space_get.return_value.machine_get.return_value.id = test_machine_id
+            instance.machine.id = test_machine_id
 
             instance.portforward_create(ports)
             instance.vdc.schedule_action.assert_called_with(
@@ -405,12 +422,11 @@ class TestNode(TestCase):
             api.services.find.return_value = [MagicMock(schedule_action=MagicMock())]
             ovc.get.return_value = MagicMock(self.ovc_mock)
             test_machine_id = 1
-            ovc.get.return_value.space_get.return_value.machine_get.return_value.id = test_machine_id
-
+            instance.machine.id = test_machine_id
             instance.portforward_delete(ports)
             instance.vdc.schedule_action.assert_called_with(
                 'portforward_delete', 
-                {'machineId': test_machine_id, 
+                {'machineId': test_machine_id,
                 'port_forwards': ports, 
                 'protocol': 'tcp'}
             )
