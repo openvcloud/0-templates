@@ -31,7 +31,7 @@ For information about the different access rights, check docs at [openvcloud](ht
 ## Actions
 
 - `install`: creates an account or gets an existent account.
-- `uninstall`: delete an account.
+- `uninstall`: delete an account. All VDCs (Virtual Data Centers) related to this account will be destroyed and uninstall should not be called on those VDC services when uninstalling an account.
 - `user_add`: adds a user to the account or updates access rights.
 - `user_delete`: deletes a user from the account.
 - `update`: updates the account attributes:
