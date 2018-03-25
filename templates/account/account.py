@@ -108,7 +108,7 @@ class Account(TemplateBase):
 
         find = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=user['name'])
         if len(find) != 1:
-            raise ValueError('no account service found with name "%s"', user['name'])
+            raise ValueError('no vdcuser service found with name "%s"' % user['name'])
 
         # check that user was successfully installed
         try:
