@@ -1,46 +1,45 @@
-# temptate: node
+# template: node
 
 ## Description
 
-The template is responsible for managing a virtual machine(VM) on an openVCloud environment.
+The template is responsible for managing a virtual machine (VM) on the OpenvCloud environment. Service that manages a VM is of the same name as the VM.
 
 ## Schema
 
-- `vdc`: denotes name of 'vdc' where the VM belongs. **required**
-- `sshKey`: name of ssh-key used to secure ssh connection to the VM. **required**
-- `sizeId`: denotes type of VM, this size impact the number of CPU and memory available for the vm, default: 1.
-- `osImage`: OS image to use for the VM. default:'Ubuntu 16.04'.
-- `bootdiskSize`: boot disk size in GB default: 10.
-- `dataDiskSize`: size of data disk in GB default: 10.
-- `FilesystemType`: file system of the data disk, suports: xfs,	ext2, ext3, ext4. **optional**
-- `dataDiskMountpoint`: default: `/var`.
-- `dataDiskFilesystem`: type of filesystem
-- `description`: arbitrary description of the VM. **optional**
-- `ports`: list of port forwards of the VM. Ports can be configured with actions `['portforward_create']`, `['portforward_delete']`.
-- `vCpus`: number of CPUs in the VM **Filled in automatically, don't specify it in the blueprint**
-- `memSize`: memory size in the VM **Filled in automatically, don't specify it in the blueprint**
-- `machineId`: unique identifier of the VM. **Filled in automatically, don't specify it in the blueprint**
-- `ipPublic`: public IP of the VM. **Filled in automatically, don't specify it in the blueprint**
-- `ipPrivate`: private IP of the VM. **Filled in automatically, don't specify it in the blueprint**
-- `sshLogin`: login for ssh connection to the VM. **Filled in automatically, don't specify it in the blueprint**
-- `sshPassword`: password for ssh connection to the VM. **Filled in automatically, don't specify it in the blueprint**
-- `disks`: list of services, managing disks at the VM. **Filled in automatically, don't specify it in the blueprint**
+- `vdc`: name of Virtual Data Center (VDC) where the VM belongs. **Required**.
+- `sshKey`: name of ssh-key used to secure ssh connection to the VM. **Required**.
+- `sizeId`: denotes type of VM, this size impact the number of CPU and memory available for the vm. Default to 1.
+- `osImage`: OS image to use for the VM. Default to 'Ubuntu 16.04'.
+- `bootdiskSize`: boot disk size in GB. Default t0 10.
+- `dataDiskSize`: size of data disk in GB. Default to 10.
+- `dataDiskMountpoint`: data disk mount point. Default to `/var`.
+- `dataDiskFilesystem`: file system of the data disk, supports: `xfs`, `ext2`, `ext3`, `ext4`. **Optional**.
+- `description`: arbitrary description of the VM. **Optional**.
+- `ports`: list of port forwards of the VM. Ports can be configured with actions `portforward_create`, `portforward_delete`. **Filled in automatically, don't specify it in the blueprint**.
+- `vCpus`: number of CPUs in the VM. **Filled in automatically, don't specify it in the blueprint**.
+- `memSize`: memory size in the VM **Filled in automatically, don't specify it in the blueprint**.
+- `machineId`: unique identifier of the VM. **Filled in automatically, don't specify it in the blueprint**.
+- `ipPublic`: public IP of the VM. **Filled in automatically, don't specify it in the blueprint**.
+- `ipPrivate`: private IP of the VM. **Filled in automatically, don't specify it in the blueprint**.
+- `sshLogin`: login for ssh connection to the VM. **Filled in automatically, don't specify it in the blueprint**.
+- `sshPassword`: password for ssh connection to the VM. **Filled in automatically, don't specify it in the blueprint**.
+- `disks`: list of services, managing disks at the VM. **Filled in automatically, don't specify it in the blueprint**.
 
 ## Actions
 
-- `install`: install a VM.
-- `uninstall`: delete the VM.
-- `stop`: stop the VM.
-- `start`: start the VM.
-- `restart`: restart the VM.
-- `pause`: pause the VM.
-- `resume`: resume the VM.
-- `clone`: clone the VM.
+- `install`: install VM. If state of action `install` is not `ok`, a new VM will be created. If machine with the same name already exists, if will be deleted and installed again.
+- `uninstall`: delete VM.
+- `stop`: stop VM.
+- `start`: start VM.
+- `restart`: restart VM.
+- `pause`: pause VM.
+- `resume`: resume VM.
+- `clone`: clone VM.
 - `snapshot`: create a snapshot of the VM.
 - `snapshot_delete`: delete a snapshot of the VM.
 - `list_snapshots`: return a list of snapshots of the VM.
-- `portforward_create`: create a portforward on the VM.
-- `portforward_delete`: delete a portforward on the VM.
+- `portforward_create`: create a port forward on the VM.
+- `portforward_delete`: delete a port forward on the VM.
 
 ``` yaml
 services:
@@ -127,7 +126,7 @@ actions:
 
 ``` yaml
 actions:
-  - template: github.com/openvcloud/0-templates/node/0.0.1 
+  - template: github.com/openvcloud/0-templates/node/0.0.1
     service: mynode
     actions: ['snapshot_rollback']
     args:
