@@ -92,6 +92,8 @@ class Account(TemplateBase):
         acc = self.ovc.account_get(self.name, create=False)
         acc.delete()
 
+        self.state.delete('actions', 'install')
+
     def user_add(self, user):
         '''
         Add/Update user access to an account
@@ -103,18 +105,21 @@ class Account(TemplateBase):
             raise RuntimeError('readonly account')
 
         # check that username is given 
-        if 'name' not in user.keys():
+        if not user.get('name'):
             raise KeyError("failed to add user, field 'name' is required")
 
-        find = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=user['name'])
+        # derice service name from username
+        service_name = user['name'].split('@')[0]
+
+        find = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=service_name)
         if len(find) != 1:
-            raise ValueError('no vdcuser service found with name "%s"' % user['name'])
+            raise ValueError('no vdcuser service found with name "%s"' % service_name)
 
         # check that user was successfully installed
         try:
             find[0].state.check('actions', 'install', 'ok')
         except StateCheckError:
-            raise StateCheckError('service for vdcuser "%s" in not installed' % user['name'])
+            raise StateCheckError('service for vdcuser "%s" in not installed' % service_name)
 
         self.get_users()
         users = self.data['users']
