@@ -92,9 +92,9 @@ class accounts(OVC_BaseTest):
         self.log('Create two accounts, should succeed')
         res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
                                   accounts=self.accounts, temp_actions=self.temp_actions)
-        self.assertTrue(type(res), type(dict()))
-        self.wait_for_service_action_status(self.acc1, res[self.acc1])
-        self.wait_for_service_action_status(self.acc2, res[self.acc2])
+        self.assertEqual(type(res), type(dict()))
+        self.wait_for_service_action_status(self.acc1, res[self.acc1]['install'])
+        self.wait_for_service_action_status(self.acc2, res[self.acc2]['install'])
 
         self.log('Check if the 1st account parameters are reflected correctly on OVC')
         account = self.get_account(self.acc1)
@@ -136,8 +136,8 @@ class accounts(OVC_BaseTest):
         self.log('Create an account, should succeed')
         res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
                                   accounts=self.accounts, temp_actions=self.temp_actions)
-        self.assertTrue(type(res), type(dict()))
-        self.wait_for_service_action_status(self.acc1, res[self.acc1])
+        self.assertEqual(type(res), type(dict()))
+        self.wait_for_service_action_status(self.acc1, res[self.acc1]['install'])
 
         self.log('Check if the account parameters are reflected correctly on OVC')
         account = self.get_account(self.acc1)
@@ -150,9 +150,9 @@ class accounts(OVC_BaseTest):
         self.accounts[self.acc1] = {'openvcloud': self.openvcloud}
         res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
                                   accounts=self.accounts, temp_actions=self.temp_actions)
-        self.assertTrue(type(res), type(dict()))
+        self.assertEqual(type(res), type(dict()))
 
-        self.wait_for_service_action_status(self.acc1, res[self.acc1], action='update')
+        self.wait_for_service_action_status(self.acc1, res[self.acc1]['update'])
         account = self.get_account(self.acc1)
         self.assertEqual(account['resourceLimits']['CU_D'], CU_D - 1)
         self.assertEqual(account['resourceLimits']['CU_C'], CU_C - 1)
@@ -183,7 +183,7 @@ class accounts(OVC_BaseTest):
         res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
                                   accounts=self.accounts, temp_actions=self.temp_actions)
         self.assertTrue(type(res), type(dict()))
-        self.wait_for_service_action_status(self.acc1, res[self.acc1])
+        self.wait_for_service_action_status(self.acc1, res[self.acc1]['install'])
 
         self.log('Add fake user to A1, should fail')
         self.temp_actions['account'] = {'actions': ['user_add'],
@@ -197,9 +197,8 @@ class accounts(OVC_BaseTest):
         self.temp_actions['account']['args']['user']['name'] = self.vdcuser
         res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
                                   accounts=self.accounts, temp_actions=self.temp_actions)
-        self.assertTrue(type(res), type(dict()))
-        # Make sure wait method wait for certain service for certain action
-        self.wait_for_service_action_status(self.acc1, res[self.acc1], action='user_add')
+        self.assertEqual(type(res), type(dict()))
+        self.wait_for_service_action_status(self.acc1, res[self.acc1]['user_add'])
         account = self.get_account(self.acc1)
         self.assertIn('%s@itsyouonline' % self.vdcuser,
                       [user['userGroupId'] for user in account['acl']])
@@ -208,9 +207,8 @@ class accounts(OVC_BaseTest):
         self.temp_actions['account']['actions'] = ['user_delete']
         res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
                                   accounts=self.accounts, temp_actions=self.temp_actions)
-        self.assertTrue(type(res), type(dict()))
-        # Make sure wait method wait for certain service for certain action
-        self.wait_for_service_action_status(self.acc1, res[self.acc1], action='user_delete')
+        self.assertEqual(type(res), type(dict()))
+        self.wait_for_service_action_status(self.acc1, res[self.acc1]['user_delete'])
         account = self.get_account(self.acc1)
         self.assertNotIn('%s@itsyouonline' % self.vdcuser,
                          [user['userGroupId'] for user in account['acl']])
