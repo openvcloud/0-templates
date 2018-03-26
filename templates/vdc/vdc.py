@@ -91,6 +91,7 @@ class Vdc(TemplateBase):
         '''
         Install vdc. Will be created if doesn't exist
         '''
+
         try:
             self.state.check('actions', 'install', 'ok')
             return
@@ -150,12 +151,10 @@ class Vdc(TemplateBase):
         '''
         Delete VDC
         '''
-        self.state.check('actions', 'install', 'ok')
-
         if not self.data['create']:
             raise RuntimeError('readonly cloudspace')
-        space = self.account.space_get(self.name)
-        space.delete()
+
+        self.space.delete()
 
         self.state.delete('actions', 'install')
 
@@ -255,7 +254,7 @@ class Vdc(TemplateBase):
 
         # check that username is given 
         if not user.get('name'):
-            raise KeyError("failed to add user, field 'name' is required")
+            raise ValueError("failed to add user, field 'name' is required")
 
         # derive service name from username
         service_name = user['name'].split('@')[0]
@@ -265,10 +264,7 @@ class Vdc(TemplateBase):
             raise ValueError('no vdcuser service found with name "%s"', user['name'])
 
         # check that user was successfully installed
-        try:
-            find[0].state.check('actions', 'install', 'ok')
-        except StateCheckError:
-            raise StateCheckError('service for vdcuser "%s" in not installed' % service_name)
+        find[0].state.check('actions', 'install', 'ok')
         
         # fetch list of authorized users to self.data['users']
         self.get_users()
@@ -308,8 +304,6 @@ class Vdc(TemplateBase):
         if not self.data['create']:
             raise RuntimeError('readonly cloudspace')
 
-        self.state.check('actions', 'install', 'ok')
-
         # fetch list of authorized users to self.data['users']
         self.get_users()
         users = self.data['users']
@@ -320,8 +314,6 @@ class Vdc(TemplateBase):
                     break
                 else:
                     raise RuntimeError('failed to delete user "%s"' % username)
-        else:
-            raise RuntimeError('user "%s" is not found' % username)
 
     def update(self, maxMemoryCapacity=None, maxDiskCapacity=None, maxNumPublicIP=None,
                maxCPUCapacity=None, maxNetworkPeerTransfer=None):

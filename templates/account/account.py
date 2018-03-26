@@ -53,12 +53,15 @@ class Account(TemplateBase):
         return self.data['openvcloud']
 
     def install(self):
+        '''
+        Install account
+        '''
+        
         try:
             self.state.check('actions', 'install', 'ok')
             return
         except StateCheckError:
             pass
-
 
         # Set limits
         # if account does not exist, it will create it, 
@@ -73,6 +76,7 @@ class Account(TemplateBase):
         )
 
         self.data['accountID'] = self.account.model['id']
+
         # get list of authorized users
         self.get_users(refresh=False)
 
@@ -88,7 +92,7 @@ class Account(TemplateBase):
     def uninstall(self):
         if not self.data['create']:
             raise RuntimeError('readonly account')
-        self.state.check('actions', 'install', 'ok')
+
         acc = self.ovc.account_get(self.name, create=False)
         acc.delete()
 
@@ -106,7 +110,7 @@ class Account(TemplateBase):
 
         # check that username is given 
         if not user.get('name'):
-            raise KeyError("failed to add user, field 'name' is required")
+            raise ValueError("failed to add user, field 'name' is required")
 
         # derive service name from username
         service_name = user['name'].split('@')[0]
@@ -116,10 +120,7 @@ class Account(TemplateBase):
             raise ValueError('no vdcuser service found with name "%s"' % service_name)
 
         # check that user was successfully installed
-        try:
-            find[0].state.check('actions', 'install', 'ok')
-        except StateCheckError:
-            raise StateCheckError('service for vdcuser "%s" in not installed' % service_name)
+        find[0].state.check('actions', 'install', 'ok')
 
         self.get_users()
         users = self.data['users']
@@ -166,8 +167,6 @@ class Account(TemplateBase):
                     users.remove(user)
                     break
                 raise RuntimeError('failed to remove user "%s"' % username)
-        else:
-            raise RuntimeError('user "%s" is not found' % username)
 
     def update(self, maxMemoryCapacity=None, maxDiskCapacity=None,
                maxNumPublicIP=None, maxCPUCapacity=None):

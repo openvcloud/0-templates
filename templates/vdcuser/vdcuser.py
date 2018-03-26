@@ -37,7 +37,7 @@ class Vdcuser(TemplateBase):
         '''
         Install vdcuser
         '''
-
+        
         try:
             self.state.check('actions', 'install', 'ok')
             return
@@ -70,9 +70,7 @@ class Vdcuser(TemplateBase):
     def uninstall(self):
         """
         unauthorize user to all consumed vdc
-        """
-        self.state.check('actions', 'install', 'ok')
-        
+        """      
         client = self.ovc
         username = self.get_fqid()
         if client.api.system.usermanager.userexists(name=username):
