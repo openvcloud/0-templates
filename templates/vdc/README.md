@@ -31,8 +31,8 @@ For information about the different access rights check docs at [openvcloud](htt
 - `user_delete`: unauthorize user.
 - `enable`: enable VDC.
 - `disable`: disable VDC.
-- `portforward_create`: create a portforward.
-- `portforward_delete`: delete a portforward.
+- `portforward_create`: create a portforward. Expected to be called from [`node` service](../node).
+- `portforward_delete`: delete a portforward. Expected to be called from [`node` service](../node).
 - `update`: update limits of the VDC.
 
 ```yaml
@@ -114,6 +114,7 @@ actions:
     service: myspace
     actions: ['portforward_create']
     args:
+      machineId: 2342
       port_forwards:
         - destination: <local port>
           source: <public port>
@@ -125,6 +126,7 @@ actions:
     service: myspace
     actions: ['portforward_delete']
     args:
+      machineId: 2342
       port_forwards:
         - destination: <local port>
           source: <public port>

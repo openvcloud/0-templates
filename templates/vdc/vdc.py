@@ -196,7 +196,7 @@ class Vdc(TemplateBase):
         space.disable('The space should be disabled.')
         self.data['disabled'] = True
 
-    def portforward_create(self, machineId=None, port_forwards=[], protocol='tcp'):
+    def portforward_create(self, machineId, port_forwards=[], protocol='tcp'):
         """
         Create port forwards
         """
@@ -216,7 +216,7 @@ class Vdc(TemplateBase):
                 machineId=machineId,
                 )
 
-    def portforward_delete(self, machineId=None, port_forwards=[], protocol='tcp'):
+    def portforward_delete(self, machineId, port_forwards=[], protocol='tcp'):
         """
         Delete port forwards
         """
