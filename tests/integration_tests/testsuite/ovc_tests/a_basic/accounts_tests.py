@@ -112,7 +112,7 @@ class accounts(OVC_BaseTest):
 
         self.log('%s ENDED' % self._testID)
 
-    @unittest.skip('https://github.com/openvcloud/0-templates/issues/50')
+    @unittest.skip('https://github.com/openvcloud/0-templates/issues/79')
     def test003_update_account__params(self):
         """ ZRT-OVC-003
         *Test case for updating account's parameters*
