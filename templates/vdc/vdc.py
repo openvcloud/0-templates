@@ -254,10 +254,13 @@ class Vdc(TemplateBase):
             raise RuntimeError('readonly cloudspace')
 
         # check that username is given 
-        if 'name' not in user.keys():
+        if not user.get('name'):
             raise KeyError("failed to add user, field 'name' is required")
 
-        find = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=user['name'])
+        # derive service name from username
+        service_name = user['name'].split('@')[0]
+
+        find = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=service_name)
         if len(find) != 1:
             raise ValueError('no vdcuser service found with name "%s"', user['name'])
 
@@ -265,7 +268,7 @@ class Vdc(TemplateBase):
         try:
             find[0].state.check('actions', 'install', 'ok')
         except StateCheckError:
-            raise StateCheckError('service for vdcuser "%s" in not installed' % user['name'])
+            raise StateCheckError('service for vdcuser "%s" in not installed' % service_name)
         
         # fetch list of authorized users to self.data['users']
         self.get_users()

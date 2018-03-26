@@ -108,7 +108,7 @@ class Account(TemplateBase):
         if not user.get('name'):
             raise KeyError("failed to add user, field 'name' is required")
 
-        # derice service name from username
+        # derive service name from username
         service_name = user['name'].split('@')[0]
 
         find = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=service_name)
