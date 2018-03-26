@@ -144,13 +144,15 @@ class accounts(OVC_BaseTest):
         self.assertEqual(account['status'], 'CONFIRMED')
 
         self.log('Update some parameters and make sure it is updated')
-        self.accounts[self.acc1] = {'openvcloud': self.openvcloud, 'maxMemoryCapacity': CU_M - 1,
-                                    'maxCPUCapacity': CU_C - 1, 'maxDiskCapacity': CU_D - 1,
-                                    'maxNumPublicIP': CU_I - 1}
+        self.temp_actions['account'] = {'actions': ['update'],
+                                        'args': {"maxMemoryCapacity": CU_M - 1, "maxCPUCapacity": CU_C - 1,
+                                                 "maxDiskCapacity": CU_D - 1, "maxNumPublicIP": CU_I - 1}}
+        self.accounts[self.acc1] = {'openvcloud': self.openvcloud}
         res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
                                   accounts=self.accounts, temp_actions=self.temp_actions)
         self.assertTrue(type(res), type(dict()))
-        self.wait_for_service_action_status(self.acc1, res[self.acc1])
+
+        self.wait_for_service_action_status(self.acc1, res[self.acc1], action='update')
         account = self.get_account(self.acc1)
         self.assertEqual(account['resourceLimits']['CU_D'], CU_D - 1)
         self.assertEqual(account['resourceLimits']['CU_C'], CU_C - 1)
@@ -159,32 +161,62 @@ class accounts(OVC_BaseTest):
 
         self.log('%s ENDED' % self._testID)
 
-    @unittest.skip('https://github.com/openvcloud/0-templates/issues/55')
-    def test004_update_account_with_fake_user(self):
+    @unittest.skip('https://github.com/openvcloud/0-templates/issues/77')
+    def test004_account_add_delete_user(self):
         """ ZRT-OVC-004
         *Test case for updating account with fake user*
 
         **Test Scenario:**
 
-        #. Create an account with an existing user, should succeed.
-        #. Update the account with fake user, should fail.
+        #. Create an account (A1).
+        #. Add fake user to A1, should fail.
+        #. Add an existing user to A1, should succeed.
+        #. Delete an existing user from A1, should succeed.
+        #. Delete fake user from A1, should fail.
         """
         self.log('%s STARTED' % self._testID)
 
         self.accounts[self.acc1] = {'openvcloud': self.openvcloud,
                                     'users': OrderedDict([('name', self.vdcuser),
                                                           ('accesstype', 'CXDRAU')])}
-
         self.log('Create an account, should succeed')
         res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
                                   accounts=self.accounts, temp_actions=self.temp_actions)
         self.assertTrue(type(res), type(dict()))
         self.wait_for_service_action_status(self.acc1, res[self.acc1])
-        account = self.get_account(self.acc1)
-        self.assertEqual(account['status'], 'CONFIRMED')
 
-        self.log('Update the account with fake user, should fail')
-        self.accounts[self.acc1]['users']['name'] = self.random_string()
+        self.log('Add fake user to A1, should fail')
+        self.temp_actions['account'] = {'actions': ['user_add'],
+                                        'args': {'user': {'name': self.random_string(),
+                                                          'accesstype': 'R'}}}
+        res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
+                                  accounts=self.accounts, temp_actions=self.temp_actions)
+        self.assertIn('no vdcuser found', res)
+
+        self.log('Add an existing user to A1, should succeed.')
+        self.temp_actions['account']['args']['user']['name'] = self.vdcuser
+        res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
+                                  accounts=self.accounts, temp_actions=self.temp_actions)
+        self.assertTrue(type(res), type(dict()))
+        # Make sure wait method wait for certain service for certain action
+        self.wait_for_service_action_status(self.acc1, res[self.acc1], action='user_add')
+        account = self.get_account(self.acc1)
+        self.assertIn('%s@itsyouonline' % self.vdcuser,
+                      [user['userGroupId'] for user in account['acl']])
+
+        self.log('Delete an existing user from A1, should succeed.')
+        self.temp_actions['account']['actions'] = ['user_delete']
+        res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
+                                  accounts=self.accounts, temp_actions=self.temp_actions)
+        self.assertTrue(type(res), type(dict()))
+        # Make sure wait method wait for certain service for certain action
+        self.wait_for_service_action_status(self.acc1, res[self.acc1], action='user_delete')
+        account = self.get_account(self.acc1)
+        self.assertNotIn('%s@itsyouonline' % self.vdcuser,
+                         [user['userGroupId'] for user in account['acl']])
+
+        self.log('Delete fake user from A1, should fail.')
+        self.temp_actions['account']['args']['user']['name'] = self.random_string()
         res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
                                   accounts=self.accounts, temp_actions=self.temp_actions)
         self.assertIn('no vdcuser found', res)
