@@ -237,16 +237,12 @@ class TestAccount(TestCase):
                 with pytest.raises(RuntimeError,
                                    message='failed to remove user "%s"' % username):
                     instance.user_delete(username)
-                
-                # test deliting nonexistent user
-                instance.account.unauthorize_user.reset_mock()
-                nonexistent_username = 'nonexistent_username'
-                with pytest.raises(RuntimeError,
-                                   message='user "%s" is not found' % nonexistent_username):
-                    instance.user_delete(nonexistent_username)
 
     @mock.patch.object(j.clients, '_openvcloud')
     def test_update(self, openvcloud):
+        '''
+        Test updating account limits
+        '''
         cl = openvcloud.get.return_value
         account = cl.account_get.return_value
         account.model = {}
@@ -260,7 +256,7 @@ class TestAccount(TestCase):
 
         instance.update(
             maxMemoryCapacity=1,
-            maxDiskCapacity=2,
+            maxVDiskCapacity=2,
             maxNumPublicIP=3
         )
 
@@ -268,6 +264,6 @@ class TestAccount(TestCase):
 
         self.assertEqual(account.model, {
             'maxMemoryCapacity': 1,
-            'maxDiskCapacity': 2,
+            'maxVDiskCapacity': 2,
             'maxNumPublicIP': 3
         })

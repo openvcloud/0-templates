@@ -254,17 +254,11 @@ class TestVDC(TestCase):
                 with pytest.raises(RuntimeError,
                                    message='failed to update accesstype of user "test1"'):
                     instance.user_delete(username)
-                
-                # test deliting nonexistent user
-                instance.space.unauthorize_user.reset_mock()
-                nonexistent_username = 'nonexistent_username'
-                with pytest.raises(RuntimeError,
-                                   message='user "%s" is not found' % nonexistent_username):
-                    instance.user_delete(nonexistent_username)
-                
-
 
     def test_update(self):
+        '''
+        Test updating vdc limits
+        '''
         instance = self.type('test', None, {})
 
         with self.assertRaises(StateCheckError):
@@ -277,7 +271,7 @@ class TestVDC(TestCase):
             space.model = {}
             instance.update(
                 maxMemoryCapacity=1,
-                maxDiskCapacity=2,
+                maxVDiskCapacity=25,
                 maxNumPublicIP=3,
                 maxCPUCapacity=4
             )
@@ -286,7 +280,7 @@ class TestVDC(TestCase):
 
             self.assertEqual(space.model, {
                 'maxMemoryCapacity': 1,
-                'maxDiskCapacity': 2,
+                'maxVDiskCapacity': 25,
                 'maxNumPublicIP': 3,
                 'maxCPUCapacity': 4
             })

@@ -11,7 +11,7 @@ This template is responsible for creating an account on any openVCloud environme
 - `maxMemoryCapacity`: The limit on the memory capacity that can be used by the account. Default to -1 (unlimited).
 - `maxCPUCapacity`: The limit on the CPUs that can be used by the account. Default: -1 (unlimited).
 - `maxNumPublicIP`: The limit on the number of public IPs that can be used by the account. Default to -1 (unlimited).
-- `maxDiskCapacity`: The limit on the disk capacity that can be used by the account. Default to -1 (unlimited).
+- `maxVDiskCapacity`: The limit on the disk capacity that can be used by the account. Default to -1 (unlimited).
 - `consumptionFrom`: determines the start date of the required period to fetch the account consumption info from. If left empty will be creation time of the account.
 - `consumptionTo`: determines the end date of the required period to fetch the account consumption info from. If left empty will be `consumptionfrom` + 1 hour.
 - `consumptionData`: consumption data will be saved here as series of bytes which represents a zip file.
@@ -39,7 +39,7 @@ For information about the different access rights, check docs at [openvcloud](ht
   - `maxMemoryCapacity`
   - `maxCPUCapacity`
   - `maxNumPublicIP`
-  - `maxDiskCapacity`
+  - `maxVDiskCapacity`
 
 ```yaml
 services:

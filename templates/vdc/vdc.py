@@ -115,7 +115,7 @@ class Vdc(TemplateBase):
             name=self.name,
             create=True,
             maxMemoryCapacity=self.data.get('maxMemoryCapacity', -1),
-            maxVDiskCapacity=self.data.get('maxDiskCapacity', -1),
+            maxVDiskCapacity=self.data.get('maxVDiskCapacity', -1),
             maxCPUCapacity=self.data.get('maxCPUCapacity', -1),
             maxNumPublicIP=self.data.get('maxNumPublicIP', -1),
             maxNetworkPeerTransfer=self.data.get('maxNetworkPeerTransfer', -1),
@@ -129,7 +129,7 @@ class Vdc(TemplateBase):
 
         # update capacity incase cloudspace already existed update it
         space.model['maxMemoryCapacity'] = self.data.get('maxMemoryCapacity', -1)
-        space.model['maxVDiskCapacity'] = self.data.get('maxDiskCapacity', -1)
+        space.model['maxVDiskCapacity'] = self.data.get('maxVDiskCapacity', -1)
         space.model['maxNumPublicIP'] = self.data.get('maxNumPublicIP', -1)
         space.model['maxCPUCapacity'] = self.data.get('maxCPUCapacity', -1)
         space.model['maxNetworkPeerTransfer'] = self.data.get('maxNetworkPeerTransfer', -1)
@@ -315,7 +315,7 @@ class Vdc(TemplateBase):
                 else:
                     raise RuntimeError('failed to delete user "%s"' % username)
 
-    def update(self, maxMemoryCapacity=None, maxDiskCapacity=None, maxNumPublicIP=None,
+    def update(self, maxMemoryCapacity=None, maxVDiskCapacity=None, maxNumPublicIP=None,
                maxCPUCapacity=None, maxNetworkPeerTransfer=None):
         '''
         Update account flags
@@ -323,7 +323,7 @@ class Vdc(TemplateBase):
         :param maxMemoryCapacity: The limit on the memory capacity that can be used by the account
         :param maxCPUCapacity: The limit on the CPUs that can be used by the account.
         :param maxNumPublicIP: The limit on the number of public IPs that can be used by the account.
-        :param maxDiskCapacity: The limit on the disk capacity that can be used by the account.
+        :param maxVDiskCapacity: The limit on the disk capacity that can be used by the account.
         :param maxNetworkPeerTransfer: Cloudspace limits, max sent/received network transfer peering(GB).
         '''
 
@@ -342,7 +342,7 @@ class Vdc(TemplateBase):
 
         self.data.update(kwargs)
 
-        for key in ['maxMemoryCapacity', 'maxDiskCapacity', 'maxNumPublicIP',
+        for key in ['maxMemoryCapacity', 'maxVDiskCapacity', 'maxNumPublicIP',
                     'maxCPUCapacity', 'maxNetworkPeerTransfer']:
             value = kwargs[key]
             if value is not None:

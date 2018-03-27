@@ -70,7 +70,7 @@ class Account(TemplateBase):
             name=self.name,
             create=self.data['create'],
             maxMemoryCapacity=self.data['maxMemoryCapacity'],
-            maxVDiskCapacity=self.data['maxDiskCapacity'],
+            maxVDiskCapacity=self.data['maxVDiskCapacity'],
             maxCPUCapacity=self.data['maxCPUCapacity'],
             maxNumPublicIP=self.data['maxNumPublicIP'],
         )
@@ -82,7 +82,7 @@ class Account(TemplateBase):
 
         # update capacity in case account already existed
         self.account.model['maxMemoryCapacity'] = self.data['maxMemoryCapacity']
-        self.account.model['maxVDiskCapacity'] = self.data['maxDiskCapacity']
+        self.account.model['maxVDiskCapacity'] = self.data['maxVDiskCapacity']
         self.account.model['maxNumPublicIP'] = self.data['maxNumPublicIP']
         self.account.model['maxCPUCapacity'] = self.data['maxCPUCapacity']
         self.account.save()
@@ -168,15 +168,15 @@ class Account(TemplateBase):
                     break
                 raise RuntimeError('failed to remove user "%s"' % username)
 
-    def update(self, maxMemoryCapacity=None, maxDiskCapacity=None,
+    def update(self, maxMemoryCapacity=None, maxVDiskCapacity=None,
                maxNumPublicIP=None, maxCPUCapacity=None):
         '''
         Update account flags
 
         :param maxMemoryCapacity: The limit on the memory capacity that can be used by the account
-        :param maxCPUCapacity: The limit on the CPUs that can be used by the account.
+        :param maxVDiskCapacity: The limit on the disk capacity that can be used by the account.
         :param maxNumPublicIP: The limit on the number of public IPs that can be used by the account.
-        :param maxDiskCapacity: The limit on the disk capacity that can be used by the account.
+        :param maxCPUCapacity: The limit on the CPUs that can be used by the account.
         '''
 
         self.state.check('actions', 'install', 'ok')
@@ -191,7 +191,7 @@ class Account(TemplateBase):
         cl = self.ovc
         account = cl.account_get(name=self.name, create=False)
 
-        for key in ['maxMemoryCapacity', 'maxDiskCapacity',
+        for key in ['maxMemoryCapacity', 'maxVDiskCapacity',
                     'maxNumPublicIP', 'maxCPUCapacity']:
             value = kwargs[key]
             if value is None:

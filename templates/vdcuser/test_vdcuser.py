@@ -125,13 +125,9 @@ class TestVdcUser(TestCase):
         name = 'user1'
         instance = self.type(name, None, data)
 
-        with self.assertRaises(StateCheckError):
-            instance.uninstall()
-
         client = openvcloud.get.return_value
         # user exists
         client.api.system.usermanager.userexists.return_value = True
-        instance.state.set('actions', 'install', 'ok')
         instance.uninstall()
 
         client.api.system.usermanager.userexists.assert_called_once_with(name=name)

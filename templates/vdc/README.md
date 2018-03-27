@@ -11,7 +11,7 @@ This actor template creates a VDC (Virtual Data Center) on the specified environ
 - `create`: defines whether VDC can be created or deleted. Default to `True`.
 - `maxMemoryCapacity`: Cloudspace limits, maximum memory(GB).
 - `maxCPUCapacity`: Cloudspace limits, maximum CPU capacity.
-- `maxDiskCapacity`: Cloudspace limits, maximum disk capacity(GB).
+- `maxVDiskCapacity`: Cloudspace limits, maximum disk capacity(GB).
 - `maxNumPublicIP`: Cloudspace limits, maximum allowed number of public IPs.
 - `externalNetworkID`: External network to be attached to this cloudspace.
 - `maxNetworkPeerTransfer`: Cloudspace limits, max sent/received network transfer peering(GB).
@@ -81,7 +81,7 @@ actions:
     args:
       maxMemoryCapacity: 5
       maxCPUCapacity: 1
-      maxDiskCapacity: 20
+      maxVDiskCapacity: 20
       maxNumPublicIP: 1
       externalNetworkID: -1
       maxNetworkPeerTransfer: 10
