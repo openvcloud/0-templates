@@ -18,7 +18,7 @@ struct Schema {
 	maxCPUCapacity @4 :Int64 = -1;
 
 	# Cloudspace limits, maximum disk capacity(GB), optional.
-	maxDiskCapacity @5 :Int64 = -1;
+	maxVDiskCapacity @5 :Int64 = -1;
 
 	# Cloudspace limits, maximum allowed number of public IPs, optional.
 	maxNumPublicIP @6 :Int64 = -1;

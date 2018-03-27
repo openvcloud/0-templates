@@ -160,6 +160,41 @@ class TestVDC(TestCase):
             })
             space.save.assert_called_once_with()
 
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_uninstall(self, ovc):
+        '''
+        Test uninstall vdc
+        '''
+        # test error in read-only cloudspace
+        data_read_only = {
+            'account': 'test-account',
+            'create': False,
+            }
+        instance = self.type('test', None, data_read_only)
+        with pytest.raises(RuntimeError,
+                           message='"%s" is readonly cloudspace' % instance.name):
+            instance.uninstall()
+
+        # test success
+        data = {
+            'account': 'test-account',
+            }        
+
+        instance = self.type('test', None, data)
+        with patch.object(instance, 'api') as api:
+            api.services.find.return_value = [MagicMock(schedule_action=MagicMock())]
+            instance.uninstall()
+            instance.space.delete.assert_called_once_with()
+
+        # test error if no ovc service was found
+        instance = self.type('test', None, data)
+        #instance.space.delete.reset_mock()
+        with patch.object(instance, 'api') as api:
+            api.services.find.return_value = []
+            with pytest.raises(ValueError,
+                               message='found 0 accounts with name "%s", required exactly one' % data['account']):
+                instance.uninstall()      
+
     def test_user_add(self):
         '''
         Test authorizing a new user
@@ -254,17 +289,11 @@ class TestVDC(TestCase):
                 with pytest.raises(RuntimeError,
                                    message='failed to update accesstype of user "test1"'):
                     instance.user_delete(username)
-                
-                # test deliting nonexistent user
-                instance.space.unauthorize_user.reset_mock()
-                nonexistent_username = 'nonexistent_username'
-                with pytest.raises(RuntimeError,
-                                   message='user "%s" is not found' % nonexistent_username):
-                    instance.user_delete(nonexistent_username)
-                
-
 
     def test_update(self):
+        '''
+        Test updating vdc limits
+        '''
         instance = self.type('test', None, {})
 
         with self.assertRaises(StateCheckError):
@@ -277,7 +306,7 @@ class TestVDC(TestCase):
             space.model = {}
             instance.update(
                 maxMemoryCapacity=1,
-                maxDiskCapacity=2,
+                maxVDiskCapacity=25,
                 maxNumPublicIP=3,
                 maxCPUCapacity=4
             )
@@ -286,7 +315,7 @@ class TestVDC(TestCase):
 
             self.assertEqual(space.model, {
                 'maxMemoryCapacity': 1,
-                'maxDiskCapacity': 2,
+                'maxVDiskCapacity': 25,
                 'maxNumPublicIP': 3,
                 'maxCPUCapacity': 4
             })

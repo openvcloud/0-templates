@@ -72,7 +72,7 @@ class Vdc(TemplateBase):
             return self._space
 
         acc = self.account
-        self._space = acc.space_get(name=self.name)
+        self._space = acc.space_get(name=self.name, create=False)
         return self._space
 
     def get_users(self, refresh=True):
@@ -88,11 +88,16 @@ class Vdc(TemplateBase):
         return self.data['users']
 
     def install(self):
+        '''
+        Install vdc. Will be created if doesn't exist
+        '''
+
         try:
             self.state.check('actions', 'install', 'ok')
             return
         except StateCheckError:
             pass
+
         acc = self.account
         if not self.data['create']:
             space = self.space
@@ -110,7 +115,7 @@ class Vdc(TemplateBase):
             name=self.name,
             create=True,
             maxMemoryCapacity=self.data.get('maxMemoryCapacity', -1),
-            maxVDiskCapacity=self.data.get('maxDiskCapacity', -1),
+            maxVDiskCapacity=self.data.get('maxVDiskCapacity', -1),
             maxCPUCapacity=self.data.get('maxCPUCapacity', -1),
             maxNumPublicIP=self.data.get('maxNumPublicIP', -1),
             maxNetworkPeerTransfer=self.data.get('maxNetworkPeerTransfer', -1),
@@ -124,7 +129,7 @@ class Vdc(TemplateBase):
 
         # update capacity incase cloudspace already existed update it
         space.model['maxMemoryCapacity'] = self.data.get('maxMemoryCapacity', -1)
-        space.model['maxVDiskCapacity'] = self.data.get('maxDiskCapacity', -1)
+        space.model['maxVDiskCapacity'] = self.data.get('maxVDiskCapacity', -1)
         space.model['maxNumPublicIP'] = self.data.get('maxNumPublicIP', -1)
         space.model['maxCPUCapacity'] = self.data.get('maxCPUCapacity', -1)
         space.model['maxNetworkPeerTransfer'] = self.data.get('maxNetworkPeerTransfer', -1)
@@ -148,15 +153,19 @@ class Vdc(TemplateBase):
         '''
         if not self.data['create']:
             raise RuntimeError('readonly cloudspace')
-        space = self.account.space_get(self.name)
-        space.delete()
+
+        self.space.delete()
+
+        self.state.delete('actions', 'install')
 
     def enable(self):
         '''
         Enable VDC
         '''        
+        self.state.check('actions', 'install', 'ok')
+
         if not self.data['create']:
-            raise RuntimeError('readonly cloudspace')
+            raise RuntimeError('"%s" is readonly cloudspace' % self.name)
 
         # Get space, raise error if not found
         self.state.check('actions', 'install', 'ok')
@@ -171,7 +180,9 @@ class Vdc(TemplateBase):
     def disable(self):
         '''
         Disable VDC
-        '''        
+        '''
+
+        self.state.check('actions', 'install', 'ok')
         if not self.data['create']:
             raise RuntimeError('readonly cloudspace')
             
@@ -185,10 +196,12 @@ class Vdc(TemplateBase):
         space.disable('The space should be disabled.')
         self.data['disabled'] = True
 
-    def portforward_create(self, machineId=None, port_forwards=[], protocol='tcp'):
+    def portforward_create(self, machineId, port_forwards=[], protocol='tcp'):
         """
         Create port forwards
         """
+        self.state.check('actions', 'install', 'ok')
+
         ovc = self.ovc
         space = self.space
 
@@ -203,10 +216,12 @@ class Vdc(TemplateBase):
                 machineId=machineId,
                 )
 
-    def portforward_delete(self, machineId=None, port_forwards=[], protocol='tcp'):
+    def portforward_delete(self, machineId, port_forwards=[], protocol='tcp'):
         """
         Delete port forwards
         """
+        self.state.check('actions', 'install', 'ok')
+
         ovc = self.ovc
         space = self.space
         existent_ports = [(port['publicPort'], port['localPort'], port['id'])
@@ -237,10 +252,20 @@ class Vdc(TemplateBase):
         if not self.data['create']:
             raise RuntimeError('readonly cloudspace')
 
-        find = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=user['name'])
+        # check that username is given 
+        if not user.get('name'):
+            raise ValueError("failed to add user, field 'name' is required")
+
+        # derive service name from username
+        service_name = user['name'].split('@')[0]
+
+        find = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=service_name)
         if len(find) != 1:
             raise ValueError('no vdcuser service found with name "%s"', user['name'])
 
+        # check that user was successfully installed
+        find[0].state.check('actions', 'install', 'ok')
+        
         # fetch list of authorized users to self.data['users']
         self.get_users()
         users = self.data['users']
@@ -274,10 +299,10 @@ class Vdc(TemplateBase):
 
         :param username: user instance name
         '''
+        self.state.check('actions', 'install', 'ok')
+
         if not self.data['create']:
             raise RuntimeError('readonly cloudspace')
-
-        self.state.check('actions', 'install', 'ok')
 
         # fetch list of authorized users to self.data['users']
         self.get_users()
@@ -289,10 +314,8 @@ class Vdc(TemplateBase):
                     break
                 else:
                     raise RuntimeError('failed to delete user "%s"' % username)
-        else:
-            raise RuntimeError('user "%s" is not found' % username)
 
-    def update(self, maxMemoryCapacity=None, maxDiskCapacity=None, maxNumPublicIP=None,
+    def update(self, maxMemoryCapacity=None, maxVDiskCapacity=None, maxNumPublicIP=None,
                maxCPUCapacity=None, maxNetworkPeerTransfer=None):
         '''
         Update account flags
@@ -300,9 +323,11 @@ class Vdc(TemplateBase):
         :param maxMemoryCapacity: The limit on the memory capacity that can be used by the account
         :param maxCPUCapacity: The limit on the CPUs that can be used by the account.
         :param maxNumPublicIP: The limit on the number of public IPs that can be used by the account.
-        :param maxDiskCapacity: The limit on the disk capacity that can be used by the account.
+        :param maxVDiskCapacity: The limit on the disk capacity that can be used by the account.
         :param maxNetworkPeerTransfer: Cloudspace limits, max sent/received network transfer peering(GB).
         '''
+
+        self.state.check('actions', 'install', 'ok')
         if not self.data['create']:
             raise RuntimeError('readonly cloudspace')
         # work around not supporting the **kwargs in actions call
@@ -317,7 +342,7 @@ class Vdc(TemplateBase):
 
         self.data.update(kwargs)
 
-        for key in ['maxMemoryCapacity', 'maxDiskCapacity', 'maxNumPublicIP',
+        for key in ['maxMemoryCapacity', 'maxVDiskCapacity', 'maxNumPublicIP',
                     'maxCPUCapacity', 'maxNetworkPeerTransfer']:
             value = kwargs[key]
             if value is not None:

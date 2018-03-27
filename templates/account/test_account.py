@@ -20,7 +20,7 @@ class TestAccount(TestCase):
 
         # define properties of account mock
         acc_mock =  MagicMock(model={'acl': []})
-        self.ovc_mock = MagicMock(account_get=MagicMock(return_value=acc_mock))        
+        self.ovc_mock = MagicMock(account_get=MagicMock(return_value=acc_mock))      
 
     def test_validate_openvcloud(self):
         data = {
@@ -143,6 +143,32 @@ class TestAccount(TestCase):
         account = cl.account_get.return_value
         account.save.assert_called_once_with()
 
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_uninstall(self, ovc):
+        '''
+        Test uninstall account
+        '''
+        # test error in read-only cloudspace
+        data_read_only = {
+            'openvcloud': 'connection',
+            'create': False,
+            }
+        instance = self.type('test', None, data_read_only)
+
+        with pytest.raises(RuntimeError,
+                           message='"%s" is readonly cloudspace' % instance.name):
+            instance.uninstall()
+
+        # test success
+        data = {
+            'openvcloud': 'connection',
+            }
+
+        account = ovc.get.return_value.account_get.return_value
+        instance = self.type('test', None, data)
+        instance.uninstall()
+        account.delete.assert_called_once_with()     
+
     def test_user_add(self):
         '''
         Test authorizing a new user
@@ -237,16 +263,12 @@ class TestAccount(TestCase):
                 with pytest.raises(RuntimeError,
                                    message='failed to remove user "%s"' % username):
                     instance.user_delete(username)
-                
-                # test deliting nonexistent user
-                instance.account.unauthorize_user.reset_mock()
-                nonexistent_username = 'nonexistent_username'
-                with pytest.raises(RuntimeError,
-                                   message='user "%s" is not found' % nonexistent_username):
-                    instance.user_delete(nonexistent_username)
 
     @mock.patch.object(j.clients, '_openvcloud')
     def test_update(self, openvcloud):
+        '''
+        Test updating account limits
+        '''
         cl = openvcloud.get.return_value
         account = cl.account_get.return_value
         account.model = {}
@@ -260,7 +282,7 @@ class TestAccount(TestCase):
 
         instance.update(
             maxMemoryCapacity=1,
-            maxDiskCapacity=2,
+            maxVDiskCapacity=2,
             maxNumPublicIP=3
         )
 
@@ -268,6 +290,6 @@ class TestAccount(TestCase):
 
         self.assertEqual(account.model, {
             'maxMemoryCapacity': 1,
-            'maxDiskCapacity': 2,
+            'maxVDiskCapacity': 2,
             'maxNumPublicIP': 3
         })

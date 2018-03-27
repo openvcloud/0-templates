@@ -24,7 +24,7 @@ struct Schema {
 	maxNumPublicIP @6 :Int64 = -1;
 
 	# The limit on the disk capacity that can be used by the account. Default: -1 (unlimited)
-	maxDiskCapacity @7 :Int64 = -1;
+	maxVDiskCapacity @7 :Int64 = -1;
 
 	# determines the start date of the required period to fetch the account consumption info from. If left empty will be creation time of the account.
 	consumptionFrom @8 :Int64;

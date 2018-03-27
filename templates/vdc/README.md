@@ -11,7 +11,7 @@ This actor template creates a VDC (Virtual Data Center) on the specified environ
 - `create`: defines whether VDC can be created or deleted. Default to `True`.
 - `maxMemoryCapacity`: Cloudspace limits, maximum memory(GB).
 - `maxCPUCapacity`: Cloudspace limits, maximum CPU capacity.
-- `maxDiskCapacity`: Cloudspace limits, maximum disk capacity(GB).
+- `maxVDiskCapacity`: Cloudspace limits, maximum disk capacity(GB).
 - `maxNumPublicIP`: Cloudspace limits, maximum allowed number of public IPs.
 - `externalNetworkID`: External network to be attached to this cloudspace.
 - `maxNetworkPeerTransfer`: Cloudspace limits, max sent/received network transfer peering(GB).
@@ -31,8 +31,8 @@ For information about the different access rights check docs at [openvcloud](htt
 - `user_delete`: unauthorize user.
 - `enable`: enable VDC.
 - `disable`: disable VDC.
-- `portforward_create`: create a portforward.
-- `portforward_delete`: delete a portforward.
+- `portforward_create`: create a portforward. Expected to be called from [`node` service](../node).
+- `portforward_delete`: delete a portforward. Expected to be called from [`node` service](../node).
 - `update`: update limits of the VDC.
 
 ```yaml
@@ -81,7 +81,7 @@ actions:
     args:
       maxMemoryCapacity: 5
       maxCPUCapacity: 1
-      maxDiskCapacity: 20
+      maxVDiskCapacity: 20
       maxNumPublicIP: 1
       externalNetworkID: -1
       maxNetworkPeerTransfer: 10
@@ -114,6 +114,7 @@ actions:
     service: myspace
     actions: ['portforward_create']
     args:
+      machineId: 2342
       port_forwards:
         - destination: <local port>
           source: <public port>
@@ -125,6 +126,7 @@ actions:
     service: myspace
     actions: ['portforward_delete']
     args:
+      machineId: 2342
       port_forwards:
         - destination: <local port>
           source: <public port>

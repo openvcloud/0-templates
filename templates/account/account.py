@@ -22,7 +22,7 @@ class Account(TemplateBase):
         ovcs = self.api.services.find(template_uid=self.OVC_TEMPLATE, name=self.data['openvcloud'])
 
         if len(ovcs) != 1:
-            raise RuntimeError('found %s openvcloud connections, requires exactly 1' % len(ovcs))
+            raise RuntimeError('found %s openvcloud connections with name "%s", requires exactly 1' % (len(ovcs), self.data['openvcloud']))
 
     @property
     def ovc(self):
@@ -53,12 +53,15 @@ class Account(TemplateBase):
         return self.data['openvcloud']
 
     def install(self):
+        '''
+        Install account
+        '''
+        
         try:
             self.state.check('actions', 'install', 'ok')
             return
         except StateCheckError:
             pass
-
 
         # Set limits
         # if account does not exist, it will create it, 
@@ -67,18 +70,19 @@ class Account(TemplateBase):
             name=self.name,
             create=self.data['create'],
             maxMemoryCapacity=self.data['maxMemoryCapacity'],
-            maxVDiskCapacity=self.data['maxDiskCapacity'],
+            maxVDiskCapacity=self.data['maxVDiskCapacity'],
             maxCPUCapacity=self.data['maxCPUCapacity'],
             maxNumPublicIP=self.data['maxNumPublicIP'],
         )
 
         self.data['accountID'] = self.account.model['id']
+
         # get list of authorized users
         self.get_users(refresh=False)
 
         # update capacity in case account already existed
         self.account.model['maxMemoryCapacity'] = self.data['maxMemoryCapacity']
-        self.account.model['maxVDiskCapacity'] = self.data['maxDiskCapacity']
+        self.account.model['maxVDiskCapacity'] = self.data['maxVDiskCapacity']
         self.account.model['maxNumPublicIP'] = self.data['maxNumPublicIP']
         self.account.model['maxCPUCapacity'] = self.data['maxCPUCapacity']
         self.account.save()
@@ -88,9 +92,11 @@ class Account(TemplateBase):
     def uninstall(self):
         if not self.data['create']:
             raise RuntimeError('readonly account')
-        self.state.check('actions', 'install', 'ok')
+
         acc = self.ovc.account_get(self.name, create=False)
         acc.delete()
+
+        self.state.delete('actions', 'install')
 
     def user_add(self, user):
         '''
@@ -102,9 +108,19 @@ class Account(TemplateBase):
         if not self.data['create']:
             raise RuntimeError('readonly account')
 
-        find = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=user['name'])
+        # check that username is given 
+        if not user.get('name'):
+            raise ValueError("failed to add user, field 'name' is required")
+
+        # derive service name from username
+        service_name = user['name'].split('@')[0]
+
+        find = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=service_name)
         if len(find) != 1:
-            raise ValueError('no account service found with name "%s"', user['name'])
+            raise ValueError('no vdcuser service found with name "%s"' % service_name)
+
+        # check that user was successfully installed
+        find[0].state.check('actions', 'install', 'ok')
 
         self.get_users()
         users = self.data['users']
@@ -135,6 +151,9 @@ class Account(TemplateBase):
         Delete user access
         :param username: user instance name
         '''
+
+        self.state.check('actions', 'install', 'ok')
+
         if not self.data['create']:
             raise RuntimeError('readonly account')
 
@@ -148,19 +167,20 @@ class Account(TemplateBase):
                     users.remove(user)
                     break
                 raise RuntimeError('failed to remove user "%s"' % username)
-        else:
-            raise RuntimeError('user "%s" is not found' % username)
 
-    def update(self, maxMemoryCapacity=None, maxDiskCapacity=None,
+    def update(self, maxMemoryCapacity=None, maxVDiskCapacity=None,
                maxNumPublicIP=None, maxCPUCapacity=None):
         '''
         Update account flags
 
         :param maxMemoryCapacity: The limit on the memory capacity that can be used by the account
-        :param maxCPUCapacity: The limit on the CPUs that can be used by the account.
+        :param maxVDiskCapacity: The limit on the disk capacity that can be used by the account.
         :param maxNumPublicIP: The limit on the number of public IPs that can be used by the account.
-        :param maxDiskCapacity: The limit on the disk capacity that can be used by the account.
+        :param maxCPUCapacity: The limit on the CPUs that can be used by the account.
         '''
+
+        self.state.check('actions', 'install', 'ok')
+
         if not self.data['create']:
             raise RuntimeError('readonly account')
 
@@ -171,7 +191,7 @@ class Account(TemplateBase):
         cl = self.ovc
         account = cl.account_get(name=self.name, create=False)
 
-        for key in ['maxMemoryCapacity', 'maxDiskCapacity',
+        for key in ['maxMemoryCapacity', 'maxVDiskCapacity',
                     'maxNumPublicIP', 'maxCPUCapacity']:
             value = kwargs[key]
             if value is None:
