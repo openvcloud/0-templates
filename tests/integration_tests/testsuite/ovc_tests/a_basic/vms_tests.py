@@ -4,12 +4,12 @@ from collections import OrderedDict
 from random import randint
 
 
-class vms(OVC_BaseTest):
+class BasicTests(OVC_BaseTest):
     def __init__(self, *args, **kwargs):
-        super(vms, self).__init__(*args, **kwargs)
+        super(BasicTests, self).__init__(*args, **kwargs)
 
     def setUp(self):
-        super(vms, self).setUp()
+        super(BasicTests, self).setUp()
         self.acc1 = self.random_string()
         self.accounts = {self.acc1: {'openvcloud': self.openvcloud}}
         self.cs1 = self.random_string()
@@ -20,6 +20,7 @@ class vms(OVC_BaseTest):
                              'vdcuser': {'actions': ['install']},
                              'vdc': {'actions': ['install']},
                              'node': {'actions': ['install']}}
+        self.CLEANUP["accounts"].append(self.acc1)
 
     @unittest.skip('https://github.com/openvcloud/0-templates/issues/47')
     def test001_create_vm_with_wrong_params(self):
@@ -62,7 +63,7 @@ class vms(OVC_BaseTest):
 
         self.log('%s ENDED' % self._testID)
 
-    @unittest.skip('https://github.com/openvcloud/0-templates/issues/63 https://github.com/openvcloud/0-templates/issues/67')
+    @unittest.skip('https://github.com/openvcloud/0-templates/issues/76')
     def test002_create_vms_with_correct_params(self):
         """ ZRT-OVC-000
         Test case for creating virtual machine with correct parameters*
@@ -86,11 +87,7 @@ class vms(OVC_BaseTest):
         bds = randint(10, 20)
         dds = randint(10, 20)
         self.vms[self.vm2] = {'sshKey': self.key, 'vdc': self.cs1,
-                              'bootDiskSize': bds, 'dataDiskSize': dds,
-                              'users': OrderedDict([('name', self.vdcuser),
-                                                    ('accesstype', 'CXDRAU')]),
-                              'ports': OrderedDict([('source', 2222),
-                                                    ('destination', 22)])}
+                              'bootDiskSize': bds, 'dataDiskSize': dds}
         res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
                              vms=self.vms, temp_actions=self.temp_actions)
         self.assertTrue(type(res), type(dict()))
@@ -110,17 +107,5 @@ class vms(OVC_BaseTest):
         self.assertEqual([disk['sizeMax'] for disk in vm2['disks'] if disk['type'] == 'D'][0], dds)
         self.assertEqual(vm2['memory'], 512)
         self.assertEqual(vm2['vcpus'], 1)
-        self.assertIn('%s@itsyouonline' % self.vdcuser,
-                      [user['userGroupId'] for user in vm2['acl']])
-        # to do
-        # check on the port forward creation
 
         self.log('%s ENDED' % self._testID)
-
-    def tearDown(self):
-        for accountname in self.accounts.keys():
-            if self.check_if_service_exist(accountname):
-                self.temp_actions = {'account': {'actions': ['uninstall']}}
-                self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
-                                    accounts=self.accounts, temp_actions=self.temp_actions)
-        self.delete_services()
