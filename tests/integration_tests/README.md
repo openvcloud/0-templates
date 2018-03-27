@@ -12,7 +12,7 @@ vim config.ini
 3- Install requirements.
 ```
 cd /tests/integration_tests
-pip3 install -r requirements
+pip3 install -r requirements.txt
 ```
    
 4- Run ```prepare.sh``` to clone the framework needed for running the tests.
