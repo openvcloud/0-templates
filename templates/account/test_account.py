@@ -271,3 +271,108 @@ class TestAccount(TestCase):
             'maxDiskCapacity': 2,
             'maxNumPublicIP': 3
         })
+
+    def test_validate_args(self):
+        tt = [
+            {
+                "data": {"description" : "dummy value"},
+                "valid": True,
+                "msg": "description is a valid argument",
+            },
+            {
+                "data": {"openvcloud" : "dummy value"},
+                "valid": True,
+                "msg": "openvcloud is a valid argument",
+            },
+            {
+                "data": {"users" : "dummy value"},
+                "valid": True,
+                "msg": "users is a valid argument",
+            },
+            {
+                "data": {"accountID" : "dummy value"},
+                "valid": True,
+                "msg": "accountID is a valid argument",
+            },
+            {
+                "data": {"maxMemoryCapacity" : "dummy value"},
+                "valid": True,
+                "msg": "maxMemoryCapacity is a valid argument",
+            },
+            {
+                "data": {"maxCPUCapacity" : "dummy value"},
+                "valid": True,
+                "msg": "maxCPUCapacity is a valid argument",
+            },
+            {
+                "data": {"maxNumPublicIP" : "dummy value"},
+                "valid": True,
+                "msg": "maxNumPublicIP is a valid argument",
+            },
+            {
+                "data": {"maxDiskCapacity" : "dummy value"},
+                "valid": True,
+                "msg": "maxDiskCapacity is a valid argument",
+            },
+            {
+                "data": {"consumptionFrom" : "dummy value"},
+                "valid": True,
+                "msg": "consumptionFrom is a valid argument",
+            },
+            {
+                "data": {"consumptionTo" : "dummy value"},
+                "valid": True,
+                "msg": "consumptionTo is a valid argument",
+            },
+            {
+                "data": {"consumptionData" : "dummy value"},
+                "valid": True,
+                "msg": "consumptionData is a valid argument",
+            },
+            {
+                "data": {"create" : "dummy value"},
+                "valid": True,
+                "msg": "create is a valid argument",
+            },
+            {
+                "data": {"consumptionData" : "dummy value", "description" : "dummy value"},
+                "valid": True,
+                "msg": "consumptionData and description are valid arguments",
+            },
+            {
+                "data": {"foo" : "dummy value"},
+                "valid": False,
+                "msg": "foo is an invalid argument",
+            },
+            {
+                "data": {"openwcloud" : "dummy value"},
+                "valid": False,
+                "msg": "openwcloud is an invalid argument",
+            },
+            {
+                "data": {"maxDiskCapacit" : "dummy value"},
+                "valid": False,
+                "msg": "maxDiskCapacit is an invalid argument",
+            },
+            {
+                "data": {"openvcloud" : "dummy value", "foo" : "dummy value"},
+                "valid": False,
+                "msg": "foo is an invalid argument",
+            },
+        ]
+
+        name = 'test'
+        instance = self.type(name)
+
+        for tc in tt:
+            result = False
+
+            try:
+                instance._validate_args(data=tc['data'])
+                result = True
+            except Exception as err:
+                print(err)
+                if not isinstance(err, ValueError):
+                    self.fail(msg="received unexpected exception:\n\t%s" % (str(err)))
+            
+            self.assertEqual(tc['valid'], result, tc['msg'])

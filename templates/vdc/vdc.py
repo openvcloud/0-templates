@@ -12,7 +12,26 @@ class Vdc(TemplateBase):
     ACCOUNT_TEMPLATE = 'github.com/openvcloud/0-templates/account/0.0.1'
     VDCUSER_TEMPLATE = 'github.com/openvcloud/0-templates/vdcuser/0.0.1'
 
+    # allowed service arguments
+    _ARGS = [
+        'description',
+        'account',
+        'users',
+        'allowedVMSizes',
+        'cloudspaceID',
+        'maxMemoryCapacity',
+        'maxCPUCapacity',
+        'maxDiskCapacity',
+        'maxNumPublicIP',
+        'externalNetworkID',
+        'maxNetworkPeerTransfer',
+        'disabled',
+        'script',
+        'create',
+    ]
+
     def __init__(self, name, guid=None, data=None):
+        self._validate_args(data)
         super().__init__(name=name, guid=guid, data=data)
 
         self._ovc = None
@@ -27,6 +46,17 @@ class Vdc(TemplateBase):
         accounts = self.api.services.find(template_uid=self.ACCOUNT_TEMPLATE, name=self.data['account'])
         if len(accounts) != 1:
             raise RuntimeError('found %s accounts, requires exactly one' % len(accounts))
+
+    def _validate_args(self, data):
+        """
+        Validates if provided data object contains supported args
+        """
+        if data is None:
+            return
+
+        for arg in data:
+            if arg not in self._ARGS:
+                raise ValueError('%s is not a supported argument' % str(arg))
 
     @property
     def ovc(self):

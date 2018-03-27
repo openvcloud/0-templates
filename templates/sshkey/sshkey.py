@@ -8,7 +8,14 @@ class Sshkey(TemplateBase):
     version = '0.0.1'
     template_name = "sshkey"
 
+    # allowed service arguments
+    _ARGS = [
+        'dir',
+        'passphrase',
+    ]
+
     def __init__(self, name, guid=None, data=None):
+        self._validate_args(data)
         super().__init__(name=name, guid=guid, data=data)
 
         dir = self.data['dir']
@@ -37,4 +44,13 @@ class Sshkey(TemplateBase):
     def install(self):
         pass
 
-    
+    def _validate_args(self, data):
+        """
+        Validates if provided data object contains supported args
+        """
+        if data is None:
+            return
+
+        for arg in data:
+            if arg not in self._ARGS:
+                raise ValueError('%s is not a supported argument' % str(arg))

@@ -173,3 +173,78 @@ class TestVdcUser(TestCase):
             provider='',
             emails=[data['email']]
         )
+
+    def test_validate_args(self):
+        tt = [
+            {
+                "data": {"password" : "dummy value"},
+                "valid": True,
+                "msg": "password is a valid argument",
+            },
+            {
+                "data": {"email" : "dummy value"},
+                "valid": True,
+                "msg": "email is a valid argument",
+            },
+            {
+                "data": {"provider" : "dummy value"},
+                "valid": True,
+                "msg": "provider is a valid argument",
+            },
+            {
+                "data": {"groups" : "dummy value"},
+                "valid": True,
+                "msg": "groups is a valid argument",
+            },
+            {
+                "data": {"openvcloud" : "dummy value"},
+                "valid": True,
+                "msg": "openvcloud is a valid argument",
+            },
+            {
+                "data": {"password" : "dummy value", "email" : "dummy value"},
+                "valid": True,
+                "msg": "password and email are valid arguments",
+            },
+            {
+                "data": {"foo" : "dummy value"},
+                "valid": False,
+                "msg": "foo is an invalid argument",
+            },
+            {
+                "data": {"providers" : "dummy value"},
+                "valid": False,
+                "msg": "providers is an invalid argument",
+            },
+            {
+                "data": {"group" : "dummy value"},
+                "valid": False,
+                "msg": "group is an invalid argument",
+            },
+            {
+                "data": {"password" : "dummy value", "foo" : "dummy value"},
+                "valid": False,
+                "msg": "foo is an invalid argument",
+            },
+        ]
+
+        name = 'test'
+        dummy_data = {
+            'openvcloud': 'connection',
+            'password': 'passwd',
+            'email': 'email@test.com',
+        }
+        instance = self.type(name, None, dummy_data)
+
+        for tc in tt:
+            result = False
+
+            try:
+                instance._validate_args(data=tc['data'])
+                result = True
+            except Exception as err:
+                print(err)
+                if not isinstance(err, ValueError):
+                    self.fail(msg="received unexpected exception:\n\t%s" % (str(err)))
+            
+            self.assertEqual(tc['valid'], result, tc['msg'])

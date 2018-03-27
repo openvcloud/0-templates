@@ -11,6 +11,22 @@ class Account(TemplateBase):
     OVC_TEMPLATE = 'github.com/openvcloud/0-templates/openvcloud/0.0.1'
     VDCUSER_TEMPLATE = 'github.com/openvcloud/0-templates/vdcuser/0.0.1'
 
+    # allowed service arguments
+    _ARGS = [
+        'description',
+        'openvcloud',
+        'users',
+        'accountID',
+        'maxMemoryCapacity',
+        'maxCPUCapacity',
+        'maxNumPublicIP',
+        'maxDiskCapacity',
+        'consumptionFrom',
+        'consumptionTo',
+        'consumptionData',
+        'create',
+    ]
+
     def __init__(self, name, guid=None, data=None):
         super().__init__(name=name, guid=guid, data=data)
         self._account = None
@@ -23,6 +39,17 @@ class Account(TemplateBase):
 
         if len(ovcs) != 1:
             raise RuntimeError('found %s openvcloud connections, requires exactly 1' % len(ovcs))
+    
+    def _validate_args(self, data):
+        """
+        Validates if provided data object contains supported args
+        """
+        if data is None:
+            return
+
+        for arg in data:
+            if arg not in self._ARGS:
+                raise ValueError('%s is not a supported argument' % str(arg))
 
     @property
     def ovc(self):

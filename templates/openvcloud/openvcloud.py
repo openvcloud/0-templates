@@ -7,7 +7,17 @@ class Openvcloud(TemplateBase):
     version = '0.0.1'
     template_name = "openvcloud"
 
+    # allowed service arguments
+    _ARGS = [
+        'description',
+        'address',
+        'port',
+        'token',
+        'location',
+    ]
+
     def __init__(self, name, guid=None, data=None):
+        self._validate_args(data)
         super().__init__(name=name, guid=guid, data=data)
 
         self._validate_data()
@@ -17,6 +27,17 @@ class Openvcloud(TemplateBase):
         for key in ['address', 'token', 'location']:
             if not self.data[key]:
                 raise ValueError('%s is required' % key)
+
+    def _validate_args(self, data):
+        """
+        Validates if provided data object contains supported args
+        """
+        if data is None:
+            return
+
+        for arg in data:
+            if arg not in self._ARGS:
+                raise ValueError('%s is not a supported argument' % str(arg))
 
     def _configure(self):
         ovc = j.clients.openvcloud.get(
