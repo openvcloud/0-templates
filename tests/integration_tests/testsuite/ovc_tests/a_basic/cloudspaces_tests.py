@@ -37,7 +37,6 @@ class BasicTests(OVC_BaseTest):
         #. Create a cloudspace with providing non existing parameter, should fail.
         #. Create a cloudspace with non-existing account , should fail.
         #. Create a cloudspace without providing account parameter, should fail.
-        #. Create a cloudspace with providing non existing user, should fail
         """
         self.log('%s STARTED' % self._testID)
 
@@ -356,3 +355,12 @@ class CloudspaceActions(OVC_BaseTest):
         
         self.log('Check that the portforward  deleted from cloudspace [CS1] successfully , should succeed.')
         self.assertFalse(self.get_portforward_list(self.cs1, vm_name))    
+
+    @classmethod
+    def tearDown(cls):
+        self = cls()
+        super(CloudspaceActions, self).setUp()
+        self.temp_actions = {'account': {'actions': ['uninstall']}}
+        self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
+                            accounts=self.accounts, temp_actions=self.temp_actions)
+        self.delete_services()
