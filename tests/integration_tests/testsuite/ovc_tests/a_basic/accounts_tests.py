@@ -30,7 +30,6 @@ class accounts(OVC_BaseTest):
 
         #. Create an account without providing openvcloud parameter, should fail.
         #. Create an account with providing non existing openvcloud value, should fail.
-        #. Create an account with providing non existing user, should fail
         #. Create an account with providing non existing parameter, should fail.
         """
         self.log('%s STARTED' % self._testID)
@@ -46,14 +45,6 @@ class accounts(OVC_BaseTest):
         res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
                                   accounts=self.accounts, temp_actions=self.temp_actions)
         self.assertEqual(res, 'found 0 openvcloud connections, requires exactly 1')
-
-        self.log('Create an account with providing non existing user, should fail')
-        self.accounts[self.acc1] = {'openvcloud': self.openvcloud,
-                                    'users': OrderedDict([('name', self.random_string()),
-                                                          ('accesstype', 'CXDRAU')])}
-        res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
-                                  accounts=self.accounts, temp_actions=self.temp_actions)
-        self.assertIn('no vdcuser found', res)
 
         self.log('Create an account with providing non existing parameter, should fail')
         self.accounts[self.acc1] = {self.random_string(): self.random_string()}
