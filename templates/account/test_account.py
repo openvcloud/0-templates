@@ -20,7 +20,7 @@ class TestAccount(TestCase):
 
         # define properties of account mock
         acc_mock =  MagicMock(model={'acl': []})
-        self.ovc_mock = MagicMock(account_get=MagicMock(return_value=acc_mock))        
+        self.ovc_mock = MagicMock(account_get=MagicMock(return_value=acc_mock))      
 
     def test_validate_openvcloud(self):
         data = {
@@ -142,6 +142,32 @@ class TestAccount(TestCase):
 
         account = cl.account_get.return_value
         account.save.assert_called_once_with()
+
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_uninstall(self, ovc):
+        '''
+        Test uninstall account
+        '''
+        # test error in read-only cloudspace
+        data_read_only = {
+            'openvcloud': 'connection',
+            'create': False,
+            }
+        instance = self.type('test', None, data_read_only)
+
+        with pytest.raises(RuntimeError,
+                           message='"%s" is readonly cloudspace' % instance.name):
+            instance.uninstall()
+
+        # test success
+        data = {
+            'openvcloud': 'connection',
+            }
+
+        account = ovc.get.return_value.account_get.return_value
+        instance = self.type('test', None, data)
+        instance.uninstall()
+        account.delete.assert_called_once_with()     
 
     def test_user_add(self):
         '''

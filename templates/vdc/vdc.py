@@ -72,7 +72,7 @@ class Vdc(TemplateBase):
             return self._space
 
         acc = self.account
-        self._space = acc.space_get(name=self.name)
+        self._space = acc.space_get(name=self.name, create=False)
         return self._space
 
     def get_users(self, refresh=True):
@@ -165,7 +165,7 @@ class Vdc(TemplateBase):
         self.state.check('actions', 'install', 'ok')
 
         if not self.data['create']:
-            raise RuntimeError('readonly cloudspace')
+            raise RuntimeError('"%s" is readonly cloudspace' % self.name)
 
         # Get space, raise error if not found
         self.state.check('actions', 'install', 'ok')

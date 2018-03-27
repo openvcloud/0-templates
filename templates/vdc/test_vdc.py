@@ -160,6 +160,41 @@ class TestVDC(TestCase):
             })
             space.save.assert_called_once_with()
 
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_uninstall(self, ovc):
+        '''
+        Test uninstall vdc
+        '''
+        # test error in read-only cloudspace
+        data_read_only = {
+            'account': 'test-account',
+            'create': False,
+            }
+        instance = self.type('test', None, data_read_only)
+        with pytest.raises(RuntimeError,
+                           message='"%s" is readonly cloudspace' % instance.name):
+            instance.uninstall()
+
+        # test success
+        data = {
+            'account': 'test-account',
+            }        
+
+        instance = self.type('test', None, data)
+        with patch.object(instance, 'api') as api:
+            api.services.find.return_value = [MagicMock(schedule_action=MagicMock())]
+            instance.uninstall()
+            instance.space.delete.assert_called_once_with()
+
+        # test error if no ovc service was found
+        instance = self.type('test', None, data)
+        #instance.space.delete.reset_mock()
+        with patch.object(instance, 'api') as api:
+            api.services.find.return_value = []
+            with pytest.raises(ValueError,
+                               message='found 0 accounts with name "%s", required exactly one' % data['account']):
+                instance.uninstall()      
+
     def test_user_add(self):
         '''
         Test authorizing a new user
