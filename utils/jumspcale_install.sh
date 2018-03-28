@@ -19,7 +19,7 @@ done
 # installing core and plugins
 for target in core9 lib9 prefab9; do
     pushd ${target}
-    pip3 install .
+    pip3 install -e .
     popd
 done
 popd
