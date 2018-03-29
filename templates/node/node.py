@@ -121,8 +121,6 @@ class Node(TemplateBase):
 
     @property
     def machine(self):
-        if not self._machine:
-            self._machine = self.space.machines.get(self.name)
         return self._machine
 
     def install(self):
@@ -131,10 +129,6 @@ class Node(TemplateBase):
             return
         except StateCheckError:
             pass
-
-        # if this vm already exists, delete the vm
-        if self.machine:
-            self.machine.delete()
 
         # get new machine
         machine = self._machine_create()
@@ -150,10 +144,14 @@ class Node(TemplateBase):
         self.state.set('actions', 'install', 'ok')
 
     def _machine_create(self):
-        """ Create a new machine """
+        """ 
+        Create a new machine
+        """
         data = self.data
         space = self.space
-        self._machine = space.machine_create(
+        import ipdb; ipdb.set_trace()
+        self._machine = space.machine_get(
+            create = True,
             name=self.name,
             sshkeyname=data['sshKey'],
             image=data['osImage'],
@@ -176,6 +174,16 @@ class Node(TemplateBase):
         else:
             raise RuntimeError('machine %s is not found' % self.name)
 
+        # we expect one boot disk and one data disk
+        disks = [diskmachine.disks
+
+        # identify data disks
+        data_disks = [disk for disk in machine.disks if disk['type'] == 'B']
+        if len(data_disks) > 1:
+            raise RuntimeError('Exactly one data disk is expected, VM "{vm}" has {nr} data disks'.format(
+                                vm=machine.name, nr=len(data_disks))
+                                )            
+
         for disk in machine.disks:
             # create a disk service
             service = self.api.services.create(
@@ -184,7 +192,7 @@ class Node(TemplateBase):
                 data={'vdc': space_name, 'diskId': disk['id']},
             )
             # update data in the disk service
-            task = service.schedule_action('update_data', {'data': disk})
+            task = service.schedule_action('install', {'data': disk})
             task.wait()
 
         # set default values
@@ -192,11 +200,28 @@ class Node(TemplateBase):
         mount_point = '/var'
         device = '/dev/vdb'
 
-        # create file system and mount data disk
+        # get prefab
         if self.data.get('managedPrivate', False) is False:
             prefab = machine.prefab
         else:
             prefab = machine.prefab_private
+
+        # check if VM has a dataDisk
+
+        
+        # check if disk has correct size
+
+        # check if filesystem is correct
+        _, disk_info, _ = prefab.executor.execute("blkid '/dev/vdb' -s TYPE")
+
+        # fetch type of the filesystem
+        import re
+        fs_found = re.search('TYPE="(.+?)"', disk_info).group(1)
+        if fs_found != fs_type:
+            raise RuntimeError('VM "{vm}" has volume mounted on {mp} with filesystem "{fs}", should be "{fs_type}"'.format(
+                                vm=self.name, mp=mount_point, fs=fs_found, fs_type=fs_type))
+
+        # create file system and mount data disk
         prefab.system.filesystem.create(fs_type=fs_type, device=device)
         prefab.system.filesystem.mount(mount_point=mount_point, device=device,
                                        copy=True, append_fstab=True, fs_type=fs_type)
@@ -211,6 +236,8 @@ class Node(TemplateBase):
         # update data
         self.data['dataDiskFilesystem'] = fs_type
         self.data['dataDiskMountpoint'] = mount_point
+
+        # TODO: apply limits
 
     def uninstall(self):
         """ Uninstall machine """
