@@ -19,4 +19,5 @@ if [ $? -gt 0 ]; then
     echo "Can't reach the controller using this ip address ${ctrl_zt_ipaddress}"; exit 1
 fi
 
+sudo chown -R $USER:$USER /etc/hosts
 sudo echo "${ctrl_zt_ipaddress}  ${environment}" >> /etc/hosts
