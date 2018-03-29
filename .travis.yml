@@ -29,4 +29,5 @@ matrix:
         - ./utils/zrobot_install.sh
 
       script:
-        - cd ./tests/integration_tests; bash prepare.sh -d -s -r testsuite/ovc_tests/a_basic/accounts_tests.py
+        - cd ./tests/integration_tests; bash travis.sh
+        - bash prepare.sh -d -s -r testsuite/ovc_tests/a_basic/accounts_tests.py
