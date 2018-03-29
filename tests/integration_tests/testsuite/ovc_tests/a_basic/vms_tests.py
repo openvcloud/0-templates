@@ -132,7 +132,6 @@ class vmactions(OVC_BaseTest):
                                       'email': '%s@test.com' % self.random_string(),
                                       'groups': ['user']}
         cls.vdcusers = self.vdcusers
-        cls._testID = self._testID
         cls.temp_actions = {'account': {'actions': ['install']},
                             'vdcuser': {'actions': ['install']},
                             'vdc': {'actions': ['install']},
@@ -146,6 +145,7 @@ class vmactions(OVC_BaseTest):
     def tearDown(self):
         pass
 
+    @unittest("Not tested due to environment problems")
     def test001_adding_and_deleting_portforward(self):
         """ ZRT-OVC-012
         *Test case for adding and deleting portforward.*
@@ -154,9 +154,9 @@ class vmactions(OVC_BaseTest):
 
         #. Create a vm[vm1], should succeed.
         #. Create a portforward for [vm1], should succeed.
-        #. Check that portforward created, should succeed.
-        #. Delete the portforward created, should succeed.
-        #. Check that portforward deleted, should succeed. 
+        #. Check that the portforward has been created, should succeed.
+        #. Delete the created portforward , should succeed.
+        #. Check that portforward has been deleted, should succeed. 
         """
         self.log('%s STARTED' % self._testID)
 
@@ -182,6 +182,7 @@ class vmactions(OVC_BaseTest):
         self.log('Check that the portforward  deleted from cloudspace [CS1] successfully , should succeed.')
         self.assertFalse(self.get_portforward_list(self.cs1, self.vm1))
 
+    @unittest("Not tested due to environment problems")
     def test002_start_stop_vm(self):
         """ ZRT-OVC-013
         *Test case for testing start and stop vm .*
@@ -224,7 +225,7 @@ class vmactions(OVC_BaseTest):
         temp_actions = {'account': {'actions': ['uninstall']}}
         if self.check_if_service_exist(self.acc1):
             res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
-                                    accounts=self.accounts, temp_actions=temp_actions)
+                                      accounts=self.accounts, temp_actions=temp_actions)
             self.wait_for_service_action_status(self.acc1, res[self.acc1]['uninstall'])
 
         self.delete_services()

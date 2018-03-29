@@ -155,7 +155,6 @@ class CloudspaceActions(OVC_BaseTest):
         cls.vdcuser = self.random_string()
         cls.vdcusers = self.vdcusers
         cls.openvcloud = self.openvcloud
-        cls._testID = self._testID
         self.vdcusers[cls.vdcuser] = {'openvcloud': self.openvcloud,
                                       'provider': 'itsyouonline',
                                       'email': '%s@test.com' % self.random_string(),
