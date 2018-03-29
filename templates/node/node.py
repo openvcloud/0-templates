@@ -1,3 +1,4 @@
+import re
 from js9 import j
 from zerorobot.template.base import TemplateBase
 from zerorobot.template.state import StateCheckError
@@ -130,7 +131,7 @@ class Node(TemplateBase):
         except StateCheckError:
             pass
 
-        # get new machine
+        # get new vm
         machine = self._machine_create()
 
         # Get data from the vm
@@ -140,6 +141,7 @@ class Node(TemplateBase):
         self.data['ipPublic'] = machine.ipaddr_public
         self.data['machineId'] = machine.id
 
+        # configure disks of the vm
         self._configure_disks()
         self.state.set('actions', 'install', 'ok')
 
@@ -149,7 +151,6 @@ class Node(TemplateBase):
         """
         data = self.data
         space = self.space
-        import ipdb; ipdb.set_trace()
         self._machine = space.machine_get(
             create = True,
             name=self.name,
@@ -167,59 +168,71 @@ class Node(TemplateBase):
         """
         Configure one boot disk and one data disk when installing a machine.
         """
+        # TODO: add ssh portforward if none
         machine = self.machine
-        space_name = machine.space.model['name']
-        if machine:
-            machine.start()
-        else:
-            raise RuntimeError('machine %s is not found' % self.name)
 
-        # we expect one boot disk and one data disk
-        disks = [diskmachine.disks
+        # set defaults for datadisk
+        fs_type = 'ext4'
+        mount_point = '/var'
+        device = '/dev/vdb'
+        
+        # make sure machine is started
+        machine.start()
+
+        # get disks from the vm
+        disks = machine.disks
+        # check that bootdisk has correct size
+        boot_disk = [disk for disk in disks if disk['type'] == 'B'][0]
+        if boot_disk['sizeMax'] != self.data['bootDiskSize']:
+            raise RuntimeError('Datadisk is expected to have size {}, has size {}'.format(
+                                self.data['bootDiskSize'], boot_disk[0]['sizeMax'])
+                              )
 
         # identify data disks
-        data_disks = [disk for disk in machine.disks if disk['type'] == 'B']
+        data_disks = [disk for disk in disks if disk['type'] == 'D']
+        import ipdb; ipdb.set_trace()
         if len(data_disks) > 1:
             raise RuntimeError('Exactly one data disk is expected, VM "{vm}" has {nr} data disks'.format(
                                 vm=machine.name, nr=len(data_disks))
+                                )
+        elif len(data_disks) == 1:
+            # check that datadisk has correct size
+            if data_disks[0]['sizeMax'] != self.data['dataDiskSize']:
+                raise RuntimeError('Datadisk is expected to have size {}, has size {}'.format(
+                                    self.data['dataDiskSize'], data_disks[0]['sizeMax'])
                                 )            
+        else:
+            # if no datadisks, create one
+            machine.disk_add(name='DataDisk', description='DataDisk',
+                             size=self.data['dataDiskSize'], type='D')
 
-        for disk in machine.disks:
+
+        for disk in disks:
             # create a disk service
             service = self.api.services.create(
                 template_uid=self.DISK_TEMPLATE,
                 service_name='Disk%s' % str(disk['id']),
-                data={'vdc': space_name, 'diskId': disk['id']},
+                data={'vdc': self.data['vdc'], 'diskId': disk['id']},
             )
             # update data in the disk service
             task = service.schedule_action('install', {'data': disk})
             task.wait()
 
-        # set default values
-        fs_type = 'ext4'
-        mount_point = '/var'
-        device = '/dev/vdb'
+        prefab = self._get_prefab()
 
-        # get prefab
-        if self.data.get('managedPrivate', False) is False:
-            prefab = machine.prefab
-        else:
-            prefab = machine.prefab_private
+        # check if device is already mounted
+        _, mount_output, _ = prefab.core.run('mount')
+        if mount_output.find(device) != -1:
+            # check if filesystem on the device is correct
+            _, disk_info, _ = prefab.core.run("blkid '/dev/vdb' -s TYPE")
 
-        # check if VM has a dataDisk
-
-        
-        # check if disk has correct size
-
-        # check if filesystem is correct
-        _, disk_info, _ = prefab.executor.execute("blkid '/dev/vdb' -s TYPE")
-
-        # fetch type of the filesystem
-        import re
-        fs_found = re.search('TYPE="(.+?)"', disk_info).group(1)
-        if fs_found != fs_type:
-            raise RuntimeError('VM "{vm}" has volume mounted on {mp} with filesystem "{fs}", should be "{fs_type}"'.format(
-                                vm=self.name, mp=mount_point, fs=fs_found, fs_type=fs_type))
+            # check type of the filesystem           
+            fs_found = re.search('TYPE="(.+?)"', disk_info).group(1)
+            if fs_found != fs_type:
+                raise RuntimeError('VM "{vm}" has volume mounted on {mp} with filesystem "{fs}", should be "{fs_type}"'.format(
+                                    vm=self.name, mp=mount_point, fs=fs_found, fs_type=fs_type))
+            # if filesystem is correct, install is complete
+            return
 
         # create file system and mount data disk
         prefab.system.filesystem.create(fs_type=fs_type, device=device)
@@ -227,10 +240,8 @@ class Node(TemplateBase):
                                        copy=True, append_fstab=True, fs_type=fs_type)
 
         machine.restart()
-        if self.data.get('managedPrivate', False) is False:
-            prefab = machine.prefab
-        else:
-            prefab = machine.prefab_private
+
+        prefab = self._get_prefab()
         prefab.executor.sshclient.connect()
 
         # update data
@@ -238,6 +249,17 @@ class Node(TemplateBase):
         self.data['dataDiskMountpoint'] = mount_point
 
         # TODO: apply limits
+
+    def _get_prefab(self):
+        '''
+        Get prefab
+        '''
+        self.state.check('actions', 'install', 'ok')
+
+        if self.data.get('managedPrivate', False) is False:
+            return self.machine.prefab
+
+        return self.machine.prefab_private  
 
     def uninstall(self):
         """ Uninstall machine """
