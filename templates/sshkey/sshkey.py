@@ -1,6 +1,7 @@
 import paramiko
 from js9 import j
 from zerorobot.template.base import TemplateBase
+from zerorobot.template.state import StateCheckError
 
 
 class Sshkey(TemplateBase):
@@ -24,6 +25,12 @@ class Sshkey(TemplateBase):
             raise ValueError('passphrase must be min of 5 characters')
 
     def install(self):
+        try:
+            self.state.check('actions', 'install', 'ok')
+            return
+        except StateCheckError:
+            pass
+
         dir = self.data['dir']
         passphrase = self.data['passphrase']
 
@@ -42,4 +49,7 @@ class Sshkey(TemplateBase):
             },
         )
 
-    
+        self.state.set('actions', 'install', 'ok')
+
+    def uninstall(self):
+        pass
