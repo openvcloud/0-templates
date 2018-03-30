@@ -22,6 +22,7 @@ class Node(TemplateBase):
         self._ovc = None
         self._vdc = None
         self._machine = None
+        self._disk_services = {}
 
     def validate(self):
         if not self.data['vdc']:
@@ -76,20 +77,6 @@ class Node(TemplateBase):
         self._config = config
         return self._config
 
-    def update(self, **kwards):
-        '''
-        Update data on the service
-        '''
-        for key, value in kwards.items():
-            if key in self.data.keys():
-                if isinstance(value, type(self.data['key'])):
-                    self.data['key'] = value
-                else:
-                    raise ValueError('argument "%s" is type %s, should be %s' 
-                                     %(key, type(value), type(self.data['key'])))
-            else:
-                raise ValueError('argument "%s" is not supported')
-
     @property
     def ovc(self):
         """
@@ -125,6 +112,9 @@ class Node(TemplateBase):
         return self._machine
 
     def install(self):
+        '''
+        Install VM
+        '''
         try:
             self.state.check('actions', 'install', 'ok')
             return
@@ -175,6 +165,9 @@ class Node(TemplateBase):
         fs_type = 'ext4'
         mount_point = '/var'
         device = '/dev/vdb'
+        # update data
+        self.data['dataDiskFilesystem'] = fs_type
+        self.data['dataDiskMountpoint'] = mount_point
         
         # make sure machine is started
         machine.start()
@@ -190,7 +183,6 @@ class Node(TemplateBase):
 
         # identify data disks
         data_disks = [disk for disk in disks if disk['type'] == 'D']
-        import ipdb; ipdb.set_trace()
         if len(data_disks) > 1:
             raise RuntimeError('Exactly one data disk is expected, VM "{vm}" has {nr} data disks'.format(
                                 vm=machine.name, nr=len(data_disks))
@@ -203,20 +195,25 @@ class Node(TemplateBase):
                                 )            
         else:
             # if no datadisks, create one
-            machine.disk_add(name='DataDisk', description='DataDisk',
+            machine.disk_add(name='Disk nr 1', description='Machine disk of type D',
                              size=self.data['dataDiskSize'], type='D')
 
 
-        for disk in disks:
+        for disk in machine.disks:
             # create a disk service
+            service_name = 'Disk%s' % str(disk['id'])
             service = self.api.services.create(
                 template_uid=self.DISK_TEMPLATE,
-                service_name='Disk%s' % str(disk['id']),
+                service_name=service_name,
                 data={'vdc': self.data['vdc'], 'diskId': disk['id']},
             )
             # update data in the disk service
-            task = service.schedule_action('install', {'data': disk})
+            task = service.schedule_action('install')
             task.wait()
+
+            # append service name to the list of attached disks
+            self.data['disks'].append(service_name)
+            self._disk_services[service_name] = service
 
         prefab = self._get_prefab()
 
@@ -244,17 +241,11 @@ class Node(TemplateBase):
         prefab = self._get_prefab()
         prefab.executor.sshclient.connect()
 
-        # update data
-        self.data['dataDiskFilesystem'] = fs_type
-        self.data['dataDiskMountpoint'] = mount_point
-
-        # TODO: apply limits
 
     def _get_prefab(self):
         '''
         Get prefab
         '''
-        self.state.check('actions', 'install', 'ok')
 
         if self.data.get('managedPrivate', False) is False:
             return self.machine.prefab
@@ -264,9 +255,9 @@ class Node(TemplateBase):
     def uninstall(self):
         """ Uninstall machine """
 
-        self.state.check('actions', 'install', 'ok')
+        if self.name in self.space.machines:
+            self.machine.delete()
 
-        self.machine.delete()
         self._machine = None
 
         self.state.delete('actions', 'install')
@@ -384,3 +375,58 @@ class Node(TemplateBase):
             raise RuntimeError('"clone_name" should be given')
 
         self.machine.clone(clone_name)
+
+    def disk_attach(self, disk_service_name):
+        '''
+        Attach disk to the machine
+        @disk_service_name is the name of the disk service
+        '''        
+        self.state.check('actions', 'install', 'ok')
+
+        matches = self.api.services.find(template_uid=self.DISK_TEMPLATE, name=disk_service_name)
+        if len(matches) != 1:
+            raise RuntimeError('found %s services of type "%s", expected exactly one' % (len(matches), disk_service_name))
+
+        proxy = matches[0]
+        # get diskId
+        task = proxy.schedule_action(action='get_id')
+        task.wait()
+        disk_id = task.result
+
+        # attach the disk
+        self.machine.disk_attach(disk_id)
+
+        # add service name to data
+        self.data['disks'].append(disk_service_name)
+        self._disk_services[disk_service_name] = proxy
+        self.logger('data disk attached')
+
+    def disk_detach(self, disk_service_name):
+        '''
+        Detach disk from the machine
+        @disk_service_name is the name of the disk service
+        '''
+        self.state.check('actions', 'install', 'ok')
+
+        if disk_service_name not in self.data['disks']:
+            return
+
+        # get disk id and type
+        proxy = self._disk_services.get(disk_service_name)
+        task = proxy.schedule_action(action='get_type')
+        disk_type = task.result
+
+        if disk_type == 'B':
+            raise RuntimeError("Can't detach Boot disk")
+
+        task = proxy.schedule_action(action='get_id')
+        task.wait()
+        disk_id = task.result
+
+        # detach disk
+        self.machine.disk_detach(disk_id)
+        import ipdb; ipdb.set_trace()
+        # delete disk from list of attached disks
+        self.data['disks'].remove(disk_service_name)
+        del self._disk_services[disk_service_name]
+        self.logger('data disk detached')

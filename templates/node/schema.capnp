@@ -65,5 +65,4 @@ struct Schema {
 
 	# Mount point of data disk. **Filled in automatically, don't specify it in the blueprint**
 	dataDiskMountpoint @18 :Text = "/var";
-
 }
