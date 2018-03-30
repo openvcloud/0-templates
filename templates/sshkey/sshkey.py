@@ -11,23 +11,6 @@ class Sshkey(TemplateBase):
     def __init__(self, name, guid=None, data=None):
         super().__init__(name=name, guid=guid, data=data)
 
-        dir = self.data['dir']
-        passphrase = self.data['passphrase']
-
-        path = j.sal.fs.joinPaths(dir, name)
-        if not j.sal.fs.exists(path):
-            j.clients.sshkey.key_generate(path, passphrase=passphrase, overwrite=True, returnObj=False)
-        else:
-            paramiko.RSAKey.from_private_key_file(path, password=passphrase)
-
-        j.clients.sshkey.get(
-            name,
-            create=True,
-            data={
-                'path': path,
-                'passphrase_': passphrase,
-            },
-        )
     
     def validate(self):
         # validate dir
@@ -41,6 +24,22 @@ class Sshkey(TemplateBase):
             raise ValueError('passphrase must be min of 5 characters')
 
     def install(self):
-        pass
+        dir = self.data['dir']
+        passphrase = self.data['passphrase']
+
+        path = j.sal.fs.joinPaths(dir, self.name)
+        if not j.sal.fs.exists(path):
+            j.clients.sshkey.key_generate(path, passphrase=passphrase, overwrite=True, returnObj=False)
+        else:
+            paramiko.RSAKey.from_private_key_file(path, password=passphrase)
+
+        j.clients.sshkey.get(
+            self.name,
+            create=True,
+            data={
+                'path': path,
+                'passphrase_': passphrase,
+            },
+        )
 
     
