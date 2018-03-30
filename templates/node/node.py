@@ -192,7 +192,7 @@ class Node(TemplateBase):
             if data_disks[0]['sizeMax'] != self.data['dataDiskSize']:
                 raise RuntimeError('Datadisk is expected to have size {}, has size {}'.format(
                                     self.data['dataDiskSize'], data_disks[0]['sizeMax'])
-                                )            
+                                )
         else:
             # if no datadisks, create one
             machine.disk_add(name='Disk nr 1', description='Machine disk of type D',
@@ -201,19 +201,7 @@ class Node(TemplateBase):
 
         for disk in machine.disks:
             # create a disk service
-            service_name = 'Disk%s' % str(disk['id'])
-            service = self.api.services.create(
-                template_uid=self.DISK_TEMPLATE,
-                service_name=service_name,
-                data={'vdc': self.data['vdc'], 'diskId': disk['id']},
-            )
-            # update data in the disk service
-            task = service.schedule_action('install')
-            task.wait()
-
-            # append service name to the list of attached disks
-            self.data['disks'].append(service_name)
-            self._disk_services[service_name] = service
+            self._create_disk_service(self, disk)
 
         prefab = self._get_prefab()
 
@@ -241,6 +229,22 @@ class Node(TemplateBase):
         prefab = self._get_prefab()
         prefab.executor.sshclient.connect()
 
+    def _create_disk_service(self, disk):
+        # create a disk service
+        service_name = 'Disk%s' % str(disk['id'])
+        service = self.api.services.create(
+            template_uid=self.DISK_TEMPLATE,
+            service_name=service_name,
+            data={'vdc': self.data['vdc'], 'diskId': disk['id'], 'type': disk['type']},
+        )
+        # update data in the disk service
+        task = service.schedule_action('install')
+        task.wait()
+
+        # append service name to the list of attached disks
+        self.data['disks'].append(service_name)
+        self._disk_services[service_name] = service
+        return service
 
     def _get_prefab(self):
         '''
@@ -425,8 +429,18 @@ class Node(TemplateBase):
 
         # detach disk
         self.machine.disk_detach(disk_id)
-        import ipdb; ipdb.set_trace()
+
         # delete disk from list of attached disks
         self.data['disks'].remove(disk_service_name)
         del self._disk_services[disk_service_name]
         self.logger('data disk detached')
+
+    def disk_add(self, name='Data disk', description=None, size=10, type='D'):
+        '''
+        Create new disk at the machine
+        '''        
+        self.state.check('actions', 'install', 'ok')
+
+        self.machine.disk_add(name=name, description=description, 
+                                        size=size, type=type)
+        self.logger('add disk')
