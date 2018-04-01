@@ -186,7 +186,7 @@ class vmactions(OVC_BaseTest):
         pf_list = self.get_portforward_list(self.cs1, self.vm1)
         self.assertNotIn(public_port, [int(x["publicPort"]) for x in pf_list])     
 
-    @unittest.skip("Not tested due to environment problems")
+    @unittest.skip("Not tested due to environment problems.")
     def test002_start_stop_vm(self):
         """ ZRT-OVC-013
         *Test case for testing start and stop vm .*
@@ -223,6 +223,85 @@ class vmactions(OVC_BaseTest):
         vm = self.get_vm(cloudspaceId, self.vm1)
         self.assertEqual(vm["status"], "RUNNING")
 
+    @unittest.skip(" Not tested due to environment problems.")
+    def test003_pause_and_resume(self):
+        """ ZRT-OVC-013
+        *Test case for testing pause and resume vm .*
+
+        **Test Scenario:**
+
+        #. Create a vm[vm1], should succeed.
+        #. Pause [VM1], should succceed.
+        #. Check that [VM1] is PAUSED.
+        #. Resume [VM1], should succeed.
+        #. Check that [VM1] is running.
+        """
+        self.log('%s STARTED' % self._testID)
+
+        self.log("Pause [VM1], should succceed..")
+        temp_actions = {'node': {'actions': ['pause'], 'service': self.vm1}}
+        res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
+                             vms=self.vms, temp_actions=temp_actions)
+        self.wait_for_service_action_status(self.vm1, res[self.vm1]['pause'])
+
+        self.log("Check that [VM1] is PAUSED.")
+        cloudspaceId = self.get_cloudspace(self.cs1)['id']
+        vm = self.get_vm(cloudspaceId, self.vm1)
+        self.assertEqual(vm["status"], "PAUSED")
+
+        self.log("Resume [VM1], should succeed.")     
+        temp_actions = {'node': {'actions': ['resume'], 'service': self.vm1}}
+        res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
+                             vms=self.vms, temp_actions=temp_actions)
+        self.wait_for_service_action_status(self.vm1, res[self.vm1]['resume'])
+
+        self.log("Check that [VM1] is running.")
+        cloudspaceId = self.get_cloudspace(self.cs1)['id']
+        vm = self.get_vm(cloudspaceId, self.vm1)
+        self.assertEqual(vm["status"], "RUNNING")
+
+    @unittest.skip(" Not tested due to environment problems.")
+    def test004_clone_vm(self):
+        """ ZRT-OVC-014
+        *Test case for testing clone vm .*
+
+        **Test Scenario:**
+
+        #. Create a vm[vm1], should succeed.
+        #. Stop [VM1], should succeed.
+        #. Clone VM1 as [VM2_C], should succeed.
+        #. Check that the cloned vm[VM2_C] has been created and got ip address.
+        #. Check that the cloned vm[VM2_C] has same [VM1] memory ,Vcpu number and disksize .
+        """
+        self.log('%s STARTED' % self._testID)
+
+        self.log("Stop [VM1], should succeed.")
+        temp_actions = {'node': {'actions': ['stop'], 'service': self.vm1}}
+        res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
+                             vms=self.vms, temp_actions=temp_actions)
+        self.wait_for_service_action_status(self.vm1, res[self.vm1]['stop'])
+
+        self.log(" Clone VM1 as [VM2_C], should succeed.")
+        vm2_c = self.random_string()
+        temp_actions = {'node': {'actions': ['clone'], 'service': self.vm1,
+                        'args': {'clone_name': vm2_c}}}
+        res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
+                             vms=self.vms, temp_actions=temp_actions)
+        self.wait_for_service_action_status(self.vm1, res[self.vm1]['clone'])
+
+        self.log("Check that the cloned vm[VM2_C] has been created and got ip address.")                     
+        cloudspaceId = self.get_cloudspace(self.cs1)['id']
+        vm1 = self.get_vm(cloudspaceId, self.vm1)
+        vm2_c = self.get_vm(cloudspaceId, self.vm1)
+        self.assertTrue(vm2_c)
+        self.assertTrue(vm2_c["interfaces"][0]['ipAddress'])
+
+        self.log("Check that [VM2_C] has same [VM1] memory ,Vcpu number and disksize.")
+        self.assertEqual(vm2_c["status"], "RUNNING")
+        self.assertEqual(vm2_c["memory"], vm1["memory"])
+        self.assertEqual(vm2_c["vcpus"], vm1["vcpus"])
+        self.assertEqual(vm2_c["sizeid"], vm1["sizeid"])
+
     @classmethod
     def tearDownClass(cls):
         self = cls()
@@ -231,5 +310,4 @@ class vmactions(OVC_BaseTest):
             res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
                                       accounts=self.accounts, temp_actions=temp_actions)
             self.wait_for_service_action_status(self.acc1, res[self.acc1]['uninstall'], timeout=20)
-
         self.delete_services()
