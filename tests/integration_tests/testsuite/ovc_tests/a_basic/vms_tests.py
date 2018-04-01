@@ -2,6 +2,7 @@ import unittest
 from framework.ovc_utils.utils import OVC_BaseTest
 from collections import OrderedDict
 from random import randint
+import unittest, time
 
 
 class BasicTests(OVC_BaseTest):
@@ -109,3 +110,126 @@ class BasicTests(OVC_BaseTest):
         self.assertEqual(vm2['vcpus'], 1)
 
         self.log('%s ENDED' % self._testID)
+
+
+class vmactions(OVC_BaseTest):
+    def __init__(self, *args, **kwargs):
+        super(vmactions, self).__init__(*args, **kwargs)
+
+    @classmethod
+    def setUpClass(cls):
+        self = cls()
+        super(vmactions, self).setUp()
+        cls.acc1 = self.random_string()
+        cls.cs1 = self.random_string()
+        cls.vm1 = self.random_string()
+        cls.vdcuser = self.random_string()
+        cls.openvcloud = self.openvcloud
+        cls.accounts = {cls.acc1: {'openvcloud': self.openvcloud}}
+        cls.cloudspaces = {cls.cs1: {'account': cls.acc1}}
+        cls.vms = {cls.vm1: {'sshKey': self.key, 'vdc': self.cs1}}
+        self.vdcusers[cls.vdcuser] = {'openvcloud': self.openvcloud,
+                                      'provider': 'itsyouonline',
+                                      'email': '%s@test.com' % self.random_string(),
+                                      'groups': ['user']}
+        cls.vdcusers = self.vdcusers
+        cls.temp_actions = {'account': {'actions': ['install']},
+                            'vdcuser': {'actions': ['install']},
+                            'vdc': {'actions': ['install']},
+                            'node': {'actions': ['install']}}
+        self.log('Create vm, should succeed')
+        res = self.create_vm(accounts=cls.accounts, cloudspaces=cls.cloudspaces,
+                             vms=cls.vms, temp_actions=cls.temp_actions)
+        self.wait_for_service_action_status(self.vm1, res[self.vm1]['install'])
+        self.CLEANUP["accounts"].append(cls.acc1)        
+
+    def tearDown(self):
+        pass
+
+    @unittest.skip("Not tested due to environment problems")
+    def test001_adding_and_deleting_portforward(self):
+        """ ZRT-OVC-012
+        *Test case for adding and deleting portforward.*
+
+        **Test Scenario:**
+
+        #. Create a vm[vm1], should succeed.
+        #. Create a portforward for [vm1], should succeed.
+        #. Check that the portforward has been created, should succeed.
+        #. Delete the created portforward , should succeed.
+        #. Check that portforward has been deleted, should succeed. 
+        """
+        self.log('%s STARTED' % self._testID)
+
+        self.log("Create portforward for [vm1], should succeed. ")        
+        public_port = randint(1000, 60000)
+        local_port = 22        
+        temp_actions = {'node': {'actions': ['portforward_create'], 'service': self.vm1, 
+                                 'args': {'ports': {'source': public_port, 'destination': local_port}}}}
+        res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
+                             vms=self.vms, temp_actions=temp_actions)
+        self.wait_for_service_action_status(self.vm1, res[self.vm1]['portforward_create'])
+
+        self.log("Check that the portforward has been created, should succeed.")
+        time.sleep(2)
+        pf_list = self.get_portforward_list(self.cs1, self.vm1)
+        self.assertIn(public_port, [int(x["publicPort"]) for x in pf_list])
+        self.log("Delete the portforward created, should succeed")
+        temp_actions = {'vdc': {'actions': ['portforward_delete'], 'service': self.vm1, 
+                        'args': {'ports': {'source': public_port, 'destination': local_port}}}}
+        res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
+                             vms=self.vms, temp_actions=temp_actions)
+        self.wait_for_service_action_status(self.vm1, res[self.vm1]['portforward_delete'])
+
+        self.log('Check that portforward has been deleted, should succeed')
+        time.sleep(2)
+        pf_list = self.get_portforward_list(self.cs1, self.vm1)
+        self.assertNotIn(public_port, [int(x["publicPort"]) for x in pf_list])     
+
+    @unittest.skip("Not tested due to environment problems")
+    def test002_start_stop_vm(self):
+        """ ZRT-OVC-013
+        *Test case for testing start and stop vm .*
+
+        **Test Scenario:**
+
+        #. Create a vm[vm1], should succeed.
+        #. Stop [VM1], should succceed.
+        #. Check that [VM1] is halted.
+        #. Strat [VM1], should succeed.
+        #. Check that [VM1] is running.
+        """
+        self.log('%s STARTED' % self._testID)
+
+        self.log("Stop [VM1], should succceed.")
+        temp_actions = {'node': {'actions': ['stop'], 'service': self.vm1}}
+        res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
+                             vms=self.vms, temp_actions=temp_actions)
+        self.wait_for_service_action_status(self.vm1, res[self.vm1]['stop'])
+
+        self.log(" Check that [VM1] is halted.")
+        cloudspaceId = self.get_cloudspace(self.cs1)['id']
+        vm = self.get_vm(cloudspaceId, self.vm1)
+        self.assertEqual(vm["status"], "HALTED")
+
+        self.log("Start [VM1], should succceed.")     
+        temp_actions = {'node': {'actions': ['start'], 'service': self.vm1}}
+        res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
+                             vms=self.vms, temp_actions=temp_actions)
+        self.wait_for_service_action_status(self.vm1, res[self.vm1]['start'])
+
+        self.log(" Check that [VM1] is running.")
+        cloudspaceId = self.get_cloudspace(self.cs1)['id']
+        vm = self.get_vm(cloudspaceId, self.vm1)
+        self.assertEqual(vm["status"], "RUNNING")
+
+    @classmethod
+    def tearDownClass(cls):
+        self = cls()
+        temp_actions = {'account': {'actions': ['uninstall']}}
+        if self.check_if_service_exist(self.acc1):
+            res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
+                                      accounts=self.accounts, temp_actions=temp_actions)
+            self.wait_for_service_action_status(self.acc1, res[self.acc1]['uninstall'], timeout=20)
+
+        self.delete_services()
