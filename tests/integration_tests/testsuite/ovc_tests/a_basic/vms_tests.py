@@ -2,6 +2,7 @@ import unittest
 from framework.ovc_utils.utils import OVC_BaseTest
 from collections import OrderedDict
 from random import randint
+import unittest, time
 
 
 class BasicTests(OVC_BaseTest):
@@ -145,7 +146,7 @@ class vmactions(OVC_BaseTest):
     def tearDown(self):
         pass
 
-    @unittest("Not tested due to environment problems")
+    @unittest.skip("Not tested due to environment problems")
     def test001_adding_and_deleting_portforward(self):
         """ ZRT-OVC-012
         *Test case for adding and deleting portforward.*
@@ -169,9 +170,10 @@ class vmactions(OVC_BaseTest):
                              vms=self.vms, temp_actions=temp_actions)
         self.wait_for_service_action_status(self.vm1, res[self.vm1]['portforward_create'])
 
-        self.log(" Check that portforward created, should succeed.")
-        self.assertTrue(self.get_portforward_list(self.cs1, self.vm1))
-
+        self.log("Check that the portforward has been created, should succeed.")
+        time.sleep(2)
+        pf_list = self.get_portforward_list(self.cs1, self.vm1)
+        self.assertIn(public_port, [int(x["publicPort"]) for x in pf_list])
         self.log("Delete the portforward created, should succeed")
         temp_actions = {'vdc': {'actions': ['portforward_delete'], 'service': self.vm1, 
                         'args': {'ports': {'source': public_port, 'destination': local_port}}}}
@@ -179,10 +181,12 @@ class vmactions(OVC_BaseTest):
                              vms=self.vms, temp_actions=temp_actions)
         self.wait_for_service_action_status(self.vm1, res[self.vm1]['portforward_delete'])
 
-        self.log('Check that the portforward  deleted from cloudspace [CS1] successfully , should succeed.')
-        self.assertFalse(self.get_portforward_list(self.cs1, self.vm1))
+        self.log('Check that portforward has been deleted, should succeed')
+        time.sleep(2)
+        pf_list = self.get_portforward_list(self.cs1, self.vm1)
+        self.assertNotIn(public_port, [int(x["publicPort"]) for x in pf_list])     
 
-    @unittest("Not tested due to environment problems")
+    @unittest.skip("Not tested due to environment problems")
     def test002_start_stop_vm(self):
         """ ZRT-OVC-013
         *Test case for testing start and stop vm .*
@@ -191,9 +195,9 @@ class vmactions(OVC_BaseTest):
 
         #. Create a vm[vm1], should succeed.
         #. Stop [VM1], should succceed.
-        #. Check that [VM1] halted.
+        #. Check that [VM1] is halted.
         #. Strat [VM1], should succeed.
-        #. Check that [VM1] running.
+        #. Check that [VM1] is running.
         """
         self.log('%s STARTED' % self._testID)
 
@@ -203,7 +207,7 @@ class vmactions(OVC_BaseTest):
                              vms=self.vms, temp_actions=temp_actions)
         self.wait_for_service_action_status(self.vm1, res[self.vm1]['stop'])
 
-        self.log(" Check that [VM1] halted.")
+        self.log(" Check that [VM1] is halted.")
         cloudspaceId = self.get_cloudspace(self.cs1)['id']
         vm = self.get_vm(cloudspaceId, self.vm1)
         self.assertEqual(vm["status"], "HALTED")
@@ -214,7 +218,7 @@ class vmactions(OVC_BaseTest):
                              vms=self.vms, temp_actions=temp_actions)
         self.wait_for_service_action_status(self.vm1, res[self.vm1]['start'])
 
-        self.log(" Check that [VM1] running.")
+        self.log(" Check that [VM1] is running.")
         cloudspaceId = self.get_cloudspace(self.cs1)['id']
         vm = self.get_vm(cloudspaceId, self.vm1)
         self.assertEqual(vm["status"], "RUNNING")
@@ -226,6 +230,6 @@ class vmactions(OVC_BaseTest):
         if self.check_if_service_exist(self.acc1):
             res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
                                       accounts=self.accounts, temp_actions=temp_actions)
-            self.wait_for_service_action_status(self.acc1, res[self.acc1]['uninstall'])
+            self.wait_for_service_action_status(self.acc1, res[self.acc1]['uninstall'], timeout=20)
 
         self.delete_services()
