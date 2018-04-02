@@ -16,8 +16,7 @@ if [[ ${action} == "before" ]]; then
 
 elif [[ ${action} == "run" ]]; then
     ctrl_ipaddress=$(cat /tmp/device_ipaddress.txt)
-    ssh -t -o StrictHostKeyChecking=no root@${ctrl_ipaddress} "export IYO_SECRET=${IYO_SECRET}"
-    ssh -t -o StrictHostKeyChecking=no root@${ctrl_ipaddress} "cd 0-templates/tests/integration_tests; bash prepare.sh -d -s -r testsuite/ovc_tests/a_basic/accounts_tests.py"
+    ssh -t -o StrictHostKeyChecking=no root@${ctrl_ipaddress} "export IYO_SECRET=${IYO_SECRET}; cd 0-templates/tests/integration_tests; bash prepare.sh -d -s -r testsuite/ovc_tests/a_basic/accounts_tests.py"
 
 elif [[ ${action} == "teardown" ]]; then
     echo "[+] Deleting packet machine ..."
