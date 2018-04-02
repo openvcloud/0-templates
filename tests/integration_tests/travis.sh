@@ -12,7 +12,7 @@ if [[ ${action} == "before" ]]; then
     echo "[+] Sending setup script to packet machine ..."
     ctrl_ipaddress=$(cat /tmp/device_ipaddress.txt)
     scp -o StrictHostKeyChecking=no packet_setup.sh root@${ctrl_ipaddress}:/root/
-    ssh -t -o StrictHostKeyChecking=no root@${ctrl_ipaddress} "bash packet_setup.sh ${ovc_templates_branch} ${js9_branch} ${zrobot_branch} ${zerotier_network} ${zerotier_token} ${ctrl_zt_ipaddress} ${environment}"
+    ssh -t -o StrictHostKeyChecking=no root@${ctrl_ipaddress} "bash packet_setup.sh ${js9_branch} ${zrobot_branch} ${zerotier_network} ${zerotier_token} ${ctrl_zt_ipaddress} ${environment}"
     scp -o StrictHostKeyChecking=no prepare.sh root@${ctrl_ipaddress}:/root/
 
 elif [[ ${action} == "run" ]]; then

@@ -3,13 +3,12 @@ export LC_ALL=en_US.UTF-8
 export LANG=en_US.UTF-8
 export LC_TYPE=en_US.UTF-8
 
-ovc_templates_branch=${1}
-js9_branch=${2}
-zrobot_branch=${3}
-zerotier_network=${4}
-zerotier_token=${5}
-ctrl_zt_ipaddress=${6}
-environment=${7}
+js9_branch=${1}
+zrobot_branch=${2}
+zerotier_network=${3}
+zerotier_token=${4}
+ctrl_zt_ipaddress=${5}
+environment=${6}
 
 echo "[+] Installing requirements"
 apt update
@@ -37,7 +36,7 @@ sudo echo "${ctrl_zt_ipaddress}  ${environment}" >> /etc/hosts
 
 
 echo "[+] Cloning 0-template repo"
-git clone -b ${ovc_templates_branch:-master} https://github.com/openvcloud/0-templates
+git clone -b master https://github.com/openvcloud/0-templates
 
 echo "[+] Installing Jumpscale9"
 0-templates/utils/jumspcale_install.sh ${js9_branch}
