@@ -25,9 +25,11 @@ matrix:
       python: 3.5
 
       install:
-        - ./utils/jumspcale_install.sh
-        - ./utils/zrobot_install.sh
+        - pip3 install git+https://github.com/gigforks/packet-python.git
 
+      before_script:
+        - cd ./tests/integration_tests; bash travis.sh before
       script:
-        - cd ./tests/integration_tests; bash travis.sh
-        - bash prepare.sh -d -s -r testsuite/ovc_tests/a_basic/accounts_tests.py
+        - bash travis.sh run
+      after_script:
+        - bash travis.sh teardown

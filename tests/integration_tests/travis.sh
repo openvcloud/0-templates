@@ -1,23 +1,25 @@
 #!/bin/bash
-
 # This script is used when using travis to run the testsuite
-echo "[+] Installing zerotier"
-curl -s https://install.zerotier.com/ | sudo bash
+action=$1
 
-echo "[+] Joining zerotier network : ${zerotier_network}"
-sudo zerotier-cli join ${zerotier_network}; sleep 10
+if [[ ${action} == "before" ]]; then
+    echo "[+] Generating ssh key ..."
+    ssh-keygen -f ~/.ssh/id_rsa -P ''
 
-echo "[+] Authorizing zerotier member"
-memberid=$(sudo zerotier-cli info | awk '{print $3}')
-curl -s -H "Content-Type: application/json" -H "Authorization: Bearer ${zerotier_token}" -X POST -d '{"config": {"authorized": true}}' https://my.zerotier.com/api/network/${zerotier_network}/member/${memberid} > /dev/null
+    echo "[+] Creating packet machine ..."
+    python3 packet.py -a create_machine -t ${packet_token} -k ${TRAVIS_JOB_NUMBER}
 
-for i in {1..20}; do
-    ping -c1 ${ctrl_zt_ipaddress} > /dev/null && break
-done
+    echo "[+] Sending setup script to packet machine ..."
+    ctrl_ipaddress=$(cat /tmp/device_ipaddress.txt)
+    scp -o StrictHostKeyChecking=no packet_setup.sh root@${ctrl_ipaddress}:/root/
+    ssh -t -o StrictHostKeyChecking=no root@${ctrl_ipaddress} "bash packet_setup.sh ${ovc_templates_branch} ${js9_branch} ${zrobot_branch} ${zerotier_network} ${zerotier_token} ${ctrl_zt_ipaddress} ${environment}"
+    scp -o StrictHostKeyChecking=no prepare.sh root@${ctrl_ipaddress}:/root/
 
-if [ $? -gt 0 ]; then
-    echo "Can't reach the controller using this ip address ${ctrl_zt_ipaddress}"; exit 1
+elif [[ ${action} == "run" ]]; then
+    ssh -t -o StrictHostKeyChecking=no root@${ctrl_ipaddress} "bash prepare.sh -d -s -r testsuite/ovc_tests/a_basic/accounts_tests.py"
+
+elif [[ ${action} == "teardown" ]]; then
+    echo "[+] Deleting packet machine ..."
+    python3 packet.py -a delete_machine -t ${packet_token} -k ${TRAVIS_JOB_NUMBER}
+
 fi
-
-sudo chown -R $USER:$USER /etc/hosts
-sudo echo "${ctrl_zt_ipaddress}  ${environment}" >> /etc/hosts
