@@ -36,7 +36,7 @@ sudo echo "${ctrl_zt_ipaddress}  ${environment}" >> /etc/hosts
 
 
 echo "[+] Cloning 0-template repo"
-git clone -b master https://github.com/openvcloud/0-templates
+git clone -b travis-job https://github.com/openvcloud/0-templates
 
 echo "[+] Installing Jumpscale9"
 0-templates/utils/jumspcale_install.sh ${js9_branch}
