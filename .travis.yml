@@ -18,7 +18,7 @@ matrix:
         - codecov
 
     - language: python
-      sudo: required
+      sudo: true
       dist: trusty
       if: type IN (api, cron)
 
