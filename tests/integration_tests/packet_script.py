@@ -70,7 +70,7 @@ if __name__ == '__main__':
 
         device = packet_client.create_machine(hostname)
         device_ipaddress = packet_client.wait_for_ipaddress(device.id)
-        os.system('printf "export device_ipaddress={}" >> /tmp/device_ipaddress.txt'.format(device_ipaddress))
+        os.system('printf "{}" >> /tmp/device_ipaddress.txt'.format(device_ipaddress))
 
         print(device_ipaddress)
 
