@@ -25,7 +25,6 @@ matrix:
       python: 3.5
 
       install:
-        - pip3 install python-dateutil requests
         - pip3 install git+https://github.com/gigforks/packet-python.git
 
       before_script:

@@ -7,7 +7,7 @@ if [[ ${action} == "before" ]]; then
     ssh-keygen -f ~/.ssh/id_rsa -P ''
 
     echo "[+] Creating packet machine ..."
-    python3 packet.py -a create_machine -t ${packet_token} -k ${TRAVIS_JOB_NUMBER}
+    python3 packet_script.py -a create_machine -t ${packet_token} -k ${TRAVIS_JOB_NUMBER}
 
     echo "[+] Sending setup script to packet machine ..."
     ctrl_ipaddress=$(cat /tmp/device_ipaddress.txt)
@@ -20,6 +20,6 @@ elif [[ ${action} == "run" ]]; then
 
 elif [[ ${action} == "teardown" ]]; then
     echo "[+] Deleting packet machine ..."
-    python3 packet.py -a delete_machine -t ${packet_token} -k ${TRAVIS_JOB_NUMBER}
+    python3 packet_script.py -a delete_machine -t ${packet_token} -k ${TRAVIS_JOB_NUMBER}
 
 fi
