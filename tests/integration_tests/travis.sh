@@ -13,11 +13,10 @@ if [[ ${action} == "before" ]]; then
     ctrl_ipaddress=$(cat /tmp/device_ipaddress.txt)
     scp -o StrictHostKeyChecking=no packet_setup.sh root@${ctrl_ipaddress}:/root/
     ssh -t -o StrictHostKeyChecking=no root@${ctrl_ipaddress} "bash packet_setup.sh ${js9_branch} ${zrobot_branch} ${zerotier_network} ${zerotier_token} ${ctrl_zt_ipaddress} ${environment}"
-    scp -o StrictHostKeyChecking=no prepare.sh root@${ctrl_ipaddress}:/root/
 
 elif [[ ${action} == "run" ]]; then
     ctrl_ipaddress=$(cat /tmp/device_ipaddress.txt)
-    ssh -t -o StrictHostKeyChecking=no root@${ctrl_ipaddress} "bash prepare.sh -d -s -r testsuite/ovc_tests/a_basic/accounts_tests.py"
+    ssh -t -o StrictHostKeyChecking=no root@${ctrl_ipaddress} "cd 0-templates/tests/integration_tests; bash prepare.sh -d -s -r testsuite/ovc_tests/a_basic/accounts_tests.py"
 
 elif [[ ${action} == "teardown" ]]; then
     echo "[+] Deleting packet machine ..."
