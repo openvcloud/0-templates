@@ -25,7 +25,7 @@ matrix:
       python: 3.5
 
       install:
-        - pip3 install git+https://github.com/gigforks/packet-python.git
+        - pip3 install python-dateutil git+https://github.com/gigforks/packet-python.git
 
       before_script:
         - cd ./tests/integration_tests; bash travis.sh before
