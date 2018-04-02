@@ -31,5 +31,3 @@ matrix:
         - cd ./tests/integration_tests; bash travis.sh before
       script:
         - bash travis.sh run
-      after_script:
-        - bash travis.sh teardown
