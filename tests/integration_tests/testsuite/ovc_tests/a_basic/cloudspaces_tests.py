@@ -114,13 +114,13 @@ class BasicTests(OVC_BaseTest):
         CU_M = randint(2, 1000) * factor
         CU_NP = randint(2, 1000) * factor
         self.cloudspaces[self.cs1] = {'account': self.acc1, 'maxMemoryCapacity': CU_M,
-                                      'maxCPUCapacity': CU_C, 'maxDiskCapacity': CU_D,
+                                      'maxCPUCapacity': CU_C, 'maxVDiskCapacity': CU_D,
                                       'maxNumPublicIP': CU_I, 'maxNetworkPeerTransfer': CU_NP
-                                     }
-
+                                      }
         self.log("Create cloudspace with %s limitations , should %s."%(type, "succeed" if factor == 1 else "fail"))
         res = self.create_cs(accounts=self.accounts, cloudspaces=self.cloudspaces, temp_actions=self.temp_actions)
         self.wait_for_service_action_status(self.cs1, res[self.cs1]['install'])
+        time.sleep(2)
         cloudspace = self.get_cloudspace(self.cs1)
         if type == "Negative values":
             self.assertFalse(cloudspace)

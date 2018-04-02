@@ -353,7 +353,7 @@ class vmactions(OVC_BaseTest):
         #. Check that [sn3] has been deleted.
         """
         self.log('%s STARTED' % self._testID)
-        
+
         self.log("Create snapshots[sn1],[sn2] and [sn3] of [vm1], should succeed.")
         temp_actions = {'node': {'actions': ['snapshot'], 'service': self.vm1}}
         for _ in range(3):
@@ -375,10 +375,11 @@ class vmactions(OVC_BaseTest):
         res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
                              vms=self.vms, temp_actions=temp_actions)       
 
-        self.log("Check that [sn3] has been deleted .")
+        self.log("Check that [sn3] has been deleted.")
         snapshots_after_rollback = self.get_snapshots_list(self.cs1, self.vm1)
         self.assertNotIn(snapshots_before_rollback[2]["name"], [sn["name"] for sn in snapshots_after_rollback])
-        
+        self.assertEqual(len(snapshots_after_rollback), 2)
+
     @classmethod
     def tearDownClass(cls):
         self = cls()
