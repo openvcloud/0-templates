@@ -302,6 +302,83 @@ class vmactions(OVC_BaseTest):
         self.assertEqual(vm2_c["vcpus"], vm1["vcpus"])
         self.assertEqual(vm2_c["sizeid"], vm1["sizeid"])
 
+    @unittest.skip("Not tested due to environment problems.")
+    def test005_snapshot_of_machine(self):
+        """ ZRT-OVC-015
+        *Test case for testing create and delete snapshot of machine .*
+
+        **Test Scenario:**
+
+        #. Create a vm[vm1], should succeed.
+        #. Create a snapshot[sn] of [vm1], should succeed.
+        #. Check that the snapshot[sn] has been created.
+        #. Delete the snapshot[sn], should succeed.
+        #. Check that the snapshot[sn] has been deleted.
+        """
+        self.log('%s STARTED' % self._testID)
+
+        self.log("Create snapshot[sn] of [vm1], should succeed.")
+        temp_actions = {'node': {'actions': ['snapshot'], 'service': self.vm1}}
+        res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
+                             vms=self.vms, temp_actions=temp_actions)
+        self.wait_for_service_action_status(self.vm1, res[self.vm1]['snapshot'])
+
+        self.log("Check that the snapshot[sn] has been created.")
+        time.sleep(2)
+        snapshots = self.get_snapshots_list(self.cs1, self.vm1)
+        self.assertTrue(snapshots)
+
+        self.log("Delete the snapshot[sn], should succeed.")
+        sn_epoch = snapshots[0]["epoch"]
+        temp_actions = {'node': {'actions': ['snapshot_delete'], 'service': self.vm1, 'args': {'snapshot_epoch': sn_epoch}}}
+        res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
+                             vms=self.vms, temp_actions=temp_actions)
+        self.wait_for_service_action_status(self.vm1, res[self.vm1]['snapshot_delete'])       
+
+        self.log("Check that the snapshot[sn] has been deleted.")
+        time.sleep(2)
+        self.assertFalse(self.get_snapshots_list(self.cs1, self.vm1))
+
+    @unittest.skip("Not tested due to environment problems.")
+    def test006_rollback_of_machine(self):
+        """ ZRT-OVC-016
+        *Test case for testing snapshot rollback of machine .*
+
+        **Test Scenario:**
+
+        #. Create a vm[vm1], should succeed.
+        #. Create snapshots[sn1],[sn2] and [sn3] of [vm1], should succeed.
+        #. Stop [vm1], should succeed.
+        #. Rollback to [sn2], should succeed.
+        #. Check that [sn3] has been deleted.
+        """
+        self.log('%s STARTED' % self._testID)
+        
+        self.log("Create snapshots[sn1],[sn2] and [sn3] of [vm1], should succeed.")
+        temp_actions = {'node': {'actions': ['snapshot'], 'service': self.vm1}}
+        for _ in range(3):
+            res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
+                                 vms=self.vms, temp_actions=temp_actions)
+            self.wait_for_service_action_status(self.vm1, res[self.vm1]['snapshot'])
+            time.sleep(2)
+        snapshots_before_rollback = self.get_snapshots_list(self.cs1, self.vm1)
+
+        self.log("Stop [VM1], should succeed.")
+        temp_actions = {'node': {'actions': ['stop'], 'service': self.vm1}}
+        res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
+                             vms=self.vms, temp_actions=temp_actions)
+        self.wait_for_service_action_status(self.vm1, res[self.vm1]['stop'])
+
+        self.log("Rollback to [sn2], should succeed.")
+        temp_actions = {'node': {'actions': ['snapshot_rollback'], 'service': self.vm1,
+                                 'args': {'snapshot_epoch': snapshots_before_rollback[1]["epoch"]}}}
+        res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
+                             vms=self.vms, temp_actions=temp_actions)       
+
+        self.log("Check that [sn3] has been deleted .")
+        snapshots_after_rollback = self.get_snapshots_list(self.cs1, self.vm1)
+        self.assertNotIn(snapshots_before_rollback[2]["name"], [sn["name"] for sn in snapshots_after_rollback])
+        
     @classmethod
     def tearDownClass(cls):
         self = cls()
