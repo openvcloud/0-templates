@@ -2,7 +2,7 @@
 # This script is used when using travis to run the testsuite
 action=$1
 
-if [[ ${action} == "before" ]]; then
+if [[ ${action} == "setup" ]]; then
     echo "[+] Generating ssh key ..."
     ssh-keygen -f ~/.ssh/id_rsa -P ''
 
