@@ -140,8 +140,7 @@ class Node(TemplateBase):
         Create a new machine
         """
         data = self.data
-        space = self.space
-        self._machine = space.machine_get(
+        self._machine = self.space.machine_get(
             create = True,
             name=self.name,
             sshkeyname=data['sshKey'],
@@ -149,7 +148,7 @@ class Node(TemplateBase):
             disksize=data['bootDiskSize'],
             datadisks=[data['dataDiskSize']],
             sizeId=data['sizeId'],
-            managed_private=self.data.get('managedPrivate', False)
+            managed_private=data.get('managedPrivate', False)
         )
 
         return self._machine
@@ -171,14 +170,14 @@ class Node(TemplateBase):
         
         # make sure machine is started
         machine.start()
-
         # get disks from the vm
         disks = machine.disks
+
         # check that bootdisk has correct size
         boot_disk = [disk for disk in disks if disk['type'] == 'B'][0]
         if boot_disk['sizeMax'] != self.data['bootDiskSize']:
             raise RuntimeError('Datadisk is expected to have size {}, has size {}'.format(
-                                self.data['bootDiskSize'], boot_disk[0]['sizeMax'])
+                                self.data['bootDiskSize'], boot_disk['sizeMax'])
                               )
 
         # identify data disks
@@ -198,22 +197,29 @@ class Node(TemplateBase):
             machine.disk_add(name='Disk nr 1', description='Machine disk of type D',
                              size=self.data['dataDiskSize'], type='D')
 
-
         for disk in machine.disks:
             # create a disk service
-            self._create_disk_service(self, disk)
+            self._create_disk_service(disk)
 
         prefab = self._get_prefab()
 
         # check if device is already mounted
-        _, mount_output, _ = prefab.core.run('mount')
-        if mount_output.find(device) != -1:
+        _, disk_info, _ = prefab.core.run('mount')
+        if disk_info.find(device) != -1:
+            # check if mount point is correct
+            mp_found = re.search('%s on (.+?) ' % device, disk_info)
+
+            if mp_found == None or mp_found.group(1) != mount_point:
+                raise RuntimeError('mount point of device "{device}" is "{mp_found}", expected "{mp}"'.format(
+                    device=device, mp_found=mp_found, mp=mount_point
+                ))
+
             # check if filesystem on the device is correct
-            _, disk_info, _ = prefab.core.run("blkid '/dev/vdb' -s TYPE")
+            # _, disk_info, _ = prefab.core.run("blkid '/dev/vdb' -s TYPE")
 
             # check type of the filesystem           
-            fs_found = re.search('TYPE="(.+?)"', disk_info).group(1)
-            if fs_found != fs_type:
+            fs_found = re.search('%s on %s type (.+?) ' % (device, mount_point), disk_info)
+            if fs_found == None or fs_found.group(1) != fs_type:
                 raise RuntimeError('VM "{vm}" has volume mounted on {mp} with filesystem "{fs}", should be "{fs_type}"'.format(
                                     vm=self.name, mp=mount_point, fs=fs_found, fs_type=fs_type))
             # if filesystem is correct, install is complete
@@ -246,6 +252,9 @@ class Node(TemplateBase):
         self._disk_services[service_name] = service
         return service
 
+    def get_disk_services(self):
+        return self.data['disks']
+
     def _get_prefab(self):
         '''
         Get prefab
@@ -260,6 +269,8 @@ class Node(TemplateBase):
         """ Uninstall machine """
 
         if self.name in self.space.machines:
+            if not self.machine:
+                self._machine = self.space.machine_get(name=self.name)
             self.machine.delete()
 
         self._machine = None
@@ -403,7 +414,6 @@ class Node(TemplateBase):
         # add service name to data
         self.data['disks'].append(disk_service_name)
         self._disk_services[disk_service_name] = proxy
-        self.logger('data disk attached')
 
     def disk_detach(self, disk_service_name):
         '''
@@ -414,11 +424,15 @@ class Node(TemplateBase):
 
         if disk_service_name not in self.data['disks']:
             return
-
         # get disk id and type
+
         proxy = self._disk_services.get(disk_service_name)
+        if not proxy:
+            # if service not found, do nothing
+            return
+
         task = proxy.schedule_action(action='get_type')
-        disk_type = task.result
+        disk_type = task.resultf
 
         if disk_type == 'B':
             raise RuntimeError("Can't detach Boot disk")
@@ -433,14 +447,32 @@ class Node(TemplateBase):
         # delete disk from list of attached disks
         self.data['disks'].remove(disk_service_name)
         del self._disk_services[disk_service_name]
-        self.logger('data disk detached')
 
-    def disk_add(self, name='Data disk', description=None, size=10, type='D'):
+    def disk_add(self, name, description='Data disk', size=10, type='D'):
         '''
         Create new disk at the machine
         '''        
         self.state.check('actions', 'install', 'ok')
 
-        self.machine.disk_add(name=name, description=description, 
+        disk_id = self.machine.disk_add(name=name, description=description, 
                                         size=size, type=type)
-        self.logger('add disk')
+        disk = {'id': disk_id,
+                'description': description,
+                'name': name,
+                'type': type,
+                'size': size}
+        self._create_disk_service(disk)
+
+    def disk_delete(self, disk_service_name):
+        '''
+        Delete disk at the machine
+        '''        
+        self.state.check('actions', 'install', 'ok')
+
+        # find service in the list of services
+        proxy = self._disk_services.pop(disk_service_name)
+
+        if proxy:
+            task = proxy.schedule_action('uninstall')
+            task.wait()
+            self.data['disks'].pop(proxy.name)
