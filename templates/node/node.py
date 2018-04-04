@@ -22,7 +22,6 @@ class Node(TemplateBase):
         self._ovc = None
         self._vdc = None
         self._machine = None
-        self._disk_services = {}
 
     def validate(self):
         if not self.data['vdc']:
@@ -38,6 +37,16 @@ class Node(TemplateBase):
         matches = self.api.services.find(template_uid=self.SSH_TEMPLATE, name=self.data['sshKey'])
         if len(matches) != 1:
             raise RuntimeError('found %s ssh keys with name "%s"' % (len(matches), self.data['sshKey']))
+
+    def _get_disk_proxy(self, service_name):
+        '''
+        Get proxy object of the service with name
+        '''
+
+        matches = self.api.services.find(template_uid=self.DISK_TEMPLATE, name=service_name)
+        if len(matches) != 1:
+            raise RuntimeError('found %d disk services with name "%s"' % (len(matches), service_name))
+        return matches[0]
 
     @property
     def config(self):
@@ -249,8 +258,6 @@ class Node(TemplateBase):
 
         # append service name to the list of attached disks
         self.data['disks'].append(service_name)
-        self._disk_services[service_name] = service
-        return service
 
     def get_disk_services(self):
         return self.data['disks']
@@ -413,7 +420,6 @@ class Node(TemplateBase):
 
         # add service name to data
         self.data['disks'].append(disk_service_name)
-        self._disk_services[disk_service_name] = proxy
 
     def disk_detach(self, disk_service_name):
         '''
@@ -421,18 +427,18 @@ class Node(TemplateBase):
         @disk_service_name is the name of the disk service
         '''
         self.state.check('actions', 'install', 'ok')
-
+        import ipdb; ipdb.set_trace()
         if disk_service_name not in self.data['disks']:
             return
         # get disk id and type
 
-        proxy = self._disk_services.get(disk_service_name)
+        proxy = self._get_disk_proxy(disk_service_name)
         if not proxy:
             # if service not found, do nothing
             return
 
         task = proxy.schedule_action(action='get_type')
-        disk_type = task.resultf
+        disk_type = task.result
 
         if disk_type == 'B':
             raise RuntimeError("Can't detach Boot disk")
@@ -446,7 +452,6 @@ class Node(TemplateBase):
 
         # delete disk from list of attached disks
         self.data['disks'].remove(disk_service_name)
-        del self._disk_services[disk_service_name]
 
     def disk_add(self, name, description='Data disk', size=10, type='D'):
         '''
@@ -470,9 +475,10 @@ class Node(TemplateBase):
         self.state.check('actions', 'install', 'ok')
 
         # find service in the list of services
-        proxy = self._disk_services.pop(disk_service_name)
+        proxy = self._get_disk_proxy(disk_service_name)
 
         if proxy:
             task = proxy.schedule_action('uninstall')
             task.wait()
-            self.data['disks'].pop(proxy.name)
+            self.data['disks'].pop(disk_service_name)
+
