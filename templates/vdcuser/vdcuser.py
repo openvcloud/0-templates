@@ -35,13 +35,8 @@ class Vdcuser(TemplateBase):
 
     def get_fqid(self):
         provider = self.data.get('provider')
-        return "%s@%s" % (self.get_name(), provider) if provider else self.get_name()
+        return "%s@%s" % (self.data.get('name'), provider) if provider else self.data.get('name')
 
-    def get_name(self):
-        '''
-        Returns the vdc user's name
-        '''
-        return self.data.get('name')
 
     def install(self):
         '''
