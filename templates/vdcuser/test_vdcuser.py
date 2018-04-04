@@ -17,11 +17,12 @@ class TestVdcUser(TestCase):
         )
 
     def test_validate_openvcloud(self):
+        name = 'test'
         data = {
             'openvcloud': 'connection',
+            'name': name,
         }
-        name = 'test'
-        instance = self.type(name, None, data)
+        instance = self.type('vdcuser1', None, data)
 
         def find(template_uid, name):
             self.assertEqual(template_uid, self.type.OVC_TEMPLATE)
@@ -58,13 +59,14 @@ class TestVdcUser(TestCase):
 
         api.services.find.assert_not_called()
 
-        # Finally, if the search retuned more than one object
+        # Finally, if the search returned more than one object
         api.reset_mock()
 
         data = {
-            'openvcloud': 'connection'
+            'openvcloud': 'connection',
+            'name': name,
         }
-        instance = self.type(name, None, data)
+        instance = self.type('vdcuser1', None, data)
 
         def find(template_uid, name):
             self.assertEqual(template_uid, self.type.OVC_TEMPLATE)
@@ -83,14 +85,15 @@ class TestVdcUser(TestCase):
 
     @mock.patch.object(j.clients, '_openvcloud')
     def test_install(self, openvcloud):
+        name = 'user1'
         data = {
             'openvcloud': 'connection',
             'password': 'passwd',
             'email': 'email@test.com',
+            'name': name,
         }
 
-        name = 'user1'
-        instance = self.type(name, None, data)
+        instance = self.type('vdcuser1', None, data)
         client = openvcloud.get.return_value
         # user exists
         client.api.system.usermanager.userexists.return_value = True
@@ -116,14 +119,14 @@ class TestVdcUser(TestCase):
 
     @mock.patch.object(j.clients, '_openvcloud')
     def test_uninstall(self, openvcloud):
+        name = 'user1'
         data = {
             'openvcloud': 'connection',
             'password': 'passwd',
             'email': 'email@test.com',
+            'name': name,
         }
-
-        name = 'user1'
-        instance = self.type(name, None, data)
+        instance = self.type('vdcuser1', None, data)
 
         client = openvcloud.get.return_value
         # user exists
@@ -139,14 +142,14 @@ class TestVdcUser(TestCase):
 
     @mock.patch.object(j.clients, '_openvcloud')
     def test_set_groups(self, openvcloud):
+        name = 'user1'
         data = {
             'openvcloud': 'connection',
             'password': 'passwd',
             'email': 'email@test.com',
+            'name': name,
         }
-
-        name = 'user1'
-        instance = self.type(name, None, data)
+        instance = self.type('vdcuser1', None, data)
 
         with self.assertRaises(StateCheckError):
             instance.groups_set([])
