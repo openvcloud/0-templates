@@ -25,7 +25,7 @@ class BasicTests(OVC_BaseTest):
 
     @unittest.skip('https://github.com/openvcloud/0-templates/issues/47')
     def test001_create_vm_with_wrong_params(self):
-        """ ZRT-OVC-000
+        """ ZRT-OVC-012
         *Test case for creating virtual machine with wrong parameters*
 
         **Test Scenario:**
@@ -64,9 +64,8 @@ class BasicTests(OVC_BaseTest):
 
         self.log('%s ENDED' % self._testID)
 
-    @unittest.skip('https://github.com/openvcloud/0-templates/issues/76')
     def test002_create_vms_with_correct_params(self):
-        """ ZRT-OVC-000
+        """ ZRT-OVC-013
         Test case for creating virtual machine with correct parameters*
 
         **Test Scenario:**
@@ -91,9 +90,9 @@ class BasicTests(OVC_BaseTest):
                               'bootDiskSize': bds, 'dataDiskSize': dds}
         res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
                              vms=self.vms, temp_actions=self.temp_actions)
-        self.assertTrue(type(res), type(dict()))
-        self.wait_for_service_action_status(self.vm1, res[self.vm1])
-        self.wait_for_service_action_status(self.vm2, res[self.vm2])
+        self.assertEqual(type(res), type(dict()))
+        self.wait_for_service_action_status(self.vm1, res[self.vm1]['install'])
+        self.wait_for_service_action_status(self.vm2, res[self.vm2]['install'])
 
         self.log("Check if the 1st vm's parameters are reflected correctly on OVC")
         self.cs1_id = self.get_cloudspace(self.cs1)['id']
@@ -148,7 +147,7 @@ class vmactions(OVC_BaseTest):
 
     @unittest.skip("Not tested due to environment problems")
     def test001_adding_and_deleting_portforward(self):
-        """ ZRT-OVC-012
+        """ ZRT-OVC-014
         *Test case for adding and deleting portforward.*
 
         **Test Scenario:**
@@ -161,22 +160,22 @@ class vmactions(OVC_BaseTest):
         """
         self.log('%s STARTED' % self._testID)
 
-        self.log("Create portforward for [vm1], should succeed. ")        
+        self.log("Create portforward for [vm1], should succeed. ")   
+     
         public_port = randint(1000, 60000)
         local_port = 22        
         temp_actions = {'node': {'actions': ['portforward_create'], 'service': self.vm1, 
-                                 'args': {'ports': {'source': public_port, 'destination': local_port}}}}
+                                 'args': {'ports': OrderedDict([('destination', local_port),('source', public_port)])}}}
         res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
                              vms=self.vms, temp_actions=temp_actions)
         self.wait_for_service_action_status(self.vm1, res[self.vm1]['portforward_create'])
-
         self.log("Check that the portforward has been created, should succeed.")
         time.sleep(2)
         pf_list = self.get_portforward_list(self.cs1, self.vm1)
         self.assertIn(public_port, [int(x["publicPort"]) for x in pf_list])
         self.log("Delete the portforward created, should succeed")
         temp_actions = {'vdc': {'actions': ['portforward_delete'], 'service': self.vm1, 
-                        'args': {'ports': {'source': public_port, 'destination': local_port}}}}
+                        'args': {'ports': OrderedDict([('destination', local_port),('source', public_port)])}}}
         res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
                              vms=self.vms, temp_actions=temp_actions)
         self.wait_for_service_action_status(self.vm1, res[self.vm1]['portforward_delete'])
@@ -188,7 +187,7 @@ class vmactions(OVC_BaseTest):
 
     @unittest.skip("Not tested due to environment problems.")
     def test002_start_stop_vm(self):
-        """ ZRT-OVC-013
+        """ ZRT-OVC-015
         *Test case for testing start and stop vm .*
 
         **Test Scenario:**
@@ -225,7 +224,7 @@ class vmactions(OVC_BaseTest):
 
     @unittest.skip(" Not tested due to environment problems.")
     def test003_pause_and_resume(self):
-        """ ZRT-OVC-013
+        """ ZRT-OVC-016
         *Test case for testing pause and resume vm .*
 
         **Test Scenario:**
@@ -262,7 +261,7 @@ class vmactions(OVC_BaseTest):
 
     @unittest.skip(" Not tested due to environment problems.")
     def test004_clone_vm(self):
-        """ ZRT-OVC-014
+        """ ZRT-OVC-017
         *Test case for testing clone vm .*
 
         **Test Scenario:**
@@ -304,7 +303,7 @@ class vmactions(OVC_BaseTest):
 
     @unittest.skip("Not tested due to environment problems.")
     def test005_snapshot_of_machine(self):
-        """ ZRT-OVC-015
+        """ ZRT-OVC-018
         *Test case for testing create and delete snapshot of machine .*
 
         **Test Scenario:**
@@ -341,7 +340,7 @@ class vmactions(OVC_BaseTest):
 
     @unittest.skip("Not tested due to environment problems.")
     def test006_rollback_of_machine(self):
-        """ ZRT-OVC-016
+        """ ZRT-OVC-019
         *Test case for testing snapshot rollback of machine .*
 
         **Test Scenario:**

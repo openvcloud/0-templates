@@ -54,7 +54,6 @@ class accounts(OVC_BaseTest):
 
         self.log('%s ENDED' % self._testID)
 
-    @unittest.skip('https://github.com/openvcloud/0-templates/issues/54')
     def test002_create_account_with_correct_params(self):
         """ ZRT-OVC-002
         *Test case for creating account with correct parameters*
@@ -72,10 +71,8 @@ class accounts(OVC_BaseTest):
         CU_I = randint(15, 30)
         CU_M = randint(15, 30)
         self.accounts[self.acc1] = {'openvcloud': self.openvcloud, 'maxMemoryCapacity': CU_M,
-                                    'maxCPUCapacity': CU_C, 'maxDiskCapacity': CU_D,
-                                    'maxNumPublicIP': CU_I,
-                                    'users': OrderedDict([('name', self.vdcuser),
-                                                          ('accesstype', 'CXDRAU')])}
+                                    'maxCPUCapacity': CU_C, 'maxVDiskCapacity': CU_D,
+                                    'maxNumPublicIP': CU_I }
         self.acc2 = self.random_string()
         self.accounts[self.acc2] = {'openvcloud': self.openvcloud}
         self.CLEANUP["accounts"].append(self.acc2)
@@ -94,8 +91,6 @@ class accounts(OVC_BaseTest):
         self.assertEqual(account['resourceLimits']['CU_C'], CU_C)
         self.assertEqual(account['resourceLimits']['CU_I'], CU_I)
         self.assertEqual(account['resourceLimits']['CU_M'], CU_M)
-        self.assertIn('%s@itsyouonline' % self.vdcuser,
-                      [user['userGroupId'] for user in account['acl']])
 
         self.log('Check if the 2nd accound was created, should succeed.')
         account = self.get_account(self.acc2)
@@ -103,7 +98,6 @@ class accounts(OVC_BaseTest):
 
         self.log('%s ENDED' % self._testID)
 
-    @unittest.skip('https://github.com/openvcloud/0-templates/issues/79')
     def test003_update_account__params(self):
         """ ZRT-OVC-003
         *Test case for updating account's parameters*
@@ -121,7 +115,7 @@ class accounts(OVC_BaseTest):
         CU_I = randint(15, 30)
         CU_M = randint(15, 30)
         self.accounts[self.acc1] = {'openvcloud': self.openvcloud, 'maxMemoryCapacity': CU_M,
-                                    'maxCPUCapacity': CU_C, 'maxDiskCapacity': CU_D,
+                                    'maxCPUCapacity': CU_C, 'maxVDiskCapacity': CU_D,
                                     'maxNumPublicIP': CU_I}
 
         self.log('Create an account, should succeed')
@@ -137,7 +131,7 @@ class accounts(OVC_BaseTest):
         self.log('Update some parameters and make sure it is updated')
         self.temp_actions['account'] = {'actions': ['update'],
                                         'args': {"maxMemoryCapacity": CU_M - 1, "maxCPUCapacity": CU_C - 1,
-                                                 "maxDiskCapacity": CU_D - 1, "maxNumPublicIP": CU_I - 1}}
+                                                 "maxVDiskCapacity": CU_D - 1, "maxNumPublicIP": CU_I - 1}}
         self.accounts[self.acc1] = {'openvcloud': self.openvcloud}
         res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
                                   accounts=self.accounts, temp_actions=self.temp_actions)
@@ -152,7 +146,6 @@ class accounts(OVC_BaseTest):
 
         self.log('%s ENDED' % self._testID)
 
-    @unittest.skip('https://github.com/openvcloud/0-templates/issues/77')
     def test004_account_add_delete_user(self):
         """ ZRT-OVC-004
         *Test case for updating account with fake user*
@@ -160,32 +153,21 @@ class accounts(OVC_BaseTest):
         **Test Scenario:**
 
         #. Create an account (A1).
-        #. Add fake user to A1, should fail.
         #. Add an existing user to A1, should succeed.
         #. Delete an existing user from A1, should succeed.
-        #. Delete fake user from A1, should fail.
         """
         self.log('%s STARTED' % self._testID)
 
-        self.accounts[self.acc1] = {'openvcloud': self.openvcloud,
-                                    'users': OrderedDict([('name', self.vdcuser),
-                                                          ('accesstype', 'CXDRAU')])}
+        self.accounts[self.acc1] = {'openvcloud': self.openvcloud}
         self.log('Create an account, should succeed')
         res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
                                   accounts=self.accounts, temp_actions=self.temp_actions)
         self.assertTrue(type(res), type(dict()))
         self.wait_for_service_action_status(self.acc1, res[self.acc1]['install'])
 
-        self.log('Add fake user to A1, should fail')
-        self.temp_actions['account'] = {'actions': ['user_add'],
-                                        'args': {'user': {'name': self.random_string(),
-                                                          'accesstype': 'R'}}}
-        res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
-                                  accounts=self.accounts, temp_actions=self.temp_actions)
-        self.assertIn('no vdcuser found', res)
-
         self.log('Add an existing user to A1, should succeed.')
-        self.temp_actions['account']['args']['user']['name'] = self.vdcuser
+        self.temp_actions['account']['args'] = {'user': {'name': '%s@itsyouonline' % self.vdcuser, 'accesstype': 'R'}}
+        self.temp_actions['account']['actions'] = ['user_add']
         res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
                                   accounts=self.accounts, temp_actions=self.temp_actions)
         self.assertEqual(type(res), type(dict()))
@@ -196,6 +178,7 @@ class accounts(OVC_BaseTest):
 
         self.log('Delete an existing user from A1, should succeed.')
         self.temp_actions['account']['actions'] = ['user_delete']
+        self.temp_actions['account']['args'] = {'username': '%s@itsyouonline' % self.vdcuser}
         res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
                                   accounts=self.accounts, temp_actions=self.temp_actions)
         self.assertEqual(type(res), type(dict()))
@@ -203,11 +186,5 @@ class accounts(OVC_BaseTest):
         account = self.get_account(self.acc1)
         self.assertNotIn('%s@itsyouonline' % self.vdcuser,
                          [user['userGroupId'] for user in account['acl']])
-
-        self.log('Delete fake user from A1, should fail.')
-        self.temp_actions['account']['args']['user']['name'] = self.random_string()
-        res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
-                                  accounts=self.accounts, temp_actions=self.temp_actions)
-        self.assertIn('no vdcuser found', res)
 
         self.log('%s ENDED' % self._testID)
