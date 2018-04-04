@@ -25,7 +25,7 @@ class BasicTests(OVC_BaseTest):
 
     @unittest.skip('https://github.com/openvcloud/0-templates/issues/47')
     def test001_create_vm_with_wrong_params(self):
-        """ ZRT-OVC-000
+        """ ZRT-OVC-012
         *Test case for creating virtual machine with wrong parameters*
 
         **Test Scenario:**
@@ -65,7 +65,7 @@ class BasicTests(OVC_BaseTest):
         self.log('%s ENDED' % self._testID)
 
     def test002_create_vms_with_correct_params(self):
-        """ ZRT-OVC-000
+        """ ZRT-OVC-013
         Test case for creating virtual machine with correct parameters*
 
         **Test Scenario:**
@@ -147,7 +147,7 @@ class vmactions(OVC_BaseTest):
 
     @unittest.skip("Not tested due to environment problems")
     def test001_adding_and_deleting_portforward(self):
-        """ ZRT-OVC-012
+        """ ZRT-OVC-014
         *Test case for adding and deleting portforward.*
 
         **Test Scenario:**
@@ -187,7 +187,7 @@ class vmactions(OVC_BaseTest):
 
     @unittest.skip("Not tested due to environment problems.")
     def test002_start_stop_vm(self):
-        """ ZRT-OVC-013
+        """ ZRT-OVC-015
         *Test case for testing start and stop vm .*
 
         **Test Scenario:**
@@ -224,7 +224,7 @@ class vmactions(OVC_BaseTest):
 
     @unittest.skip(" Not tested due to environment problems.")
     def test003_pause_and_resume(self):
-        """ ZRT-OVC-013
+        """ ZRT-OVC-016
         *Test case for testing pause and resume vm .*
 
         **Test Scenario:**
@@ -261,7 +261,7 @@ class vmactions(OVC_BaseTest):
 
     @unittest.skip(" Not tested due to environment problems.")
     def test004_clone_vm(self):
-        """ ZRT-OVC-014
+        """ ZRT-OVC-017
         *Test case for testing clone vm .*
 
         **Test Scenario:**
@@ -303,7 +303,7 @@ class vmactions(OVC_BaseTest):
 
     @unittest.skip("Not tested due to environment problems.")
     def test005_snapshot_of_machine(self):
-        """ ZRT-OVC-015
+        """ ZRT-OVC-018
         *Test case for testing create and delete snapshot of machine .*
 
         **Test Scenario:**
@@ -340,7 +340,7 @@ class vmactions(OVC_BaseTest):
 
     @unittest.skip("Not tested due to environment problems.")
     def test006_rollback_of_machine(self):
-        """ ZRT-OVC-016
+        """ ZRT-OVC-019
         *Test case for testing snapshot rollback of machine .*
 
         **Test Scenario:**
