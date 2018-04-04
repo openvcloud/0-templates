@@ -87,12 +87,10 @@ class TestVDC(TestCase):
 
         api.services.find.assert_called_once_with(template_uid=self.type.ACCOUNT_TEMPLATE, name=data['account'])
 
-    def test_validate_users(self):
+    def test_validate(self):
         data = {
+            'name' : 'vdcName',
             'account': 'test-account',
-            'users': [
-                {'name': 'test-user'},
-            ]
         }
         name = 'test'
         instance = self.type(name, None, data)
@@ -103,9 +101,6 @@ class TestVDC(TestCase):
                 result = mock.MagicMock()
                 result.name = 'test-account'
                 return [result]
-
-            self.assertEqual(template_uid, self.type.VDCUSER_TEMPLATE)
-            self.assertEqual(name, data['users'][0]['name'])
 
             result = mock.MagicMock()
             result.name = name

@@ -20,6 +20,9 @@ class Vdc(TemplateBase):
         self._space = None
 
     def validate(self):
+        if not self.data['name']:
+            raise ValueError('vdc name is required')
+
         if not self.data['account']:
             raise ValueError('account is required')
 
@@ -27,6 +30,13 @@ class Vdc(TemplateBase):
         accounts = self.api.services.find(template_uid=self.ACCOUNT_TEMPLATE, name=self.data['account'])
         if len(accounts) != 1:
             raise RuntimeError('found %s accounts, requires exactly one' % len(accounts))
+
+    def get_name(self):
+        '''
+        Return vdc name
+        '''
+
+        return self.data['name']
 
     @property
     def ovc(self):
@@ -83,7 +93,7 @@ class Vdc(TemplateBase):
             return self._space
 
         acc = self.account
-        self._space = acc.space_get(name=self.name, create=False)
+        self._space = acc.space_get(name=self.data['name'], create=False)
         return self._space
 
     def get_users(self, refresh=True):
@@ -123,7 +133,7 @@ class Vdc(TemplateBase):
         if externalnetworkId == -1:
             externalnetworkId = None
         self._space = acc.space_get(
-            name=self.name,
+            name=self.data['name'],
             create=True,
             maxMemoryCapacity=self.data.get('maxMemoryCapacity', -1),
             maxVDiskCapacity=self.data.get('maxVDiskCapacity', -1),
@@ -176,12 +186,12 @@ class Vdc(TemplateBase):
         self.state.check('actions', 'install', 'ok')
 
         if not self.data['create']:
-            raise RuntimeError('"%s" is readonly cloudspace' % self.name)
+            raise RuntimeError('"%s" is readonly cloudspace' % self.data['name'])
 
         # Get space, raise error if not found
         self.state.check('actions', 'install', 'ok')
         space = self.account.space_get(
-            name=self.name,
+            name=self.data['name'],
             create=False
         )
 
@@ -200,7 +210,7 @@ class Vdc(TemplateBase):
         # Get space, raise error if not found
         self.state.check('actions', 'install', 'ok')
         space = self.account.space_get(
-            name=self.name,
+            name=self.data['name'],
             create=False
         )
 
@@ -347,7 +357,7 @@ class Vdc(TemplateBase):
 
         self.state.check('actions', 'install', 'ok')
         space = self.account.space_get(
-            name=self.name,
+            name=self.data['name'],
             create=False
         )
 

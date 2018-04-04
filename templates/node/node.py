@@ -24,8 +24,11 @@ class Node(TemplateBase):
         self._machine = None
 
     def validate(self):
+        if not self.data['name']:
+            raise ValueError('VM name is required')
+
         if not self.data['vdc']:
-            raise ValueError('vdc name is required')
+            raise ValueError('vdc service name is required')
 
         if not self.data['sshKey']:
             raise ValueError('sshKey name is required')
@@ -37,6 +40,13 @@ class Node(TemplateBase):
         matches = self.api.services.find(template_uid=self.SSH_TEMPLATE, name=self.data['sshKey'])
         if len(matches) != 1:
             raise RuntimeError('found %s ssh keys with name "%s"' % (len(matches), self.data['sshKey']))
+
+    def get_name(self):
+        '''
+        Return name of the VM
+        '''
+
+        return self.data['name']
 
     def _get_disk_proxy(self, service_name):
         '''
@@ -56,33 +66,38 @@ class Node(TemplateBase):
         if self._config is not None:
             return self._config
 
-        config = {
-            'vdc': self.data['vdc'],
-        }
+        config = {}
         # traverse the tree up words so we have all info we need to return, connection and
         # account
         matches = self.api.services.find(template_uid=self.VDC_TEMPLATE, name=config['vdc'])
         if len(matches) != 1:
             raise RuntimeError('found %d vdcs with name "%s", required exactly one' % (len(matches), config['vdc']))
 
+        # get vdc service object
         vdc = matches[0]
         self._vdc = vdc
+
+        # get account name
         task = vdc.schedule_action('get_account')
         task.wait()
-
         config['account'] = task.result
+
+        # get vdc name
+        task = vdc.schedule_action('get_name')
+        task.wait()
+        config['vdc'] = task.result
 
         matches = self.api.services.find(template_uid=self.ACCOUNT_TEMPLATE, name=config['account'])
         if len(matches) != 1:
             raise RuntimeError('found %s accounts with name "%s", required exactly one' % (len(matches), config['account']))
 
         account = matches[0]
+
         # get connection
         task = account.schedule_action('get_openvcloud')
         task.wait()
-
         config['ovc'] = task.result
-
+        
         self._config = config
         return self._config
 
@@ -123,8 +138,8 @@ class Node(TemplateBase):
         '''
 
         if not self._machine:
-            if self.name in self.space.machines:
-                self._machine = self.space.machine_get(name=self.name)
+            if self.data['name'] in self.space.machines:
+                self._machine = self.space.machine_get(name=self.data['name'])
 
         return self._machine
 
@@ -159,7 +174,7 @@ class Node(TemplateBase):
         data = self.data
         self._machine = self.space.machine_get(
             create = True,
-            name=self.name,
+            name=data['name'],
             sshkeyname=data['sshKey'],
             image=data['osImage'],
             disksize=data['bootDiskSize'],
@@ -174,7 +189,6 @@ class Node(TemplateBase):
         """
         Configure one boot disk and one data disk when installing a machine.
         """
-        # TODO: add ssh portforward if none
         machine = self.machine
 
         # set defaults for datadisk
@@ -231,14 +245,11 @@ class Node(TemplateBase):
                     device=device, mp_found=mp_found, mp=mount_point
                 ))
 
-            # check if filesystem on the device is correct
-            # _, disk_info, _ = prefab.core.run("blkid '/dev/vdb' -s TYPE")
-
             # check type of the filesystem           
             fs_found = re.search('%s on %s type (.+?) ' % (device, mount_point), disk_info)
             if fs_found == None or fs_found.group(1) != fs_type:
                 raise RuntimeError('VM "{vm}" has volume mounted on {mp} with filesystem "{fs}", should be "{fs_type}"'.format(
-                                    vm=self.name, mp=mount_point, fs=fs_found, fs_type=fs_type))
+                                    vm=self.data['name'], mp=mount_point, fs=fs_found, fs_type=fs_type))
             # if filesystem is correct, install is complete
             return
 
