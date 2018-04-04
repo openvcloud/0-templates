@@ -39,6 +39,12 @@ class Account(TemplateBase):
                                         create=False)
         return self._account
 
+    def get_name(self):
+        '''
+        Returns the OVC account name
+        '''
+        return self.data['name']
+
     def get_users(self, refresh=True):
         '''
         Fetch authorized vdc users

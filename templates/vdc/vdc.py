@@ -57,7 +57,18 @@ class Vdc(TemplateBase):
             return self._account
         ovc = self.ovc
 
-        self._account = ovc.account_get(self.data['account'], create=False)
+        matches = self.api.services.find(template_uid=self.ACCOUNT_TEMPLATE, name=self.data['account'])
+        if len(matches) != 1:
+            raise ValueError('found %s accounts with name "%s", required exactly one' % (len(matches), self.data['account']))
+        
+        account_instance = matches[0]
+        account_instance.state.check('actions', 'install', 'ok')
+
+        task = account_instance.schedule_action('get_name')
+        task.wait()
+        account_name = task.result
+
+        self._account = ovc.account_get(account_name, create=False)
         return self._account
 
     def get_account(self):
