@@ -26,3 +26,8 @@ Templates:
   - add and delete portforwards
 - [disk template](https://github.com/openvcloud/0-templates/blob/master/templates/disk/disk.py):
   - create and delete disks
+ 
+ 
+Contribution:
+
+Please check the [contribution](https://github.com/zero-os/0-templates/blob/master/CONTRIBUTING.md) guidelines before contributing to this repo.
