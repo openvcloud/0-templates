@@ -102,7 +102,7 @@ class Account(TemplateBase):
     def user_add(self, user):
         '''
         Add/Update user access to an account
-        :param user: user dictionary {'name': , 'accesstype': }
+        :param user: user dictionary {'vdcuser': 'reference to the vdc user service', 'accesstype': 'accesstype that will be set for the user'}
         '''
         self.state.check('actions', 'install', 'ok')
 
@@ -110,24 +110,25 @@ class Account(TemplateBase):
             raise RuntimeError('readonly account')
 
         # check that username is given 
-        if not user.get('name'):
-            raise ValueError("failed to add user, field 'name' is required")
+        if not user.get('vdcuser'):
+            raise ValueError("failed to add user, field 'vdcuser' is required")
+        vdcuser_service = user.get('vdcuser')
 
-        # derive service name from username
-        service_name = user['name'].split('@')[0]
-
-        find = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=service_name)
+        find = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=vdcuser_service)
         if len(find) != 1:
-            raise ValueError('no vdcuser service found with name "%s"' % service_name)
+            raise ValueError('no vdcuser service found with name "%s"' % vdcuser_service)
 
         # check that user was successfully installed
-        find[0].state.check('actions', 'install', 'ok')
+        vdcuser_instance = find[0]
+        vdcuser_instance.state.check('actions', 'install', 'ok')
+
+        task = vdcuser_instance.schedule_action('get_fqid')
+        task.wait()
+        name = task.result
+        accesstype = user.get('accesstype')
 
         self.get_users()
         users = self.data['users']
-
-        name = user['name']
-        accesstype = user.get('accesstype')
         
         for existent_user in users:
             if existent_user['name'] != name:

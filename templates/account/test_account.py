@@ -182,15 +182,15 @@ class TestAccount(TestCase):
         instance = self.type('test', None)
 
         # user to add
-        user = {'name': 'test1', 'accesstype': 'R'}
+        user = {'vdcuser': 'test1', 'accesstype': 'R'}
         with pytest.raises(StateCheckError):
             # fails if not installed
             instance.user_add(user)
 
         instance.state.set('actions', 'install', 'ok')
         with pytest.raises(ValueError,
-                           message='no vdcuser service found with name "%s"' % user['name']):
-            # fails if no account service is running for this user
+                           message='no vdcuser service found with name "%s"' % user['vdcuser']):
+            # fails if no vdcuser service is running for this user
             instance.user_add(user)
 
         with patch.object(instance, 'api') as api:
@@ -198,20 +198,27 @@ class TestAccount(TestCase):
             with patch('js9.j.clients.openvcloud.get', return_value=self.ovc_mock) as ovc:               
                 # test success
                 ovc.return_value.account_get.return_value.authorize_user.return_value=True
-                instance.user_add(user)
-                instance.account.authorize_user.assert_called_once_with(username=user['name'], right=user['accesstype'])
-                api.services.find.assert_has_calls(
-                    [mock.call(template_uid=self.type.VDCUSER_TEMPLATE, name=user['name'])]
-                )
 
-                self.assertEqual(instance.data['users'], [user])
-
-                # test fail
-                ovc.return_value.account_get.return_value.authorize_user.return_value=False
-                user = {'name': 'test2', 'accesstype': 'R'}
-                with pytest.raises(RuntimeError,
-                                   message='failed to add user "%s"' % user['name']):
+                service_mock = MagicMock( 
+                    schedule_action=MagicMock())
+                type(service_mock.schedule_action.return_value).result = user['vdcuser']
+                with patch.object(instance, 'api') as api:
+                    api.services.find.return_value = [service_mock]
                     instance.user_add(user)
+
+                    instance.account.authorize_user.assert_called_once_with(username=user['vdcuser'], right=user['accesstype'])
+                    api.services.find.assert_has_calls(
+                        [mock.call(template_uid=self.type.VDCUSER_TEMPLATE, name=user['vdcuser'])]
+                    )
+
+                    self.assertEqual(instance.data['users'], [user])
+
+                    # test fail
+                    ovc.return_value.account_get.return_value.authorize_user.return_value=False
+                    user = {'vdcuser': 'test2', 'accesstype': 'R'}
+                    with pytest.raises(RuntimeError,
+                                    message='failed to add user "%s"' % user['vdcuser']):
+                        instance.user_add(user)
 
     def test_user_update_access_right(self):
         '''
@@ -225,21 +232,28 @@ class TestAccount(TestCase):
             with patch('js9.j.clients.openvcloud.get', return_value=self.ovc_mock) as ovc:
                 users = [{'userGroupId': 'test1', 'right': 'R'}]
                 # user to update
-                user = {'name': 'test1', 'accesstype': 'W'}
+                user = {'vdcuser': 'test1', 'accesstype': 'W'}
 
                 # test success
                 ovc.return_value.account_get.return_value.update_access.return_value=True
                 ovc.return_value.account_get.return_value.model = {'acl': users}
-                instance.user_add(user)
-                instance.account.update_access.assert_called_once_with(username=user['name'], right=user['accesstype'])
-                self.assertEqual(instance.data['users'],
-                                [{'name': 'test1', 'accesstype': 'W'}])
 
-                # test fail
-                ovc.return_value.account_get.return_value.update_access.return_value=False
-                with pytest.raises(RuntimeError,
-                                   message='failed to update accesstype of user "test1"'):
+                service_mock = MagicMock( 
+                    schedule_action=MagicMock())
+                type(service_mock.schedule_action.return_value).result = user['vdcuser']
+                with patch.object(instance, 'api') as api:
+                    api.services.find.return_value = [service_mock]
                     instance.user_add(user)
+
+                    instance.account.update_access.assert_called_once_with(username=user['vdcuser'], right=user['accesstype'])
+                    self.assertEqual(instance.data['users'],
+                                    [{'name': 'test1', 'accesstype': 'W'}])
+
+                    # test fail
+                    ovc.return_value.account_get.return_value.update_access.return_value=False
+                    with pytest.raises(RuntimeError,
+                                    message='failed to update accesstype of user "test1"'):
+                        instance.user_add(user)
 
 
     def test_user_delete(self):
