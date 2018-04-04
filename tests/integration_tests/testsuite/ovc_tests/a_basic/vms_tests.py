@@ -64,7 +64,6 @@ class BasicTests(OVC_BaseTest):
 
         self.log('%s ENDED' % self._testID)
 
-    @unittest.skip('https://github.com/openvcloud/0-templates/issues/76')
     def test002_create_vms_with_correct_params(self):
         """ ZRT-OVC-000
         Test case for creating virtual machine with correct parameters*
@@ -91,9 +90,9 @@ class BasicTests(OVC_BaseTest):
                               'bootDiskSize': bds, 'dataDiskSize': dds}
         res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
                              vms=self.vms, temp_actions=self.temp_actions)
-        self.assertTrue(type(res), type(dict()))
-        self.wait_for_service_action_status(self.vm1, res[self.vm1])
-        self.wait_for_service_action_status(self.vm2, res[self.vm2])
+        self.assertEqual(type(res), type(dict()))
+        self.wait_for_service_action_status(self.vm1, res[self.vm1]['install'])
+        self.wait_for_service_action_status(self.vm2, res[self.vm2]['install'])
 
         self.log("Check if the 1st vm's parameters are reflected correctly on OVC")
         self.cs1_id = self.get_cloudspace(self.cs1)['id']
@@ -161,22 +160,22 @@ class vmactions(OVC_BaseTest):
         """
         self.log('%s STARTED' % self._testID)
 
-        self.log("Create portforward for [vm1], should succeed. ")        
+        self.log("Create portforward for [vm1], should succeed. ")   
+     
         public_port = randint(1000, 60000)
         local_port = 22        
         temp_actions = {'node': {'actions': ['portforward_create'], 'service': self.vm1, 
-                                 'args': {'ports': {'source': public_port, 'destination': local_port}}}}
+                                 'args': {'ports': OrderedDict([('destination', local_port),('source', public_port)])}}}
         res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
                              vms=self.vms, temp_actions=temp_actions)
         self.wait_for_service_action_status(self.vm1, res[self.vm1]['portforward_create'])
-
         self.log("Check that the portforward has been created, should succeed.")
         time.sleep(2)
         pf_list = self.get_portforward_list(self.cs1, self.vm1)
         self.assertIn(public_port, [int(x["publicPort"]) for x in pf_list])
         self.log("Delete the portforward created, should succeed")
         temp_actions = {'vdc': {'actions': ['portforward_delete'], 'service': self.vm1, 
-                        'args': {'ports': {'source': public_port, 'destination': local_port}}}}
+                        'args': {'ports': OrderedDict([('destination', local_port),('source', public_port)])}}}
         res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
                              vms=self.vms, temp_actions=temp_actions)
         self.wait_for_service_action_status(self.vm1, res[self.vm1]['portforward_delete'])

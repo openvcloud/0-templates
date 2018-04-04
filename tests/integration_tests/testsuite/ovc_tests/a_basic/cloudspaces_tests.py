@@ -168,14 +168,15 @@ class CloudspaceActions(OVC_BaseTest):
                             'vdc': {'actions': ['install']}
                             }
         cls.cloudspaces[cls.cs1] = {'account': cls.acc1, 'maxMemoryCapacity': randint(10, 1000),
-                                    'maxCPUCapacity': randint(10, 1000), 'maxDiskCapacity': randint(10, 1000),                      
+                                    'maxCPUCapacity': randint(10, 1000), 'maxVDiskCapacity': randint(10, 1000),                      
                                     'maxNumPublicIP': randint(10, 1000), 'maxNetworkPeerTransfer': randint(10, 1000)
                                     }
         self.log("Create cloudspace , should succeed")
-        self.create_cs(accounts=cls.accounts, cloudspaces=cls.cloudspaces, temp_actions=cls.temp_actions)
+        res = self.create_cs(accounts=cls.accounts, cloudspaces=cls.cloudspaces, temp_actions=cls.temp_actions)
+        self.wait_for_service_action_status(self.cs1, res[self.cs1]['install'])
+        
         self.CLEANUP["accounts"].append(cls.acc1)
 
-    @unittest.skip("https://github.com/openvcloud/0-templates/issues/79,https://github.com/openvcloud/0-templates/issues/74")
     def test001_update_cloudspace_params(self):
         """ ZRT-OVC-008
         *Test case for updating account's parameters*
@@ -184,22 +185,20 @@ class CloudspaceActions(OVC_BaseTest):
 
         #. Create a cloudspace[CS1], should succeed.
         #. Update cloudspace parameters, should succeed.
-        #. Update non-exist cloudspace parameters, should succeed.
-        #. Update the cloudspace  with fake user, should fail.
         """
 
         self.log('%s STARTED' % self._testID)
 
         cloudspace = self.get_cloudspace(self.cs1)
-        CU_D = cloudspace["maxDiskCapacity"]
-        CU_C = cloudspace["maxCPUCapacity"]
-        CU_I = cloudspace["maxNumPublicIP"]
-        CU_M = cloudspace["maxMemoryCapacity"]
-        CU_NP = cloudspace["maxNetworkPeerTransfer"]
+        CU_D = cloudspace['resourceLimits']["CU_D"]
+        CU_C = cloudspace['resourceLimits']["CU_C"]
+        CU_I = cloudspace['resourceLimits']["CU_I"]
+        CU_M = cloudspace['resourceLimits']["CU_M"]
+        CU_NP = cloudspace['resourceLimits']["CU_NP"]
 
         self.log("Update cloudspace parameters, should succeed.")
         temp_actions = {'vdc': {'actions': ['update'], 'args': {"maxMemoryCapacity": CU_M+1, "maxCPUCapacity": CU_C-1,
-                                                                "maxDiskCapacity": CU_D+1, "maxNumPublicIP": CU_I-1,
+                                                                "maxVDiskCapacity": CU_D+1, "maxNumPublicIP": CU_I-1,
                                                                 "maxNetworkPeerTransfer": CU_NP+1}, 'service': self.cs1}}
 
         res = self.create_cs(accounts=self.accounts, cloudspaces=self.cloudspaces, temp_actions=temp_actions)
@@ -211,18 +210,6 @@ class CloudspaceActions(OVC_BaseTest):
         self.assertEqual(cloudspace['resourceLimits']['CU_D'], CU_D+1)
         self.assertEqual(cloudspace['resourceLimits']['CU_I'], CU_I-1)
         self.assertEqual(cloudspace['resourceLimits']['CU_NP'], CU_NP+1)
-
-        self.log("Update non-exist cloudspace parameters, should succeed.")
-        fake_cloudspace = self.random_string()
-        temp_actions['vdc']['service'] = fake_cloudspace
-        self.cloudspaces = {fake_cloudspace: {'account': self.acc1, 'maxMemoryCapacity': CU_M}}
-        res = self.create_cs(accounts=self.accounts, cloudspaces=self.cloudspaces, temp_actions=temp_actions)
-        self.assertEqual(res, "cloudspace doesn't exist")
-
-        self.log('Update the cloudspace  with fake user, should fail')
-        self.cloudspaces[self.cs1].update({'users': {'name': self.random_string()}})
-        res = self.create_cs(accounts=self.accounts, cloudspaces=self.cloudspaces, temp_actions=temp_actions)
-        self.assertIn('no vdcuser found', res)
 
         self.log('%s ENDED' % self._testID)
 
@@ -257,7 +244,6 @@ class CloudspaceActions(OVC_BaseTest):
 
         self.log('%s ENDED' % self._testID)
 
-    @unittest.skip("https://github.com/openvcloud/0-templates/issues/84")
     def test003_add_and_delete_user_to_cloudspace(self):
         """ ZRT-OVC-010
         *Test case for adding and deleting user to cloudspace *
@@ -275,10 +261,9 @@ class CloudspaceActions(OVC_BaseTest):
 
         self.log('Add User[U1] to cloudspace[CS1] , should succeed.')
         temp_actions = {'vdc': {'actions': ['user_add'], 'service': self.cs1, 
-                                'args': {'user': {'name': self.vdcuser, 'accesstype': 'R'}}}}
+                                'args': {'user': {'name': '%s@itsyouonline' % self.vdcuser, 'accesstype': 'R'}}}}
         res = self.create_cs(accounts=self.accounts, cloudspaces=self.cloudspaces, temp_actions=temp_actions)
         self.wait_for_service_action_status(self.cs1, res[self.cs1]['user_add'])
-
         self.log("Check that user[U1] added to cloudspace [CS1] successfully, should succeed.")
         cloudspace = self.get_cloudspace(self.cs1)
         self.assertIn('%s@itsyouonline' % self.vdcuser,
@@ -286,7 +271,7 @@ class CloudspaceActions(OVC_BaseTest):
 
         self.log("Delete User [U1] from cloudspace, should succeed.")
         temp_actions = {'vdc': {'actions': ['user_delete'], 'service': self.cs1, 
-                                'args': {'username': self.vdcuser}}}
+                                'args': {'username':  '%s@itsyouonline' % self.vdcuser}}}
         res = self.create_cs(accounts=self.accounts, cloudspaces=self.cloudspaces, temp_actions=temp_actions)
         self.wait_for_service_action_status(self.cs1, res[self.cs1]['user_delete'])
 
@@ -297,7 +282,7 @@ class CloudspaceActions(OVC_BaseTest):
 
         self.log('%s ENDED' % self._testID)
 
-    @unittest.skip("https://github.com/openvcloud/0-templates/issues/80")
+    @unittest.skip("https://github.com/0-complexity/openvcloud/issues/1496")
     def test004_add_and_delete_portforward(self):
         """ ZRT-OVC-011
         *Test case for adding and deleting portforward on cloudspaces. *
@@ -305,6 +290,7 @@ class CloudspaceActions(OVC_BaseTest):
         **Test Scenario:**
 
         #. Create a cloudspace[CS1], should succeed. 
+        #. Create a vm on [CS1], should succeed.
         #. Create portforward for created cloudspace, should succeed.
         #. Check that portforwad  has been added to cloudspace [CS1] successfully , should succeed.
         #. Delete the portforward from [CS1], should succeed.
@@ -312,32 +298,41 @@ class CloudspaceActions(OVC_BaseTest):
         """
 
         self.log('%s STARTED' % self._testID)
-        self.log("self.vms[self.vm1] = {'sshKey': self.key, 'vdc': self.cs1}")
+        self.log("Create a vm on [CS1], should succeed.")
+        self.temp_actions["node"] = {'actions': ['install']}
         vm_name = self.random_string()
         vms = {vm_name: {'sshKey': self.key, 'vdc': self.cs1}}
         res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
                              vms=vms, temp_actions=self.temp_actions)
-                             
+        self.wait_for_service_action_status(vm_name, res[vm_name]['install'])
+        cs1_id = self.get_cloudspace(self.cs1)['id']
+        vmId = self.get_vm(cloudspaceId=cs1_id, vmname=vm_name)['id']
         self.log('Create portforward for created cloudspace, should succeed.')
         public_port = randint(1000, 60000)
         local_port = 22        
         temp_actions = {'vdc': {'actions': ['portforward_create'], 'service': self.cs1, 
-                                'args': {'port_forwards': {'destination': public_port,'source': local_port}}}}
+                                'args': {'machineId': vmId,
+                                         'port_forwards': OrderedDict([('destination', local_port),('source', public_port)])}}}
         res = self.create_cs(accounts=self.accounts, cloudspaces=self.cloudspaces, temp_actions=temp_actions)
         self.wait_for_service_action_status(self.cs1, res[self.cs1]['portforward_create'])
 
         self.log("Check that user[U1] added to cloudspace [CS1] successfully, should succeed.")
-        self.assertTrue(self.get_portforward_list(self.cs1, vm_name))    
+        time.sleep(4)
+        pf_list = self.get_portforward_list(self.cs1, vm_name)
+        self.assertIn(public_port, [int(x["publicPort"]) for x in pf_list]) 
 
         self.log('Delete the portforward from [CS1], should succeed.')
         temp_actions = {'vdc': {'actions': ['portforward_delete'], 'service': self.cs1, 
-                                'args': {'port_forwards': {'destination': public_port,'source': local_port}}}}
+                                'args': {'machineId': vmId,
+                                         'port_forwards': OrderedDict([('destination', local_port),('source', public_port)])}}}
         res = self.create_cs(accounts=self.accounts, cloudspaces=self.cloudspaces, temp_actions=temp_actions)
         self.wait_for_service_action_status(self.cs1, res[self.cs1]['portforward_delete'])
         
         self.log('Check that the portforward  deleted from cloudspace [CS1] successfully , should succeed.')
-        self.assertFalse(self.get_portforward_list(self.cs1, vm_name))    
-
+        time.sleep(4)
+        pf_list = self.get_portforward_list(self.cs1, vm_name)
+        self.assertNotIn(public_port, [int(x["publicPort"]) for x in pf_list]) 
+    
     @classmethod
     def tearDownClass(cls):
         self = cls()
