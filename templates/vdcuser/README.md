@@ -6,6 +6,7 @@ This template represents a user on an environment. If the user doesn't exist it 
 
 ## Schema
 
+- name (required): name of the vdc user on OpenVCloud.
 - openvcloud (required): Name of the [openvcloud](../openvcloud) instance used to connect to the environment.
 - password: Password of the user. (optional) if an Oauth provider is set.
 - email: Email of the user.
