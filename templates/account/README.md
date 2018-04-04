@@ -6,6 +6,7 @@ This template is responsible for creating an account on any openVCloud environme
 
 ## Schema
 
+- `name`: Name of the account on OVC **required**
 - `openvcloud`: Name of the [openvcloud](../openvcloud) instance used to connect to the environment.  **Required**.
 - `description`: Arbitrary description of the account. **Optional**.
 - `maxMemoryCapacity`: The limit on the memory capacity that can be used by the account. Default to -1 (unlimited).
@@ -70,7 +71,7 @@ actions:
     actions: ['user_add']
      args:
         user:
-          name: thabet
+          vdcuser: thabet
           accesstype: R
 ```
 
