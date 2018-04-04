@@ -1,35 +1,107 @@
-# temptate: node
+# template: node
 
 ## Description
 
-The template is responsible for managing a virtual machine(VM) on an openVCloud environment.
+The template is responsible for managing a virtual machine (VM) on the OpenvCloud environment.
 
 ## Schema
 
-- `vdc`: denotes name of 'vdc' where the VM belongs. **required**
-- `sshKey`: name of ssh-key used to secure ssh connection to the VM. **required**
-- `uservdc`: list of vdc users that have access to the vm.
-- `sizeId`: denotes type of VM, this size impact the number of CPU and memory available for the vm, default: 1.
-- `osImage`: OS image to use for the VM. default:'Ubuntu 16.04'.
-- `bootdiskSize`: boot disk size in GB default: 10.
-- `dataDiskSize`: size of data disk in GB default: 10.
-- `FilesystemType`: file system of the data disk, suports: xfs,	ext2, ext3, ext4. **optional**
-- `dataDiskMountpoint`: default: `/var`.
-- `dataDiskFilesystem`: type of filesystem
-- `description`: arbitrary description of the VM. **optional**
-- `ports`: list of port forwards of the VM. Ports can be configured during installation of the vm or with actions `['portforward_create']`, `['portforward_delete']`.
-- `vCpus`: number of CPUs in the VM **Filled in automatically, don't specify it in the blueprint**
-- `memSize`: memory size in the VM **Filled in automatically, don't specify it in the blueprint**
-- `machineId`: unique identifier of the VM. **Filled in automatically, don't specify it in the blueprint**
-- `ipPublic`: public IP of the VM. **Filled in automatically, don't specify it in the blueprint**
-- `ipPrivate`: private IP of the VM. **Filled in automatically, don't specify it in the blueprint**
-- `sshLogin`: login for ssh connection to the VM. **Filled in automatically, don't specify it in the blueprint**
-- `sshPassword`: password for ssh connection to the VM. **Filled in automatically, don't specify it in the blueprint**
-- `disks`: list of services, managing disks at the VM. **Filled in automatically, don't specify it in the blueprint**
+- `vdc`: name of Virtual Data Center (VDC) where the VM belongs. **Required**.
+- `sshKey`: name of ssh-key used to secure ssh connection to the VM. **Required**.
+- `sizeId`: denotes type of VM, this size impact the number of CPU and memory available for the vm. Default to 1.
+- `osImage`: OS image to use for the VM. Default to 'Ubuntu 16.04'.
+- `bootdiskSize`: boot disk size in GB. Default t0 10.
+- `dataDiskSize`: size of data disk in GB. Default to 10.
+- `dataDiskMountpoint`: data disk mount point. Default to `/var`.
+- `dataDiskFilesystem`: file system of the data disk, supports: `xfs`, `ext2`, `ext3`, `ext4`. **Optional**.
+- `description`: arbitrary description of the VM. **Optional**.
+- `ports`: list of port forwards of the VM. Ports can be configured with actions `portforward_create`, `portforward_delete`. **Filled in automatically, don't specify it in the blueprint**.
+- `vCpus`: number of CPUs in the VM. **Filled in automatically, don't specify it in the blueprint**.
+- `memSize`: memory size in the VM **Filled in automatically, don't specify it in the blueprint**.
+- `machineId`: unique identifier of the VM. **Filled in automatically, don't specify it in the blueprint**.
+- `ipPublic`: public IP of the VM. **Filled in automatically, don't specify it in the blueprint**.
+- `ipPrivate`: private IP of the VM. **Filled in automatically, don't specify it in the blueprint**.
+- `sshLogin`: login for ssh connection to the VM. **Filled in automatically, don't specify it in the blueprint**.
+- `sshPassword`: password for ssh connection to the VM. **Filled in automatically, don't specify it in the blueprint**.
+- `disks`: list of services, managing disks at the VM. **Filled in automatically, don't specify it in the blueprint**.
 
-## Example of creating VM
+## Actions
+
+- `install`: install VM. If state of action `install` is not `ok`, a new VM will be created. If machine with the same name already exists, if will be deleted and installed again.
+- `uninstall`: delete VM.
+- `stop`: stop VM.
+- `start`: start VM.
+- `restart`: restart VM.
+- `pause`: pause VM.
+- `resume`: resume VM.
+- `clone`: clone VM.
+- `snapshot`: create a snapshot of the VM.
+- `snapshot_delete`: delete a snapshot of the VM.
+- `list_snapshots`: return a list of snapshots of the VM.
+- `portforward_create`: create a port forward on the VM.
+- `portforward_delete`: delete a port forward on the VM.
+- `disk_add`: create a new disk on the VM.
+- `disk_attach`: attach disk to the VM.
+- `disk_detach`: detach disk from the VM.
+- `disk_delete`: delete disk, attached to the VM.
+
+## Usage examples via the 0-robot DSL
+
+``` python
+from zerorobot.dsl import ZeroRobotAPI
+api = ZeroRobotAPI.ZeroRobotAPI()
+robot = api.robots['main']
+
+# create services
+sshkey = robot.services.create(template_uid="github.com/openvcloud/0-templates/sshkey/0.0.1",
+                               service_name="keyTestDelete",
+                               data={'dir':'/root/tesSsh/', 'passphrase': 'testpassphrase'})
+ovc = robot.services.create(template_uid="github.com/openvcloud/0-templates/openvcloud/0.0.1",
+                            service_name="myovc",
+                            data={'location':'be-gen-demo', 'address': 'ovc.demo.greenitglobe.com', 'token': '<iyo jwt token>'})
+vdcuser = robot.services.create(template_uid="github.com/openvcloud/0-templates/vdcuser/0.0.1",
+                                service_name="admin",
+                                data={'openvcloud':'myovc', 'provider': 'itsyouonline', 'email': 'admin@greenitglobe.com'})
+account = robot.services.create(template_uid="github.com/openvcloud/0-templates/account/0.0.1",
+                                service_name="myaccount",
+                                data={'openvcloud':'myovc'})
+vdc = robot.services.create(template_uid="github.com/openvcloud/0-templates/vdc/0.0.1",
+                            service_name="myspace",
+                            data={'account':'myaccount'})
+node = robot.services.create(template_uid="github.com/openvcloud/0-templates/node/0.0.1",
+                             service_name="mynode",
+                             data={'sshKey':'mykey', 'vdc':'myspace'})
+
+# run actions
+node.schedule_action('install')
+node.schedule_action('stop')
+node.schedule_action('start')
+node.schedule_action('pause')
+node.schedule_action('resume')
+node.schedule_action('restart')
+node.schedule_action('clone')
+node.schedule_action('snapshot')
+node.schedule_action('snapshot_delete', {'snapshot_epoch': 1522839792})
+node.schedule_action('portforward_create', {'ports':[{'source':22, 'destination':22}]})
+node.schedule_action('portforward_delete', {'ports':[{'source':22, 'destination':22}]})
+node.schedule_action('disk_add', {'name': 'testDisk', 'size': 10})
+node.schedule_action('disk_attach', {'disk_service_name': 'Disk0000'})
+node.schedule_action('disk_detach', {'disk_service_name': 'Disk0000'})
+node.schedule_action('disk_delete', {'disk_service_name': 'Disk0000'})
+
+# get result of an action
+task = node.schedule_action('list_snapshots')
+task.wait()
+snapshots = taks.result
+
+node.schedule_action('uninstall')
+
+```
+
+## Usage examples via the 0-robot CLI
 
 ``` yaml
+
 services:
     - github.com/openvcloud/0-templates/sshkey/0.0.1__mykey:
         dir: '/root/.ssh/'
@@ -37,7 +109,6 @@ services:
     - github.com/openvcloud/0-templates/openvcloud/0.0.1__myovc:
         location: be-gen-demo
         address: 'ovc.demo.greenitglobe.com'
-        login: '<username>'
         token: '<iyo jwt token>'
     - github.com/openvcloud/0-templates/vdcuser/0.0.1__admin:
         openvcloud: myovc
@@ -45,76 +116,138 @@ services:
         email: admin@greenitglobe.com
     - github.com/openvcloud/0-templates/account/0.0.1__myaccount:
         openvcloud: myovc
-        users:
-            - name: admin
-              accesstype: CXDRAU
     - github.com/openvcloud/0-templates/vdc/0.0.1__myspace:
-        openvcloud: myovc
-        users:
-            - name: admin
-              accesstype: CXDRAU
+        account: myaccount
     - github.com/openvcloud/0-templates/node/0.0.1__mynode:
         sshKey: mykey
         vdc: myspace
+actions:
+    - actions: ['install']
+```
 
+``` yaml
 actions:
     - template: github.com/openvcloud/0-templates/node/0.0.1
-      actions: ['install']
+      service: mynode
+      actions: ['start']
 ```
 
-By analogy the following actions can be applied to manage VM:
-`['unnstall']`, `['stop']`, `['start']`, `['pause']`, `['resume']`, `['clone']`, `['snapshot']`.
-
-When `template` is given, the actions will be applied to all services of this type.
-In order to apply actions to a specific service, specify a service name.
-
-Following examples show how to schedule actions with arguments.
-
-## Example for cloning machine
-
 ``` yaml
-- service: mynode
-  actions: ['clone']
-  args:
-    clone_name: <clone name>
+actions:
+    - template: github.com/openvcloud/0-templates/node/0.0.1
+      service: mynode
+      actions: ['stop']
 ```
 
-## Example for adding portforwards
+``` yaml
+actions:
+    - template: github.com/openvcloud/0-templates/node/0.0.1
+      service: mynode
+      actions: ['pause']
+```
 
 ``` yaml
-- service: mynode
+actions:
+    - template: github.com/openvcloud/0-templates/node/0.0.1
+      service: mynode
+      actions: ['resume']
+```
+
+``` yaml
+actions:
+    - template: github.com/openvcloud/0-templates/node/0.0.1
+      service: mynode
+      actions: ['restart']
+```
+
+``` yaml
+actions:
+    - template: github.com/openvcloud/0-templates/node/0.0.1
+      service: mynode
+      actions: ['clone']
+      args:
+        clone_name: <clone name>
+```
+
+``` yaml
+actions:
+    - template: github.com/openvcloud/0-templates/node/0.0.1
+      service: mynode
+      actions: ['snapshot']
+```
+
+``` yaml
+actions:
+    - template: github.com/openvcloud/0-templates/node/0.0.1
+      service: mynode
+      actions: ['snapshot_delete']
+      args:
+        snapshot_epoch: <epoch>
+```
+
+``` yaml
+actions:
+  - template: github.com/openvcloud/0-templates/node/0.0.1
+    service: mynode
+    actions: ['snapshot_rollback']
+    args:
+        snapshot_epoch: <epoch>
+```
+
+``` yaml
+- template: github.com/openvcloud/0-templates/node/0.0.1
+  service: mynode
   actions: ['portforward_create']
   args:
     ports:
-    - source: <public port>
-        destination: <local port>
+        - source: <public port>
+          destination: <local port>
 ```
 
-## Example for deleting portforwards
-
 ``` yaml
-- service: mynode
-  actions: ['portforward_delete']
-  args:
-    ports:
-    - source: <public port>
-        destination: <local port>
+actions:
+    - template: github.com/openvcloud/0-templates/node/0.0.1
+      service: mynode
+      actions: ['portforward_delete']
+      args:
+        ports:
+            - source: <public port>
+              destination: <local port>
 ```
 
-## Example for rolling back snapshot
-
 ``` yaml
-- service: mynode
-    actions: ['snapshot_rollback']
-    args:
-        snapshot_epoch: <epoch>
+actions:
+    - template: github.com/openvcloud/0-templates/node/0.0.1
+      service: mynode
+      actions: ['disk_add']
+      args:
+        name: testDisk
+        size: 10
 ```
 
-## Example for deleting snapshot
+``` yaml
+actions:
+    - template: github.com/openvcloud/0-templates/node/0.0.1
+      service: mynode
+      actions: ['disk_attach']
+      args:
+        disk_service_name: Disk0000
+```
 
 ``` yaml
-- service: mynode
-    actions: ['snapshot_rollback']
-    args:
-        snapshot_epoch: <epoch>
+actions:
+    - template: github.com/openvcloud/0-templates/node/0.0.1
+      service: mynode
+      actions: ['disk_detach']
+      args:
+        disk_service_name: Disk0000
+```
+
+``` yaml
+actions:
+    - template: github.com/openvcloud/0-templates/node/0.0.1
+      service: mynode
+      actions: ['disk_delete']
+      args:
+        disk_service_name: Disk0000
 ```

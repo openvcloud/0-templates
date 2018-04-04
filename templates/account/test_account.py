@@ -183,7 +183,7 @@ class TestAccount(TestCase):
 
         instance.state.set('actions', 'install', 'ok')
         with pytest.raises(ValueError,
-                           message='no account service found with name "%s"' % user['name']):
+                           message='no vdcuser service found with name "%s"' % user['name']):
             # fails if no account service is running for this user
             instance.user_add(user)
 

@@ -1,3 +1,4 @@
+import re
 from js9 import j
 from zerorobot.template.base import TemplateBase
 from zerorobot.template.state import StateCheckError
@@ -24,10 +25,10 @@ class Node(TemplateBase):
 
     def validate(self):
         if not self.data['vdc']:
-            raise ValueError('vdc name should be given')
+            raise ValueError('vdc name is required')
 
         if not self.data['sshKey']:
-            raise ValueError('sshKey is required')
+            raise ValueError('sshKey name is required')
 
         matches = self.api.services.find(template_uid=self.VDC_TEMPLATE, name=self.data['vdc'])
         if len(matches) != 1:
@@ -36,6 +37,16 @@ class Node(TemplateBase):
         matches = self.api.services.find(template_uid=self.SSH_TEMPLATE, name=self.data['sshKey'])
         if len(matches) != 1:
             raise RuntimeError('found %s ssh keys with name "%s"' % (len(matches), self.data['sshKey']))
+
+    def _get_disk_proxy(self, service_name):
+        '''
+        Get proxy object of the service with name
+        '''
+
+        matches = self.api.services.find(template_uid=self.DISK_TEMPLATE, name=service_name)
+        if len(matches) != 1:
+            raise RuntimeError('found %d disk services with name "%s"' % (len(matches), service_name))
+        return matches[0]
 
     @property
     def config(self):
@@ -52,7 +63,7 @@ class Node(TemplateBase):
         # account
         matches = self.api.services.find(template_uid=self.VDC_TEMPLATE, name=config['vdc'])
         if len(matches) != 1:
-            raise RuntimeError('found %d vdcs with name "%s"' % (len(matches), config['vdc']))
+            raise RuntimeError('found %d vdcs with name "%s", required exactly one' % (len(matches), config['vdc']))
 
         vdc = matches[0]
         self._vdc = vdc
@@ -63,7 +74,7 @@ class Node(TemplateBase):
 
         matches = self.api.services.find(template_uid=self.ACCOUNT_TEMPLATE, name=config['account'])
         if len(matches) != 1:
-            raise ValueError('found %s accounts with name "%s"' % (len(matches), config['account']))
+            raise RuntimeError('found %s accounts with name "%s", required exactly one' % (len(matches), config['account']))
 
         account = matches[0]
         # get connection
@@ -74,11 +85,6 @@ class Node(TemplateBase):
 
         self._config = config
         return self._config
-
-    def update_data(self, data):
-        # merge the new data
-        self.data.update(data)
-        self.save()
 
     @property
     def ovc(self):
@@ -112,22 +118,27 @@ class Node(TemplateBase):
 
     @property
     def machine(self):
+        '''
+        Return VM object
+        '''
+
         if not self._machine:
-            self._machine = self.space.machines.get(self.name)
+            if self.name in self.space.machines:
+                self._machine = self.space.machine_get(name=self.name)
+
         return self._machine
 
     def install(self):
+        '''
+        Install VM
+        '''
         try:
             self.state.check('actions', 'install', 'ok')
             return
         except StateCheckError:
             pass
 
-        # check if machine already exists
-        if self.machine:
-            raise StateCheckError('machine "%s" already exists' % self.name)
-
-        # get new machine
+        # get new vm
         machine = self._machine_create()
 
         # Get data from the vm
@@ -137,23 +148,24 @@ class Node(TemplateBase):
         self.data['ipPublic'] = machine.ipaddr_public
         self.data['machineId'] = machine.id
 
-        self.portforward_create(self.data.get('ports', None))
+        # configure disks of the vm
         self._configure_disks()
-        self.save()
         self.state.set('actions', 'install', 'ok')
 
     def _machine_create(self):
-        """ Create a new machine """
+        """ 
+        Create a new machine
+        """
         data = self.data
-        space = self.space
-        self._machine = space.machine_create(
+        self._machine = self.space.machine_get(
+            create = True,
             name=self.name,
             sshkeyname=data['sshKey'],
             image=data['osImage'],
             disksize=data['bootDiskSize'],
             datadisks=[data['dataDiskSize']],
             sizeId=data['sizeId'],
-            managed_private=self.data.get('managedPrivate', False)
+            managed_private=data.get('managedPrivate', False)
         )
 
         return self._machine
@@ -162,65 +174,128 @@ class Node(TemplateBase):
         """
         Configure one boot disk and one data disk when installing a machine.
         """
+        # TODO: add ssh portforward if none
         machine = self.machine
-        space_name = machine.space.model['name']
-        if machine:
-            machine.start()
-        else:
-            raise RuntimeError('machine %s is not found' % self.name)
 
-        # TODO: fix the disk template first @katia-e
-
-        for disk in machine.disks:
-            # create a disk service
-            service = self.api.services.create(
-                template_uid=self.DISK_TEMPLATE,
-                service_name='Disk%s' % str(disk['id']),
-                data={'vdc': space_name, 'diskId': disk['id']},
-            )
-            # update data in the disk service
-            task = service.schedule_action('update_data', {'data': disk})
-            task.wait()
-
-        # set default values
+        # set defaults for datadisk
         fs_type = 'ext4'
         mount_point = '/var'
         device = '/dev/vdb'
+        # update data
+        self.data['dataDiskFilesystem'] = fs_type
+        self.data['dataDiskMountpoint'] = mount_point
+        
+        # make sure machine is started
+        machine.start()
+        # get disks from the vm
+        disks = machine.disks
+
+        # check that bootdisk has correct size
+        boot_disk = [disk for disk in disks if disk['type'] == 'B'][0]
+        if boot_disk['sizeMax'] != self.data['bootDiskSize']:
+            raise RuntimeError('Datadisk is expected to have size {}, has size {}'.format(
+                                self.data['bootDiskSize'], boot_disk['sizeMax'])
+                              )
+
+        # identify data disks
+        data_disks = [disk for disk in disks if disk['type'] == 'D']
+        if len(data_disks) > 1:
+            raise RuntimeError('Exactly one data disk is expected, VM "{vm}" has {nr} data disks'.format(
+                                vm=machine.name, nr=len(data_disks))
+                                )
+        elif len(data_disks) == 1:
+            # check that datadisk has correct size
+            if data_disks[0]['sizeMax'] != self.data['dataDiskSize']:
+                raise RuntimeError('Datadisk is expected to have size {}, has size {}'.format(
+                                    self.data['dataDiskSize'], data_disks[0]['sizeMax'])
+                                )
+        else:
+            # if no datadisks, create one
+            machine.disk_add(name='Disk nr 1', description='Machine disk of type D',
+                             size=self.data['dataDiskSize'], type='D')
+
+        for disk in machine.disks:
+            # create a disk service
+            self._create_disk_service(disk)
+
+        prefab = self._get_prefab()
+
+        # check if device is already mounted
+        _, disk_info, _ = prefab.core.run('mount')
+        if disk_info.find(device) != -1:
+            # check if mount point is correct
+            mp_found = re.search('%s on (.+?) ' % device, disk_info)
+
+            if mp_found == None or mp_found.group(1) != mount_point:
+                raise RuntimeError('mount point of device "{device}" is "{mp_found}", expected "{mp}"'.format(
+                    device=device, mp_found=mp_found, mp=mount_point
+                ))
+
+            # check if filesystem on the device is correct
+            # _, disk_info, _ = prefab.core.run("blkid '/dev/vdb' -s TYPE")
+
+            # check type of the filesystem           
+            fs_found = re.search('%s on %s type (.+?) ' % (device, mount_point), disk_info)
+            if fs_found == None or fs_found.group(1) != fs_type:
+                raise RuntimeError('VM "{vm}" has volume mounted on {mp} with filesystem "{fs}", should be "{fs_type}"'.format(
+                                    vm=self.name, mp=mount_point, fs=fs_found, fs_type=fs_type))
+            # if filesystem is correct, install is complete
+            return
 
         # create file system and mount data disk
-        if self.data.get('managedPrivate', False) is False:
-            prefab = machine.prefab
-        else:
-            prefab = machine.prefab_private
         prefab.system.filesystem.create(fs_type=fs_type, device=device)
         prefab.system.filesystem.mount(mount_point=mount_point, device=device,
                                        copy=True, append_fstab=True, fs_type=fs_type)
 
         machine.restart()
-        if self.data.get('managedPrivate', False) is False:
-            prefab = machine.prefab
-        else:
-            prefab = machine.prefab_private
+
+        prefab = self._get_prefab()
         prefab.executor.sshclient.connect()
 
-        # update data
-        self.data['dataDiskFilesystem'] = fs_type
-        self.data['dataDiskMountpoint'] = mount_point
-        self.save()
+    def _create_disk_service(self, disk):
+        # create a disk service
+        service_name = 'Disk%s' % str(disk['id'])
+        service = self.api.services.create(
+            template_uid=self.DISK_TEMPLATE,
+            service_name=service_name,
+            data={'vdc': self.data['vdc'], 'diskId': disk['id'], 'type': disk['type']},
+        )
+        # update data in the disk service
+        task = service.schedule_action('install')
+        task.wait()
+
+        # append service name to the list of attached disks
+        self.data['disks'].append(service_name)
+
+    def get_disk_services(self):
+        return self.data['disks']
+
+    def _get_prefab(self):
+        '''
+        Get prefab
+        '''
+
+        if self.data.get('managedPrivate', False) is False:
+            return self.machine.prefab
+
+        return self.machine.prefab_private  
 
     def uninstall(self):
-        """ Uninstall machine """
-        if not self.machine:
-            raise RuntimeError('machine %s is not found' % self.name)
-        self.machine.delete()
+        ''' 
+        Uninstall VM
+        '''
+
+        if self.machine:
+            self.machine.delete()
+
         self._machine = None
 
         self.state.delete('actions', 'install')
 
     def portforward_create(self, ports):
         """ Add portforwards """
-        if not self.machine:
-            raise RuntimeError('machine %s is not found' % self.name)
+
+        self.state.check('actions', 'install', 'ok')
 
         # get vdc service
         self.vdc.schedule_action(
@@ -234,10 +309,11 @@ class Node(TemplateBase):
 
     def portforward_delete(self, ports):
         """ Delete portforwards """
+        
+        self.state.check('actions', 'install', 'ok')
+
         if self.data['managedPrivate']:
             return
-        if not self.machine:
-            raise RuntimeError('machine %s is not found' % self.name)
 
         self.vdc.schedule_action(
             'portforward_delete',
@@ -250,80 +326,65 @@ class Node(TemplateBase):
 
     def start(self):
         """ Start the VM """
-        if not self.machine:
-            raise RuntimeError('machine %s is not found' % self.name)
 
+        self.state.check('actions', 'install', 'ok')
         self.machine.start()
 
     def stop(self):
         """ Stop the VM """
-        if not self.machine:
-            raise RuntimeError('machine %s is not found' % self.name)
 
+        self.state.check('actions', 'install', 'ok')
         self.machine.stop()
 
     def restart(self):
         """ Restart the VM """
-        if not self.machine:
-            raise RuntimeError('machine %s is not found' % self.name)
 
+        self.state.check('actions', 'install', 'ok')
         self.machine.restart()
 
     def pause(self):
         """ Pause the VM """
 
-        if not self.machine:
-            raise RuntimeError('machine %s is not found' % self.name)
-
+        self.state.check('actions', 'install', 'ok')
         self.machine.pause()
 
     def resume(self):
         """ Resume the VM """
 
-        if not self.machine:
-            raise RuntimeError('machine %s is not found' % self.name)
-
+        self.state.check('actions', 'install', 'ok')
         self.machine.resume()
 
     def reset(self):
         """ Reset the VM """
 
-        if not self.machine:
-            raise RuntimeError('machine %s is not found' % self.name)
-
+        self.state.check('actions', 'install', 'ok')
         self.machine.reset()
 
     def snapshot(self):
         """
         Action that creates a snapshot of the machine
         """
-        if not self.machine:
-            raise RuntimeError('machine %s is not found' % self.name)
-
+        self.state.check('actions', 'install', 'ok')
         self.machine.snapshot_create()
 
     def snapshot_rollback(self, snapshot_epoch):
         """
         Action that rolls back the machine to a snapshot
         """
+        self.state.check('actions', 'install', 'ok')
         if not snapshot_epoch:
             raise RuntimeError('"snapshot_epoch" should be given')
-
-        if not self.machine:
-            raise RuntimeError('machine %s is not found' % self.name)
 
         self.machine.snapshot_rollback(snapshot_epoch)
         self.machine.start()
 
-    def snapshot_delete(self,  snapshot_epoch):
+    def snapshot_delete(self, snapshot_epoch):
         """
         Action that deletes a snapshot of the machine
         """
+        self.state.check('actions', 'install', 'ok')
         if not snapshot_epoch:
             raise RuntimeError('"snapshot_epoch" should be given')
-
-        if not self.machine:
-            raise RuntimeError('machine %s is not found' % self.name)
 
         self.machine.snapshot_delete(snapshot_epoch)
 
@@ -331,20 +392,101 @@ class Node(TemplateBase):
         """
         Action that lists snapshots of the machine
         """
-        if not self.machine:
-            raise RuntimeError('machine %s is not found' % self.name)
-
+        self.state.check('actions', 'install', 'ok')
         return self.machine.snapshots
 
     def clone(self, clone_name):
         """
         Action that creates a clone of a machine.
         """
+        self.state.check('actions', 'install', 'ok')
+
         if not clone_name:
             raise RuntimeError('"clone_name" should be given')
 
-        if not self.machine:
-            raise RuntimeError('machine %s is not found' % self.name)
-
         self.machine.clone(clone_name)
-        self.machine.start()
+
+    def disk_attach(self, disk_service_name):
+        '''
+        Attach disk to the machine
+        @disk_service_name is the name of the disk service
+        '''        
+        self.state.check('actions', 'install', 'ok')
+
+        matches = self.api.services.find(template_uid=self.DISK_TEMPLATE, name=disk_service_name)
+        if len(matches) != 1:
+            raise RuntimeError('found %s services of type "%s", expected exactly one' % (len(matches), disk_service_name))
+
+        proxy = matches[0]
+        # get diskId
+        task = proxy.schedule_action(action='get_id')
+        task.wait()
+        disk_id = task.result
+
+        # attach the disk
+        self.machine.disk_attach(disk_id)
+
+        # add service name to data
+        self.data['disks'].append(disk_service_name)
+
+    def disk_detach(self, disk_service_name):
+        '''
+        Detach disk from the machine
+        @disk_service_name is the name of the disk service
+        '''
+        self.state.check('actions', 'install', 'ok')
+
+        if disk_service_name not in self.data['disks']:
+            return
+        # get disk id and type
+
+        proxy = self._get_disk_proxy(disk_service_name)
+        if not proxy:
+            # if service not found, do nothing
+            return
+
+        task = proxy.schedule_action(action='get_type')
+        disk_type = task.result
+
+        if disk_type == 'B':
+            raise RuntimeError("Can't detach Boot disk")
+
+        task = proxy.schedule_action(action='get_id')
+        task.wait()
+        disk_id = task.result
+
+        # detach disk
+        self.machine.disk_detach(disk_id)
+
+        # delete disk from list of attached disks
+        self.data['disks'].remove(disk_service_name)
+
+    def disk_add(self, name, description='Data disk', size=10, type='D'):
+        '''
+        Create new disk at the VM
+        '''        
+        self.state.check('actions', 'install', 'ok')
+
+        disk_id = self.machine.disk_add(name=name, description=description, 
+                                        size=size, type=type)
+        disk = {'id': disk_id,
+                'description': description,
+                'name': name,
+                'type': type,
+                'size': size}
+        self._create_disk_service(disk)
+
+    def disk_delete(self, disk_service_name):
+        '''
+        Delete disk at the machine
+        '''        
+        self.state.check('actions', 'install', 'ok')
+
+        # find service in the list of services
+        proxy = self._get_disk_proxy(disk_service_name)
+
+        if proxy:
+            task = proxy.schedule_action('uninstall')
+            task.wait()
+            self.data['disks'].remove(disk_service_name)
+

@@ -1,52 +1,60 @@
 @0xd37ff48ad935931f;
 struct Schema {
-	# Description for the VM
-	description @0 :Text;
+	# Virtual Data Center id. Required.
+	vdc @0 :Text;
 
-	# Virtual Data Center id
-	vdc @1 :Text;
+	# Name of the sshkey service. Required.
+	sshKey @1 :Text;
+
+	# Description for the VM. Optional.
+	description @2 :Text;
+
+	# Memory available for the vm in GB
+	bootDiskSize @3 :Int64 = 10;
+
+	# Standard datadisk parameters for creation of VM
+	dataDiskSize @4 :Int64 = 10;
+
+	# If set to true, will access the VM using private network of the cloudspace
+	managedPrivate @5 :Bool = false;
 
 	# OS Image
-	osImage @2 :Text = "Ubuntu 16.04";
+	osImage @6 :Text = "Ubuntu 16.04";
 
 	# Type of VM: defines the number of CPU and memory available for the vm
-	sizeId @3 :Int64 = 1;
+	sizeId @7 :Int64 = 1;
 
 	# Number of CPUs
-	vCpus @4 :Int64;
+	vCpus @8 :Int64;
 
 	# Memory in MB
-    memSize @5 :Int64;
+    memSize @9 :Int64;
 
-	# List of port forwards to create
-	ports @6 :List(PortForward);
+	# List of port forwards. **Filled in automatically, don't specify it in the blueprint**
+	ports @10 :List(PortForward);
 
 	struct PortForward{
 		source @0 :Text;
 		destination @1 :Text;
 	}
-	# ID of the VM
-	machineId @7 :Int64 = 0;
+	# ID of the VM. **Filled in automatically, don't specify it in the blueprint**
+	machineId @11 :Int64 = 0;
 
-	# Public ip of the VM
-	ipPublic @8 :Text;
+	# Public ip of the VM. **Filled in automatically, don't specify it in the blueprint**
+	ipPublic @12 :Text;
 
-	# Private ip of the VM
-	ipPrivate @9 :Text;
+	# Private ip of the VM. **Filled in automatically, don't specify it in the blueprint**
+	ipPrivate @13 :Text;
 
-	# Credentials to create ssh connection to the VM
-	sshLogin @10 :Text;
-	sshPassword @11 :Text;
+	# Credentials to create ssh connection to the VM. **Filled in automatically, don't specify it in the blueprint**
+	sshLogin @14 :Text;
+	sshPassword @15 :Text;
 
-	# List of disk instance services to be attached to the VM
-	disks @12 :List(Text);
+	# List of disk instance services to be attached to the VM. **Filled in automatically, don't specify it in the blueprint**
+	disks @16 :List(Text);
 
-	# Memory available for the vm in GB
-	bootDiskSize @13 :Int64 = 10;
-
-	# Standard datadisk parameters for creation of VM
-	dataDiskSize @14 :Int64 = 10;
-	dataDiskFilesystem @15 :FilesystemType;
+	# Filesystem of data disk. **Filled in automatically, don't specify it in the blueprint**
+	dataDiskFilesystem @17 :FilesystemType;
 	enum FilesystemType{
 		xfs @0;
 		ext2 @1;
@@ -54,18 +62,7 @@ struct Schema {
 		ext4 @3;
 		btrfs @4;
 	}
-	dataDiskMountpoint @16 :Text = "/var";
 
-	# List of vdc users that have access to the vm
-	uservdc @17 :List(UserVdcEntry);
-
-	struct UserVdcEntry {
-		name @0 :Text;
-		accesstype @1 :Text = "R";
-	}
-
-	sshKey @18 :Text;
-
-	# if set to true, will access the VM using private network of the cloudspace
-	managedPrivate @19 :Bool = false;
+	# Mount point of data disk. **Filled in automatically, don't specify it in the blueprint**
+	dataDiskMountpoint @18 :Text = "/var";
 }

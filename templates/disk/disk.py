@@ -1,6 +1,6 @@
 from js9 import j
 from zerorobot.template.base import TemplateBase
-
+from zerorobot.template.state import StateCheckError
 
 class Disk(TemplateBase):
 
@@ -18,24 +18,51 @@ class Disk(TemplateBase):
         self._ovc = None
         self._account = None
         self._config = None
+        self._space = None
 
     def validate(self):
         if not self.data['vdc']:
             raise RuntimeError('vdc name should be given')
+
         self._validate_limits()
 
-    def update_data(self, data):
-        # merge new data
-        self.data.update(data)
 
-        # check that new limits are valid
-        self._validate_limits()
+    def update(self, maxIops=None, totalBytesSec=None, readBytesSec=None,
+               writeBytesSec=None, totalIopsSec=None, readIopsSec=None,
+               writeIopsSec=None, totalBytesSecMax=None, readBytesSecMax=None,
+               writeBytesSecMax=None, totalIopsSecMax=None, readIopsSecMax=None,
+               writeIopsSecMax=None, sizeIopsSec=None):
+        '''
+        Update limits
+        '''
 
-        # apply new limits
-        self._limit_io()
+        updated = []
+        updated.append(self._update_value('maxIops', maxIops))
+        updated.append(self._update_value('totalBytesSec', totalBytesSec))
+        updated.append(self._update_value('readBytesSec', readBytesSec))
+        updated.append(self._update_value('writeBytesSec', writeBytesSec))
+        updated.append(self._update_value('totalBytesSecMax', totalBytesSecMax))
+        updated.append(self._update_value('readBytesSecMax', readBytesSecMax))
+        updated.append(self._update_value('writeBytesSecMax', writeBytesSecMax))
+        updated.append(self._update_value('totalIopsSecMax', totalIopsSecMax))
+        updated.append(self._update_value('readIopsSecMax', readIopsSecMax))
+        updated.append(self._update_value('writeIopsSecMax', writeIopsSecMax))
+        updated.append(self._update_value('sizeIopsSec', sizeIopsSec))
 
-        self.save()
+        if any(updated):
+            # check that new limits are valid
+            self._validate_limits()
 
+            # apply new limits
+            self._limit_io()
+
+    def _update_value(self, arg, value):
+        if value:
+            if isinstance(self.data[arg], type(value)):
+                self.data[arg] = value
+                return True
+        return False
+      
     def _validate_limits(self):
         """
         Validate limits on the Disk
@@ -58,6 +85,48 @@ class Disk(TemplateBase):
         if data['totalIopsSecMax'] and (data['readIopsSecMax'] or data['writeIopsSecMax']):
             raise RuntimeError("total and read/write of iops_sec_max cannot be set at the same time")
 
+    def install(self):
+        '''
+        Install disk.
+        If disk @id is present in data: check if disk with id exists and apply limits.
+        If disk @id is not given: create new disk with given limits.
+        '''
+
+        try:
+            self.state.check('actions', 'install', 'ok')
+            return
+        except StateCheckError:
+            pass
+
+        self.data['location'] = self.space.model['location']
+
+        if self.data['diskId']:
+            # if disk is given in data, check if disk exist
+            disks = [disk['id'] for disk in self.account.disks]
+            if self.data['diskId'] not in disks:
+                raise ValueError("Disk with id {} doesn't exist on account '{}'".format(
+                                  self.data['diskId'], self.account) 
+                                  )
+            self._limit_io()
+        else:
+            self._create()
+
+        self.state.set('actions', 'install', 'ok')
+
+    def uninstall(self):
+        '''
+        Uninstall disk. Delete disk if exists.
+        '''
+        disks = [disk['id'] for disk in self.account.disks]
+
+        if self.data['type'] == 'B':
+            raise RuntimeError("can't delete boot disk")        
+
+        if self.data['diskId'] in disks:
+            self.account.disk_delete(self.data['diskId'])
+
+        self.state.delete('actions', 'install')
+
     @property
     def config(self):
         '''
@@ -76,7 +145,6 @@ class Disk(TemplateBase):
             raise RuntimeError('found %d vdcs with name "%s"' % (len(matches), config['vdc']))
 
         vdc = matches[0]
-#        self._vdc = vdc
         task = vdc.schedule_action('get_account')
         task.wait()
 
@@ -102,7 +170,7 @@ class Disk(TemplateBase):
         """
         An ovc connection instance
         """
-        if self._ovc is not None:
+        if self._ovc:
             return self._ovc
 
         self._ovc = j.clients.openvcloud.get(instance=self.config['ovc'])
@@ -111,6 +179,9 @@ class Disk(TemplateBase):
 
     @property
     def space(self):
+        if self._space:
+            return self._space
+            
         account = self.config['account']
         vdc = self.config['vdc']
 
@@ -123,18 +194,21 @@ class Disk(TemplateBase):
     def account(self):
         if not self._account:
             self._account = self.space.account
+
         return self._account
 
-    def create(self):
+    def _create(self):
+        '''
+        Create disk
+        '''
         data = self.data
         ovc = self.ovc
         account = self.account
-
         # check existence of the disk. If ID field was updated in the service
         guid = [location['gid'] for location in ovc.locations if location['name'] == data['location']]
         if not guid:
             raise RuntimeError('location "%s" not found' % data['location'])
-
+        
         # if doesn't exist - create
         data['diskId'] = account.disk_create(
                             name=data['devicename'],
@@ -144,19 +218,6 @@ class Disk(TemplateBase):
                             type=data['type'],
                         )
         self._limit_io()
-        self.save()
-
-    def delete(self):
-        """
-        Delete disk if not boot disk
-        """
-        data = self.data
-        account = self.account
-
-        if data['type'] == 'B':
-            raise RuntimeError("can't delete boot disk")
-        if data['diskId'] in [disk['id'] for disk in account.disks]:
-            account.disk_delete(data['diskId'])
 
     def _limit_io(self):
         data = self.data
@@ -172,3 +233,17 @@ class Disk(TemplateBase):
             total_iops_sec_max=data['totalIopsSecMax'], read_iops_sec_max=data['readIopsSecMax'],
             write_iops_sec_max=data['writeIopsSecMax'], size_iops_sec=data['sizeIopsSec']
         )
+
+    def get_id(self):
+        '''
+        Return id of the disk
+        '''
+        self.state.check('actions', 'install', 'ok')
+        return self.data['diskId']
+
+    def get_type(self):
+        '''
+        Return type of the disk
+        '''
+        self.state.check('actions', 'install', 'ok')
+        return self.data['type']        
