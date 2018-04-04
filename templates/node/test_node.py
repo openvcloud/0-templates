@@ -488,24 +488,24 @@ class TestNode(TestCase):
         Test add disk
         '''
         instance = self.type(name='test', data=self.valid_data)
-        
+
         # test call without arguments
         with pytest.raises(TypeError,
-                           message="portforward_create() missing 1 required positional argument: 'ports'"):
-            instance.portforward_delete()
+                           message="disk_add() missing 1 required positional argument: 'name'"):
+            instance.disk_add()
 
         with pytest.raises(StateCheckError):
             # fails if not installed
-            instance.disk_add()
+            instance.disk_add(name='test')
         
         # success
         instance.state.set('actions', 'install', 'ok')
         with patch.object(instance, 'api') as api:
             api.services.find.return_value = [MagicMock(schedule_action=MagicMock())]
             instance._machine = self.machine_mock
-            instance.disk_add()
+            instance.disk_add(name='test')
             instance.machine.disk_add.assert_called_with(
-                name='Data disk', description=None, size=10, type='D'
+                name='test', description='Data disk', size=10, type='D'
             )
 
     @mock.patch.object(j.clients, '_openvcloud')
@@ -545,7 +545,6 @@ class TestNode(TestCase):
         Test detach disk
         '''
         instance = self.type(name='test', data=self.valid_data)
-        
         # test call without arguments
         with pytest.raises(TypeError,
                            message="disk_detach() missing 1 required positional argument: 'disk_service_name'"):
@@ -558,18 +557,28 @@ class TestNode(TestCase):
         # success
         instance.state.set('actions', 'install', 'ok')
         disk_id = 1
+        disk_type = 'D'
         disk_service_name = 'test_disk'
+        instance.data['disks'] = [disk_service_name]
+
+        # set up service mock
+        actions_mock = mock.PropertyMock()
+        actions_mock.side_effect = [disk_type, disk_id, disk_type] 
+        service_mock = MagicMock(
+            name=disk_service_name, 
+            schedule_action=MagicMock(
+                )
+            )
+        type(service_mock.schedule_action.return_value).result = actions_mock
         with patch.object(instance, 'api') as api:
-            service_mock = MagicMock(name=disk_service_name, schedule_action=MagicMock(
-                return_value=MagicMock(result=disk_id)))
-#            api.services.find.return_value = [service_mock]
+            api.services.find.return_value = [service_mock]
             instance._machine = self.machine_mock
             # import ipdb; ipdb.set_trace()
-            instance.data['disks'] = [service_mock]
             instance.disk_detach(disk_service_name=disk_service_name)
             instance.machine.disk_detach.assert_called_with(disk_id)
 
         # fail if disk service is not running
+        instance.data['disks'] = [disk_service_name]
         with patch.object(instance, 'api') as api:
             api.services.find.return_value = []
             with pytest.raises(RuntimeError):
