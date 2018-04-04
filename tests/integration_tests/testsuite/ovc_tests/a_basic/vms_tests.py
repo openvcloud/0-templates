@@ -379,6 +379,39 @@ class vmactions(OVC_BaseTest):
         self.assertNotIn(snapshots_before_rollback[2]["name"], [sn["name"] for sn in snapshots_after_rollback])
         self.assertEqual(len(snapshots_after_rollback), 2)
 
+    @unittest.skip("https://github.com/openvcloud/0-templates/pull/72.")
+    def test007_create_and_delete_disk(self):
+        """ ZRT-OVC-020
+        *Test case for testing create and delete disk. *
+
+        **Test Scenario:**
+
+        #. Create a disk[D1], should succeed.
+        #. Check that disk[D1] has been created. 
+        #. Delete the disk [D1], should succeed.
+        #. Check that the disk [D1] has been deleted.
+        """
+        self.log('%s STARTED' % self._testID)
+        disk_name = self.random_string()
+        disks = {disk_name: {"vdc": self.cs1}}
+
+        self.temp_actions = {'disk': {'actions': ['create']}}
+        res = self.create_disk(accounts=self.accounts, cloudspaces=self.cloudspaces, disks=disks, temp_actions=self.temp_actions)
+        self.wait_for_service_action_status(disk_name, res[disk_name]['create'])
+
+        self.log("Check that disk[D1] has been created.")
+        disk_list = self.get_disks_list(self.acc1)
+        self.assertIn(disk_name, [disk["name"] for disk in disk_list])     
+
+        self.log("Delete the disk [D1], should succeed.")
+        self.temp_actions["disk"] = {"actions": ["delete"], "service": disk_name}
+        res = self.create_disk(accounts=self.accounts, cloudspaces=self.cloudspaces, disks=disks, temp_actions=self.temp_actions)
+        self.wait_for_service_action_status(disk_name, res[disk_name]['delete'])
+
+        self.log("Check that the disk [D1] has been deleted.")
+        disk_list = self.get_disks_list(self.acc1)
+        self.assertNotIn(disk_name, [disk["name"] for disk in disk_list])     
+
     @classmethod
     def tearDownClass(cls):
         self = cls()
