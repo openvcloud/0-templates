@@ -21,7 +21,9 @@ class TestSshKey(TestCase):
         passphrase = '123456'
 
         name = 'test'
-        self.type(name, None, {'dir': dir, 'passphrase': passphrase})
+        service = self.type(name, None, {'dir': dir, 'passphrase': passphrase})
+        service.validate()
+        service.install()
 
         dir = '%s/%s' % (dir, name)
         ssh.key_generate.assert_called_once_with(
@@ -46,7 +48,9 @@ class TestSshKey(TestCase):
         passphrase = '123456'
 
         name = 'test'
-        self.type(name, None, {'passphrase': passphrase})
+        service = self.type(name, None, {'passphrase': passphrase})
+        service.validate()
+        service.install()
 
         dir = '%s/%s' % (dir, name)
         ssh.key_generate.assert_called_once_with(
@@ -71,8 +75,9 @@ class TestSshKey(TestCase):
         passphrase = '123'
 
         name = 'test'
+        service = self.type(name, None, {'passphrase': passphrase})
         with self.assertRaises(ValueError):
-            self.type(name, None, {'passphrase': passphrase})
+            service.validate()
 
         ssh.key_generate.assert_not_called()
 
