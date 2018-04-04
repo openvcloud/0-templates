@@ -122,26 +122,6 @@ class TestAccount(TestCase):
         )
 
     @mock.patch.object(j.clients, '_openvcloud')
-    def test_installed(self, openvcloud):
-        '''
-        Test installed property
-        '''
-        data = {
-            'openvcloud': 'connection',
-            'name': 'test_account',
-        }
-        name = 'test'
-        instance = self.type(name, None, data)
-        self.assertFalse(instance.installed, "Instance should not be installed yet")
-
-        instance.install()
-        self.assertTrue(instance.installed, "Instance should be installed now")
-
-        instance.uninstall()
-        self.assertFalse(instance.installed, "instance should be uninstalled")
-
-
-    @mock.patch.object(j.clients, '_openvcloud')
     def test_install(self, openvcloud):
         data = {
             'openvcloud': 'connection',

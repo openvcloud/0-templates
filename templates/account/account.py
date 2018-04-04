@@ -35,27 +35,9 @@ class Account(TemplateBase):
     def account(self):
         if not self._account:
             self._account = self.ovc.account_get(
-                                        name=self.get_name(),
+                                        name=self.data['name'],
                                         create=False)
         return self._account
-
-    @property
-    def installed(self):
-        '''
-        Returns true if install had successfully run before
-        '''
-        try:
-            self.state.check('actions', 'install', 'ok')
-        except StateCheckError:
-            return False
-
-        return True
-
-    def get_name(self):
-        '''
-        Returns the OVC accounts name
-        '''
-        return self.data['name']
 
     def get_users(self, refresh=True):
         '''
@@ -77,14 +59,16 @@ class Account(TemplateBase):
         Install account
         '''
         
-        if self.installed:
-            return
+        try:
+            self.state.check('actions', 'install', 'ok')
+        except StateCheckError:
+            pass
 
         # Set limits
         # if account does not exist, it will create it, 
         # unless 'create' flag is set to False
         self._account = self.ovc.account_get(
-            name=self.get_name(),
+            name=self.data['name'],
             create=self.data['create'],
             maxMemoryCapacity=self.data['maxMemoryCapacity'],
             maxVDiskCapacity=self.data['maxVDiskCapacity'],
@@ -110,7 +94,7 @@ class Account(TemplateBase):
         if not self.data['create']:
             raise RuntimeError('readonly account')
 
-        acc = self.ovc.account_get(self.get_name(), create=False)
+        acc = self.ovc.account_get(self.data['name'], create=False)
         acc.delete()
 
         self.state.delete('actions', 'install')
@@ -206,7 +190,7 @@ class Account(TemplateBase):
 
         self.state.check('actions', 'install', 'ok')
         cl = self.ovc
-        account = cl.account_get(name=self.get_name(), create=False)
+        account = cl.account_get(name=self.data['name'], create=False)
 
         for key in ['maxMemoryCapacity', 'maxVDiskCapacity',
                     'maxNumPublicIP', 'maxCPUCapacity']:
