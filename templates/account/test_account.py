@@ -25,6 +25,7 @@ class TestAccount(TestCase):
     def test_validate_openvcloud(self):
         data = {
             'openvcloud': 'connection',
+            'name': 'test_account',
         }
         name = 'test'
         instance = self.type(name, None, data)
@@ -68,7 +69,8 @@ class TestAccount(TestCase):
         api.reset_mock()
 
         data = {
-            'openvcloud': 'connection'
+            'openvcloud': 'connection',
+            'name': 'test_account',
         }
         instance = self.type(name, None, data)
 
@@ -93,6 +95,7 @@ class TestAccount(TestCase):
         '''
         data = {
             'openvcloud': 'connection',
+            'name': 'test_account',
         }
         name = 'test'
         instance = self.type(name, None, data)
@@ -119,9 +122,30 @@ class TestAccount(TestCase):
         )
 
     @mock.patch.object(j.clients, '_openvcloud')
+    def test_installed(self, openvcloud):
+        '''
+        Test installed property
+        '''
+        data = {
+            'openvcloud': 'connection',
+            'name': 'test_account',
+        }
+        name = 'test'
+        instance = self.type(name, None, data)
+        self.assertFalse(instance.installed, "Instance should not be installed yet")
+
+        instance.install()
+        self.assertTrue(instance.installed, "Instance should be installed now")
+
+        instance.uninstall()
+        self.assertFalse(instance.installed, "instance should be uninstalled")
+
+
+    @mock.patch.object(j.clients, '_openvcloud')
     def test_install(self, openvcloud):
         data = {
             'openvcloud': 'connection',
+            'name': 'test_account',
         }
         name = 'test'
         instance = self.type(name, None, data)
@@ -131,7 +155,7 @@ class TestAccount(TestCase):
 
         cl = openvcloud.get.return_value
         cl.account_get.assert_called_once_with(
-            name=name,
+            name=data['name'],
             create=True,
             # default values
             maxMemoryCapacity=-1,
@@ -151,6 +175,7 @@ class TestAccount(TestCase):
         # test error in read-only cloudspace
         data_read_only = {
             'openvcloud': 'connection',
+            'name': 'test_account',
             'create': False,
             }
         instance = self.type('test', None, data_read_only)
@@ -162,6 +187,7 @@ class TestAccount(TestCase):
         # test success
         data = {
             'openvcloud': 'connection',
+            'name': 'test_account',
             }
 
         account = ovc.get.return_value.account_get.return_value
