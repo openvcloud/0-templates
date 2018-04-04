@@ -1,9 +1,13 @@
 # template: disk
 
-## Description: 
-This actor template is responsible for creating an account on any openVCloud environment.
+## Description
 
-## Schema:
+This template is responsible for managing disks on an openVCloud environment.
+Disk service can be linked with an existing disk, based on disk ID, or create a new disk.
+Disk service is unaware if the disk is attached to a machine.
+
+## Schema
+
 - `vdc`: virtual Data Center id. **required**
 - `size`: disk size in GB, default: 1.
 - `type`: type of the disk (B=Boot; D=Data), default: `D`.
@@ -25,9 +29,10 @@ This actor template is responsible for creating an account on any openVCloud env
 - `sizeIopsSec`: I/O operations per second. **optional**
 - `diskId`: id of the disk. **Filled in automatically, don't specify it in the blueprint**
 
-Disk name will be service name.
+## Actions
 
-## Example for creating disks
+- `install`: installs disk service; if `diskId` is given links the service with earlier created disk, if not given - creates new disk.
+- `uninstall`: delete disk
 
 ``` yaml
 services:
@@ -42,25 +47,19 @@ services:
         provider: itsyouonline
         email: admin@greenitglobe.com
     - github.com/openvcloud/0-templates/account/0.0.1__myaccount:
-        users:
-            - name: admin
-              accesstype: CXDRAU
-    - github.com/openvcloud/0-templates/vdc/0.0.1__myspace:
         openvcloud: myovc
-        users:
-            - name: admin
-              accesstype: CXDRAU          
-    - github.com/openvcloud/0-templates/node/0.0.1__mydisk:
+    - github.com/openvcloud/0-templates/vdc/0.0.1__myspace:
+        account: myaccount
+    - github.com/openvcloud/0-templates/disk/0.0.1__mydisk:
         vdc: myspace
 
 actions:
-    - service: mydisk     
-      actions: ['create']    
+    - service: mydisk
+      actions: ['install']
 ```
 
-## Example for deleting disks
 ``` yaml
 actions:
-    - service: mydisk     
-      actions: ['delete']  
+    - service: mydisk
+      actions: ['uninstall']
 ```
