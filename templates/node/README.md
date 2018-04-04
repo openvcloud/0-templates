@@ -2,7 +2,7 @@
 
 ## Description
 
-The template is responsible for managing a virtual machine (VM) on the OpenvCloud environment. Service that manages a VM is of the same name as the VM.
+The template is responsible for managing a virtual machine (VM) on the OpenvCloud environment.
 
 ## Schema
 
@@ -40,8 +40,68 @@ The template is responsible for managing a virtual machine (VM) on the OpenvClou
 - `list_snapshots`: return a list of snapshots of the VM.
 - `portforward_create`: create a port forward on the VM.
 - `portforward_delete`: delete a port forward on the VM.
+- `disk_add`: create a new disk on the VM.
+- `disk_attach`: attach disk to the VM.
+- `disk_detach`: detach disk from the VM.
+- `disk_delete`: delete disk, attached to the VM.
+
+## Usage examples via the 0-robot DSL
+
+``` python
+from zerorobot.dsl import ZeroRobotAPI
+api = ZeroRobotAPI.ZeroRobotAPI()
+robot = api.robots['main']
+
+# create services
+sshkey = robot.services.create(template_uid="github.com/openvcloud/0-templates/sshkey/0.0.1",
+                               service_name="keyTestDelete",
+                               data={'dir':'/root/tesSsh/', 'passphrase': 'testpassphrase'})
+ovc = robot.services.create(template_uid="github.com/openvcloud/0-templates/openvcloud/0.0.1",
+                            service_name="myovc",
+                            data={'location':'be-gen-demo', 'address': 'ovc.demo.greenitglobe.com', 'token': '<iyo jwt token>'})
+vdcuser = robot.services.create(template_uid="github.com/openvcloud/0-templates/vdcuser/0.0.1",
+                                service_name="admin",
+                                data={'openvcloud':'myovc', 'provider': 'itsyouonline', 'email': 'admin@greenitglobe.com'})
+account = robot.services.create(template_uid="github.com/openvcloud/0-templates/account/0.0.1",
+                                service_name="myaccount",
+                                data={'openvcloud':'myovc'})
+vdc = robot.services.create(template_uid="github.com/openvcloud/0-templates/vdc/0.0.1",
+                            service_name="myspace",
+                            data={'account':'myaccount'})
+node = robot.services.create(template_uid="github.com/openvcloud/0-templates/node/0.0.1",
+                             service_name="mynode",
+                             data={'sshKey':'mykey', 'vdc':'myspace'})
+
+# run actions
+node.schedule_action('install')
+node.schedule_action('stop')
+node.schedule_action('start')
+node.schedule_action('pause')
+node.schedule_action('resume')
+node.schedule_action('restart')
+node.schedule_action('clone')
+node.schedule_action('snapshot')
+node.schedule_action('snapshot_delete', {'snapshot_epoch': 1522839792})
+node.schedule_action('portforward_create', {'ports':[{'source':22, 'destination':22}]})
+node.schedule_action('portforward_delete', {'ports':[{'source':22, 'destination':22}]})
+node.schedule_action('disk_add', {'name': 'testDisk', 'size': 10})
+node.schedule_action('disk_attach', {'disk_service_name': 'Disk0000'})
+node.schedule_action('disk_detach', {'disk_service_name': 'Disk0000'})
+node.schedule_action('disk_delete', {'disk_service_name': 'Disk0000'})
+
+# get result of an action
+task = node.schedule_action('list_snapshots')
+task.wait()
+snapshots = taks.result
+
+node.schedule_action('uninstall')
+
+```
+
+## Usage examples via the 0-robot CLI
 
 ``` yaml
+
 services:
     - github.com/openvcloud/0-templates/sshkey/0.0.1__mykey:
         dir: '/root/.ssh/'
@@ -57,7 +117,7 @@ services:
     - github.com/openvcloud/0-templates/account/0.0.1__myaccount:
         openvcloud: myovc
     - github.com/openvcloud/0-templates/vdc/0.0.1__myspace:
-        openvcloud: myovc
+        account: myaccount
     - github.com/openvcloud/0-templates/node/0.0.1__mynode:
         sshKey: mykey
         vdc: myspace
@@ -120,6 +180,7 @@ actions:
 actions:
     - template: github.com/openvcloud/0-templates/node/0.0.1
       service: mynode
+      actions: ['snapshot_delete']
       args:
         snapshot_epoch: <epoch>
 ```
@@ -152,4 +213,41 @@ actions:
         ports:
             - source: <public port>
               destination: <local port>
+```
+
+``` yaml
+actions:
+    - template: github.com/openvcloud/0-templates/node/0.0.1
+      service: mynode
+      actions: ['disk_add']
+      args:
+        name: testDisk
+        size: 10
+```
+
+``` yaml
+actions:
+    - template: github.com/openvcloud/0-templates/node/0.0.1
+      service: mynode
+      actions: ['disk_attach']
+      args:
+        disk_service_name: Disk0000
+```
+
+``` yaml
+actions:
+    - template: github.com/openvcloud/0-templates/node/0.0.1
+      service: mynode
+      actions: ['disk_detach']
+      args:
+        disk_service_name: Disk0000
+```
+
+``` yaml
+actions:
+    - template: github.com/openvcloud/0-templates/node/0.0.1
+      service: mynode
+      actions: ['disk_delete']
+      args:
+        disk_service_name: Disk0000
 ```

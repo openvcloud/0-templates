@@ -118,6 +118,14 @@ class Node(TemplateBase):
 
     @property
     def machine(self):
+        '''
+        Return VM object
+        '''
+
+        if not self._machine:
+            if self.name in self.space.machines:
+                self._machine = self.space.machine_get(name=self.name)
+
         return self._machine
 
     def install(self):
@@ -273,11 +281,11 @@ class Node(TemplateBase):
         return self.machine.prefab_private  
 
     def uninstall(self):
-        """ Uninstall machine """
+        ''' 
+        Uninstall VM
+        '''
 
-        if self.name in self.space.machines:
-            if not self.machine:
-                self._machine = self.space.machine_get(name=self.name)
+        if self.machine:
             self.machine.delete()
 
         self._machine = None
@@ -427,7 +435,7 @@ class Node(TemplateBase):
         @disk_service_name is the name of the disk service
         '''
         self.state.check('actions', 'install', 'ok')
-        import ipdb; ipdb.set_trace()
+
         if disk_service_name not in self.data['disks']:
             return
         # get disk id and type
@@ -455,7 +463,7 @@ class Node(TemplateBase):
 
     def disk_add(self, name, description='Data disk', size=10, type='D'):
         '''
-        Create new disk at the machine
+        Create new disk at the VM
         '''        
         self.state.check('actions', 'install', 'ok')
 
@@ -480,5 +488,5 @@ class Node(TemplateBase):
         if proxy:
             task = proxy.schedule_action('uninstall')
             task.wait()
-            self.data['disks'].pop(disk_service_name)
+            self.data['disks'].remove(disk_service_name)
 
