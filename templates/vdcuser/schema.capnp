@@ -1,9 +1,11 @@
 
-@0x9280ea6bc3fd972a;
+@0xbef315a500acd3d8;
+
 struct Schema {
-	password @0 :Text = "rooter";
-	email @1 :Text;
-	provider @2 :Text;
-	groups @3 :List(Text);
-	openvcloud @4 :Text;
+	name @0 : Text;
+	password @1 :Text = "rooter";
+	email @2 :Text;
+	provider @3 :Text;
+	groups @4 :List(Text);
+	openvcloud @5 :Text;
 }
