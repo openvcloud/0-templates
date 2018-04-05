@@ -72,8 +72,6 @@ class Vdc(TemplateBase):
             raise ValueError('found %s accounts with name "%s", required exactly one' % (len(matches), self.data['account']))
         
         account_instance = matches[0]
-        account_instance.state.check('actions', 'install', 'ok')
-
         task = account_instance.schedule_action('get_name')
         task.wait()
         account_name = task.result

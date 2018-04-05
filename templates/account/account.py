@@ -41,8 +41,10 @@ class Account(TemplateBase):
 
     def get_name(self):
         '''
-        Returns the OVC account name
+        Returns the OVC account name.
+        Raises StateCheckError when install was not successfully run before.
         '''
+        self.state.check('actions', 'install', 'ok')
         return self.data['name']
 
     def get_users(self, refresh=True):
@@ -124,9 +126,7 @@ class Account(TemplateBase):
         if len(find) != 1:
             raise ValueError('no vdcuser service found with name "%s"' % vdcuser_service)
 
-        # check that user was successfully installed
         vdcuser_instance = find[0]
-        vdcuser_instance.state.check('actions', 'install', 'ok')
 
         task = vdcuser_instance.schedule_action('get_fqid')
         task.wait()

@@ -34,6 +34,11 @@ class Vdcuser(TemplateBase):
         return j.clients.openvcloud.get(self.data['openvcloud'])
 
     def get_fqid(self):
+        '''
+        Returns the full openvcloud username (username@provider).
+        Raises StateCheckError when install was not successfully run before.
+        '''
+        self.state.check('actions', 'install', 'ok')
         provider = self.data.get('provider')
         return "%s@%s" % (self.data.get('name'), provider) if provider else self.data.get('name')
 
@@ -77,7 +82,12 @@ class Vdcuser(TemplateBase):
         unauthorize user to all consumed vdc
         """      
         client = self.ovc
-        username = self.get_fqid()
+        try:
+            username = self.get_fqid()
+        except StateCheckError:
+            # skip uninstall as install was not run before
+            return
+
         if client.api.system.usermanager.userexists(name=username):
             client.api.system.usermanager.delete(username=username)
 
