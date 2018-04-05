@@ -56,8 +56,7 @@ class Account(TemplateBase):
         users = []
         for user in self.account.model['acl']:
             users.append({'name' : user['userGroupId'], 'accesstype' : user['right']})
-        self.data['users'] = users
-        return self.data['users']
+        return users
 
     def get_openvcloud(self):
         return self.data['openvcloud']
@@ -86,9 +85,6 @@ class Account(TemplateBase):
 
         self.data['accountID'] = self.account.model['id']
 
-        # get list of authorized users
-        self.get_users(refresh=False)
-
         # update capacity in case account already existed
         self.account.model['maxMemoryCapacity'] = self.data['maxMemoryCapacity']
         self.account.model['maxVDiskCapacity'] = self.data['maxVDiskCapacity']
@@ -107,34 +103,40 @@ class Account(TemplateBase):
 
         self.state.delete('actions', 'install')
 
+    def _fetch_user_name(self, service_name):
+        '''
+        Get vdcuser name. Succeed only if vdcuser service is installed.
+        :param service_name: name of the vdc service 
+        '''
+
+        find = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=service_name)
+        if len(find) != 1:
+            raise ValueError('found %s vdcuser services with name "%s", requires exactly 1' % (len(find), service_name))
+
+        vdcuser = find[0]
+        task = vdcuser.schedule_action('get_name')
+        task.wait()
+        return task.result
+
     def user_add(self, user):
         '''
         Add/Update user access to an account
         :param user: user dictionary {'vdcuser': 'reference to the vdc user service', 'accesstype': 'accesstype that will be set for the user'}
         '''
         self.state.check('actions', 'install', 'ok')
-
+        import ipdb; ipdb.set_trace()
         if not self.data['create']:
             raise RuntimeError('readonly account')
 
         # check that username is given 
         if not user.get('vdcuser'):
             raise ValueError("failed to add user, field 'vdcuser' is required")
-        vdcuser_service = user.get('vdcuser')
 
-        find = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=vdcuser_service)
-        if len(find) != 1:
-            raise ValueError('no vdcuser service found with name "%s"' % vdcuser_service)
-
-        vdcuser_instance = find[0]
-
-        task = vdcuser_instance.schedule_action('get_fqid')
-        task.wait()
-        name = task.result
+        # fetch user name from the vdcuser service
+        name = self._fetch_user_name(user['vdcuser'])
         accesstype = user.get('accesstype')
 
-        self.get_users()
-        users = self.data['users']
+        users = self.get_users()
         
         for existent_user in users:
             if existent_user['name'] != name:
@@ -154,10 +156,12 @@ class Account(TemplateBase):
             else:
                 raise RuntimeError('failed to add user "%s"' % name)
 
-    def user_delete(self, username):
+
+
+    def user_delete(self, vdcuser):
         '''
         Delete user access
-        :param username: user instance name
+        :param vdcuser: service name
         '''
 
         self.state.check('actions', 'install', 'ok')
@@ -166,13 +170,16 @@ class Account(TemplateBase):
             raise RuntimeError('readonly account')
 
         self.state.check('actions', 'install', 'ok')
-        self.get_users()
-        users = self.data['users']
+        
+        # fetch user name from the vdcuser service
+        username = self._fetch_user_name(vdcuser)
+
+        # get user access on the account
+        users = self.get_users()
 
         for user in users:
             if username == user['name']:
                 if self.account.unauthorize_user(username=user['name']) == True:
-                    users.remove(user)
                     break
                 raise RuntimeError('failed to remove user "%s"' % username)
 

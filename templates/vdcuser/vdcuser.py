@@ -20,7 +20,6 @@ class Vdcuser(TemplateBase):
         if not self.data['openvcloud']:
             raise ValueError('openvcloud is mandatory')
 
-
         if not self.data['name']:
             raise ValueError('name is mandatory')
 
@@ -33,7 +32,7 @@ class Vdcuser(TemplateBase):
     def ovc(self):
         return j.clients.openvcloud.get(self.data['openvcloud'])
 
-    def get_fqid(self):
+    def get_name(self):
         '''
         Returns the full openvcloud username (username@provider).
         Raises StateCheckError when install was not successfully run before.
@@ -58,7 +57,7 @@ class Vdcuser(TemplateBase):
             return
         except StateCheckError:
             pass
-
+        import ipdb; ipdb.set_trace()
         # create user if it doesn't exists
         username = self._get_fqid()
         password = self.data['password']
@@ -111,7 +110,7 @@ class Vdcuser(TemplateBase):
             return
 
         # update groups
-        username = self.get_fqid()
+        username = self._get_fqid()
         emails = [self.data['email']]
 
         client.api.system.usermanager.editUser(
