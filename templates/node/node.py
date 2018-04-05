@@ -48,14 +48,14 @@ class Node(TemplateBase):
 
         return self.data['name']
 
-    def _get_disk_proxy(self, service_name):
+    def _get_proxy(self, template_uid, service_name):
         '''
         Get proxy object of the service with name
         '''
 
-        matches = self.api.services.find(template_uid=self.DISK_TEMPLATE, name=service_name)
+        matches = self.api.services.find(template_uid=template_uid, name=service_name)
         if len(matches) != 1:
-            raise RuntimeError('found %d disk services with name "%s"' % (len(matches), service_name))
+            raise RuntimeError('found %d services with name "%s", required exactly one' % (len(matches), service_name))
         return matches[0]
 
     @property
@@ -69,30 +69,30 @@ class Node(TemplateBase):
         config = {}
         # traverse the tree up words so we have all info we need to return, connection and
         # account
-        vdc_service = self.data['vdc']
-        matches = self.api.services.find(template_uid=self.VDC_TEMPLATE, name=vdc_service)
-        if len(matches) != 1:
-            raise RuntimeError('found %d vdcs with name "%s", required exactly one' % (len(matches), vdc_service))
 
-        # get vdc service object
-        vdc = matches[0]
+        # get vdc name
+        vdc = self._get_proxy(self.VDC_TEMPLATE, self.data['vdc'])
         self._vdc = vdc
+
+        task = vdc.schedule_action('get_name')
+        task.wait()
+        config['vdc'] = task.result
 
         # get account name
         task = vdc.schedule_action('get_account')
         task.wait()
-        config['account'] = task.result
+        account_service = task.result
+        #config['account'] 
 
         # get vdc name
         task = vdc.schedule_action('get_name')
         task.wait()
         config['vdc'] = task.result
 
-        matches = self.api.services.find(template_uid=self.ACCOUNT_TEMPLATE, name=config['account'])
-        if len(matches) != 1:
-            raise RuntimeError('found %s accounts with name "%s", required exactly one' % (len(matches), config['account']))
-
-        account = matches[0]
+        account = self._get_proxy(self.ACCOUNT_TEMPLATE, account_service)
+        task = account.schedule_action('get_name')
+        task.wait()
+        config['account'] = task.result
 
         # get connection
         task = account.schedule_action('get_openvcloud')

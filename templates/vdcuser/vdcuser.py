@@ -57,7 +57,7 @@ class Vdcuser(TemplateBase):
             return
         except StateCheckError:
             pass
-        import ipdb; ipdb.set_trace()
+
         # create user if it doesn't exists
         username = self._get_fqid()
         password = self.data['password']

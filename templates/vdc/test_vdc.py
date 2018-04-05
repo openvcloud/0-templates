@@ -18,7 +18,13 @@ class TestVDC(TestCase):
             os.path.dirname(__file__)
         )
         # define properties of space mock
-        space_mock = MagicMock(model={'acl': []})
+        self.initial_user = {'name': 'initial_user@itsyouonline', 'accesstype': 'ACDRUX'}
+        space_mock = MagicMock(model={
+            'acl': [{
+                'userGroupId': self.initial_user['name'], 
+                'right': self.initial_user['accesstype']}
+                ]}
+            )
         acc_mock = MagicMock(space_get=MagicMock(return_value=space_mock))
         self.ovc_mock = MagicMock(account_get=MagicMock(return_value=acc_mock))        
 
@@ -190,44 +196,48 @@ class TestVDC(TestCase):
                                message='found 0 accounts with name "%s", required exactly one' % data['account']):
                 instance.uninstall()      
 
-    def test_user_add(self):
+    def test_user_authorize(self):
         '''
         Test authorizing a new user
         '''
         instance = self.type('test', None)
 
         # user to add
-        user = {'name': 'test1', 'accesstype': 'R'}
+        vdcuser, accesstype, username = 'userTest', 'R', 'user@itsyouonline'
         with pytest.raises(StateCheckError):
             # fails if not installed
-            instance.user_add(user)
+            instance.user_authorize(vdcuser, accesstype)
 
         instance.state.set('actions', 'install', 'ok')
         with pytest.raises(ValueError,
-                           message='no vdcuser service found with name "%s"' % user['name']):
+                           message='no vdcuser service found with name "%s"' % vdcuser):
             # fails if no vdcuser service is running for this user
-            instance.user_add(user)
+            instance.user_authorize(vdcuser, accesstype)
 
         with patch.object(instance, 'api') as api:
-            api.services.find.return_value = [MagicMock(schedule_action=MagicMock())]
+            api.services.find.return_value = [MagicMock(schedule_action=MagicMock(
+                return_value=MagicMock(result=username)))]
             with patch('js9.j.clients.openvcloud.get', return_value=self.ovc_mock) as ovc:               
                 
                 # test success
                 ovc.return_value.account_get.return_value.space_get.return_value.authorize_user.return_value=True
-                instance.user_add(user)
-                instance.space.authorize_user.assert_called_once_with(username=user['name'], right=user['accesstype'])
+                instance.user_authorize(vdcuser, accesstype)
+                instance.space.authorize_user.assert_called_once_with(username=username, right=accesstype)
                 api.services.find.assert_has_calls(
-                    [mock.call(template_uid=self.type.VDCUSER_TEMPLATE, name=user['name'])]
+                    [mock.call(template_uid=self.type.VDCUSER_TEMPLATE, name=vdcuser)]
                 )
 
-                self.assertEqual(instance.data['users'], [user])
+                self.assertEqual(
+                    instance.data['users'],
+                    [self.initial_user, {'name': username, 'accesstype': accesstype}]
+                    )
 
                 # test fail
                 ovc.return_value.account_get.return_value.space_get.return_value.authorize_user.return_value=False
-                user = {'name': 'test2', 'accesstype': 'R'}
+                vdcuser, accesstype = 'userTest2', 'R'
                 with pytest.raises(RuntimeError,
-                                   message='failed to add user "%s"' % user['name']):
-                    instance.user_add(user)
+                                   message='failed to add user "%s"' % username):
+                    instance.user_authorize(vdcuser, accesstype)
 
     def test_user_update_access_right(self):
         '''
@@ -239,15 +249,14 @@ class TestVDC(TestCase):
         with patch.object(instance, 'api') as api:
             api.services.find.return_value = [MagicMock(schedule_action=MagicMock())]
             with patch('js9.j.clients.openvcloud.get', return_value=self.ovc_mock) as ovc:
-                users = [{'userGroupId': 'test1', 'right': 'R'}]
-                # user to update
-                user = {'name': 'test1', 'accesstype': 'W'}
+                # new accesstype update
+                vdcuser = 'userTest'
+                accesstype = 'W'
 
                 # test success
                 ovc.return_value.account_get.return_value.space_get.return_value.update_access.return_value=True
-                ovc.return_value.account_get.return_value.space_get.return_value.model = {'acl': users}
-                instance.user_add(user)
-                instance.space.update_access.assert_called_once_with(username=user['name'], right=user['accesstype'])
+                instance.user_authorize(vdcuser, accesstype)
+                instance.space.update_access.assert_called_once_with(username=self.initial_user['name'], right=accesstype)
                 self.assertEqual(instance.data['users'],
                                 [{'name': 'test1', 'accesstype': 'W'}])
 

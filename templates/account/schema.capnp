@@ -41,7 +41,7 @@ struct Schema {
 
 	struct VDCUser {
 		# User name to authorize
-		vdcuser @0 :Text;
+		name @0 :Text;
 
 		# Access type
 		accesstype @1 :Text;

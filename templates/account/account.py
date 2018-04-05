@@ -56,6 +56,7 @@ class Account(TemplateBase):
         users = []
         for user in self.account.model['acl']:
             users.append({'name' : user['userGroupId'], 'accesstype' : user['right']})
+        self.data['users'] = users
         return users
 
     def get_openvcloud(self):
@@ -84,6 +85,9 @@ class Account(TemplateBase):
         )
 
         self.data['accountID'] = self.account.model['id']
+
+        # get user access info
+        self.get_users(refresh=False)
 
         # update capacity in case account already existed
         self.account.model['maxMemoryCapacity'] = self.data['maxMemoryCapacity']
@@ -118,23 +122,19 @@ class Account(TemplateBase):
         task.wait()
         return task.result
 
-    def user_add(self, user):
+    def user_authorize(self, vdcuser, accesstype='R'):
         '''
         Add/Update user access to an account
-        :param user: user dictionary {'vdcuser': 'reference to the vdc user service', 'accesstype': 'accesstype that will be set for the user'}
+        :param vdcuser: reference to the vdc user service
+        :param accesstype: accesstype that will be set for the user
         '''
         self.state.check('actions', 'install', 'ok')
-        import ipdb; ipdb.set_trace()
+
         if not self.data['create']:
             raise RuntimeError('readonly account')
 
-        # check that username is given 
-        if not user.get('vdcuser'):
-            raise ValueError("failed to add user, field 'vdcuser' is required")
-
         # fetch user name from the vdcuser service
-        name = self._fetch_user_name(user['vdcuser'])
-        accesstype = user.get('accesstype')
+        name = self._fetch_user_name(vdcuser)
 
         users = self.get_users()
         
@@ -152,13 +152,15 @@ class Account(TemplateBase):
         else:
             # user not found (looped over all users)
             if self.account.authorize_user(username=name, right=accesstype) == True:
-                users.append(user)
+                new_user = {
+                    "name": name, 
+                    "accesstype": accesstype
+                    }
+                self.data['users'].append(new_user)
             else:
                 raise RuntimeError('failed to add user "%s"' % name)
 
-
-
-    def user_delete(self, vdcuser):
+    def user_unauthorize(self, vdcuser):
         '''
         Delete user access
         :param vdcuser: service name
@@ -180,6 +182,7 @@ class Account(TemplateBase):
         for user in users:
             if username == user['name']:
                 if self.account.unauthorize_user(username=user['name']) == True:
+                    self.data['users'].remove(user)
                     break
                 raise RuntimeError('failed to remove user "%s"' % username)
 

@@ -261,36 +261,38 @@ class Vdc(TemplateBase):
                         machineId=machineId,
                     )
 
-    def user_add(self, user):
+    def _fetch_user_name(self, service_name):
+        '''
+        Get vdcuser name. Succeed only if vdcuser service is installed.
+        :param service_name: name of the vdc service 
+        '''
+
+        find = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=service_name)
+        if len(find) != 1:
+            raise ValueError('found %s vdcuser services with name "%s", requires exactly 1' % (len(find), service_name))
+
+        vdcuser = find[0]
+        task = vdcuser.schedule_action('get_name')
+        task.wait()
+        return task.result
+
+    def user_authorize(self, vdcuser, accesstype='R'):
         '''
         Add/Update user access to a space
-        :param user: user dictionary {'name': , 'accesstype': }
+        :param vdcuser: reference to the vdc user service
+        :param accesstype: accesstype that will be set for the user
         '''
         self.state.check('actions', 'install', 'ok')
 
         if not self.data['create']:
             raise RuntimeError('readonly cloudspace')
-
-        # check that username is given 
-        if not user.get('name'):
-            raise ValueError("failed to add user, field 'name' is required")
-
-        # derive service name from username
-        service_name = user['name'].split('@')[0]
-
-        find = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=service_name)
-        if len(find) != 1:
-            raise ValueError('no vdcuser service found with name "%s"' % user['name'])
-
-        # check that user was successfully installed
-        find[0].state.check('actions', 'install', 'ok')
         
         # fetch list of authorized users to self.data['users']
-        self.get_users()
-        users = self.data['users']
+        users = self.get_users()
 
-        name = user['name']
-        accesstype = user.get('accesstype')
+        # derive service name from username
+        name = self._fetch_user_name(vdcuser)
+
         for existent_user in users:
             if existent_user['name'] != name:
                 continue
@@ -308,31 +310,39 @@ class Vdc(TemplateBase):
         else:
             # user not found (looped over all users)
             if self.space.authorize_user(username=name, right=accesstype) == True:
-                users.append(user)
+                new_user = {
+                    "name": name, 
+                    "accesstype": accesstype
+                    }
+                self.data['users'].append(new_user)
             else:
                 raise RuntimeError('failed to add user "%s"' % name)
 
-    def user_delete(self, username):
+    def user_unauthorize(self, vdcuser):
         '''
         Delete user access
-
-        :param username: user instance name
+        :param vdcuser: service name
         '''
+
         self.state.check('actions', 'install', 'ok')
 
         if not self.data['create']:
-            raise RuntimeError('readonly cloudspace')
+            raise RuntimeError('readonly account')
 
-        # fetch list of authorized users to self.data['users']
-        self.get_users()
-        users = self.data['users']
+        self.state.check('actions', 'install', 'ok')
+        
+        # fetch user name from the vdcuser service
+        username = self._fetch_user_name(vdcuser)
+
+        # get user access on the account
+        users = self.get_users()
+
         for user in users:
             if username == user['name']:
-                if self.space.unauthorize_user(username=user['name']):
-                    users.remove(user)
+                if self.account.unauthorize_user(username=user['name']) == True:
+                    self.data['users'].remove(user)
                     break
-                else:
-                    raise RuntimeError('failed to delete user "%s"' % username)
+                raise RuntimeError('failed to remove user "%s"' % username)
 
     def update(self, maxMemoryCapacity=None, maxVDiskCapacity=None, maxNumPublicIP=None,
                maxCPUCapacity=None, maxNetworkPeerTransfer=None):
