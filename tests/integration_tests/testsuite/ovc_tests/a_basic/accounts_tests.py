@@ -154,7 +154,9 @@ class accounts(OVC_BaseTest):
 
         #. Create an account (A1).
         #. Add an existing user to A1, should succeed.
+        #. Add a non-existing user to A1, should fail.
         #. Delete an existing user from A1, should succeed.
+        #. Delete a non-existing user from A1, should fail.
         """
         self.log('%s STARTED' % self._testID)
 
@@ -172,9 +174,20 @@ class accounts(OVC_BaseTest):
                                   accounts=self.accounts, temp_actions=self.temp_actions)
         self.assertEqual(type(res), type(dict()))
         self.wait_for_service_action_status(self.acc1, res[self.acc1]['user_add'])
+
         account = self.get_account(self.acc1)
         self.assertIn('%s@itsyouonline' % self.vdcuser,
                       [user['userGroupId'] for user in account['acl']])
+
+        self.log('Add non-existing user to A1, should fail.')
+        fake_user = self.random_string()
+        self.temp_actions['account']['args'] = {'user': {'name': '%s@itsyouonline'%fake_user, 'accesstype': 'R'}}
+        self.temp_actions['account']['actions'] = ['user_add']
+        res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
+                                  accounts=self.accounts, temp_actions=self.temp_actions)
+        result = self.wait_for_service_action_status(self.acc1, res[self.acc1]['user_add'])
+        self.assertTrue(result)
+        self.assertIn('no vdcuser service found with name "%s"'%fake_user, result)
 
         self.log('Delete an existing user from A1, should succeed.')
         self.temp_actions['account']['actions'] = ['user_delete']
@@ -187,4 +200,14 @@ class accounts(OVC_BaseTest):
         self.assertNotIn('%s@itsyouonline' % self.vdcuser,
                          [user['userGroupId'] for user in account['acl']])
 
-        self.log('%s ENDED' % self._testID)
+        # skip(https://github.com/openvcloud/0-templates/issues/95)
+        # self.log('Delete non-existing user from A1, should fail.')
+        # fake_user = self.random_string()
+        # self.temp_actions['account']['actions'] = ['user_delete']
+        # self.temp_actions['account']['args'] = {'username': '%s@itsyouonline' % fake_user}
+        # res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
+        #                           accounts=self.accounts, temp_actions=self.temp_actions)
+        # result = self.wait_for_service_action_status(self.acc1, res[self.acc1]['user_delete'])
+        # self.assertTrue(result)
+        # self.assertIn('no vdcuser service found with name "%s"'%fake_user, result)
+
