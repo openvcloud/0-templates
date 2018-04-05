@@ -12,7 +12,7 @@ struct Schema {
 	email @2 :Text;
 
 	# provider of the vdc user
-	provider @3 :Text;
+	provider @3 :Text = "itsyouonline";
 
 	# groups of the vdc user
 	groups @4 :List(Text);

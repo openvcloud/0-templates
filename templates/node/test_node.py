@@ -24,6 +24,7 @@ class TestNode(TestCase):
         )
 
         self.valid_data ={
+            'name': 'nodeName',
             'vdc': 'vdcName', 
             'sshKey': 'keyName'
             }
@@ -43,7 +44,7 @@ class TestNode(TestCase):
         type(self.machine_mock).disks=disks
 
         space_mock = MagicMock(machine_get=MagicMock(return_value=self.machine_mock),
-                                machines={'test':MagicMock(delete=MagicMock())})
+                                machines={'nodeName':MagicMock(delete=MagicMock())})
 
         self.ovc_mock=MagicMock(space_get=MagicMock(return_value=space_mock))
 
@@ -65,8 +66,21 @@ class TestNode(TestCase):
         validate(instance)
         instance.delete()
 
+        # test missing name
+        invalid_data ={
+            'vdc': 'vdcName',
+            'sshKey': 'keyName'
+            }
+
+        instance = self.type(name=name, guid=None, data=invalid_data)
+        with pytest.raises(ValueError,
+                           message='VM name is required'):
+            instance.validate()
+        instance.delete()              
+
         # test missing sshkey service name
         invalid_data ={
+            'name': 'nodeName',
             'vdc': 'vdcName',
             }
 
@@ -158,7 +172,7 @@ class TestNode(TestCase):
             # check call to get/create machine
             ovc.get.return_value.space_get.return_value.machine_get.assert_called_once_with(
                 create=True,
-                name=name,
+                name=instance.get_name(),
                 sshkeyname=self.valid_data['sshKey'],
                 sizeId=1,
                 managed_private=False,
@@ -225,7 +239,6 @@ class TestNode(TestCase):
 
             # test uninstall
             ovc.get.return_value = self.ovc_mock
-
             instance.uninstall()
             ovc.get.return_value.space_get.return_value. \
                                  machine_get.return_value.\

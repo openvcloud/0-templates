@@ -69,9 +69,10 @@ class Node(TemplateBase):
         config = {}
         # traverse the tree up words so we have all info we need to return, connection and
         # account
-        matches = self.api.services.find(template_uid=self.VDC_TEMPLATE, name=config['vdc'])
+        vdc_service = self.data['vdc']
+        matches = self.api.services.find(template_uid=self.VDC_TEMPLATE, name=vdc_service)
         if len(matches) != 1:
-            raise RuntimeError('found %d vdcs with name "%s", required exactly one' % (len(matches), config['vdc']))
+            raise RuntimeError('found %d vdcs with name "%s", required exactly one' % (len(matches), vdc_service))
 
         # get vdc service object
         vdc = matches[0]
