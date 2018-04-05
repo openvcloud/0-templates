@@ -126,9 +126,11 @@ class TestVdcUser(TestCase):
             'email': 'email@test.com',
             'name': name,
         }
-        instance = self.type('vdcuser1', None, data)
-
         client = openvcloud.get.return_value
+        instance = self.type('vdcuser1', None, data)
+        instance.install()
+        openvcloud.reset_mock()
+
         # user exists
         client.api.system.usermanager.userexists.return_value = True
         instance.uninstall()

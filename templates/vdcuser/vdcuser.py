@@ -39,9 +39,14 @@ class Vdcuser(TemplateBase):
         Raises StateCheckError when install was not successfully run before.
         '''
         self.state.check('actions', 'install', 'ok')
+        return self._get_fqid()
+
+    def _get_fqid(self):
+        '''
+        Returns the full openvcloud username (username@provider).
+        '''
         provider = self.data.get('provider')
         return "%s@%s" % (self.data.get('name'), provider) if provider else self.data.get('name')
-
 
     def install(self):
         '''
@@ -55,7 +60,7 @@ class Vdcuser(TemplateBase):
             pass
 
         # create user if it doesn't exists
-        username = self.get_fqid()
+        username = self._get_fqid()
         password = self.data['password']
         email = self.data['email']
 
