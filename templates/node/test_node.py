@@ -155,15 +155,36 @@ class TestNode(TestCase):
 
         # test installing vm
         instance.state.delete('actions', 'install')
+
+        # set names
+        key_name = 'keyName'
+        account_service = 'account_service'
+        account_name = 'account_name'
+        sshkey_name = 'sshkey_name'
+        ovc_name = 'ovc_name'
+
+        # mock finding services
+        def find(template_uid, name):     
+            result_mock = mock.PropertyMock()
+            result_mock.side_effect = [
+                key_name, account_service, account_name,
+                sshkey_name, ovc_name
+                ]
+            task_mock = MagicMock()
+            type(task_mock).result = result_mock 
+            proxy = MagicMock(schedule_action=MagicMock(return_value=task_mock))
+            return [proxy]
+
         with patch.object(instance, 'api') as api:
-            api.services.find.return_value = [MagicMock(schedule_action=MagicMock())]
+            api.services.find.side_effect = find
+
             ovc.get.return_value = self.ovc_mock
 
             # test when device is mounted
-            instance.state.delete('actions', 'install')
             ovc.get.return_value.space_get.return_value.\
                                  machine_get.return_value. \
                                  prefab.core.run.return_value = (None, '/dev/vdb on /var type ext4 ', None)
+
             instance.install()
             ovc.get.return_value.space_get.return_value. \
                                  machine_get.return_value.\
@@ -586,7 +607,7 @@ class TestNode(TestCase):
         with patch.object(instance, 'api') as api:
             api.services.find.return_value = [service_mock]
             instance._machine = self.machine_mock
-            # import ipdb; ipdb.set_trace()
+
             instance.disk_detach(disk_service_name=disk_service_name)
             instance.machine.disk_detach.assert_called_with(disk_id)
 
