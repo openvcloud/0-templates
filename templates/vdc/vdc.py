@@ -20,16 +20,25 @@ class Vdc(TemplateBase):
         self._space = None
 
     def validate(self):
+        '''
+        Validate service data received during creation
+        '''
+        
         if not self.data['name']:
             raise ValueError('vdc name is required')
 
         if not self.data['account']:
             raise ValueError('account is required')
 
-        # validate accounts
-        accounts = self.api.services.find(template_uid=self.ACCOUNT_TEMPLATE, name=self.data['account'])
-        if len(accounts) != 1:
-            raise RuntimeError('found %s accounts, requires exactly one' % len(accounts))
+    def _get_proxy(self, template_uid, service_name):
+        '''
+        Get proxy object of the service with name @service_name
+        '''
+
+        matches = self.api.services.find(template_uid=template_uid, name=service_name)
+        if len(matches) != 1:
+            raise RuntimeError('found %d services with name "%s", required exactly one' % (len(matches), service_name))
+        return matches[0]
 
     def get_name(self):
         '''
@@ -67,12 +76,10 @@ class Vdc(TemplateBase):
             return self._account
         ovc = self.ovc
 
-        matches = self.api.services.find(template_uid=self.ACCOUNT_TEMPLATE, name=self.data['account'])
-        if len(matches) != 1:
-            raise ValueError('found %s accounts with name "%s", required exactly one' % (len(matches), self.data['account']))
-        
-        account_instance = matches[0]
-        task = account_instance.schedule_action('get_name')
+        proxy =self._get_proxy(self.ACCOUNT_TEMPLATE, self.data['account']) 
+
+        # get actual account name
+        task = proxy.schedule_action('get_name')
         task.wait()
         account_name = task.result
 

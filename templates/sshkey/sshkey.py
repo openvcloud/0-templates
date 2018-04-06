@@ -77,3 +77,10 @@ class Sshkey(TemplateBase):
                 'passphrase_': self.data['passphrase'],
             },
         )
+
+    def get_name(self):
+        '''
+        Return key name
+        '''
+
+        return self.data['name']

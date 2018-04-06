@@ -53,24 +53,42 @@ api = ZeroRobotAPI.ZeroRobotAPI()
 robot = api.robots['main']
 
 # create services
-sshkey = robot.services.create(template_uid="github.com/openvcloud/0-templates/sshkey/0.0.1",
-                               service_name="keyTestDelete",
-                               data={'dir':'/root/tesSsh/', 'passphrase': 'testpassphrase'})
-ovc = robot.services.create(template_uid="github.com/openvcloud/0-templates/openvcloud/0.0.1",
-                            service_name="myovc",
-                            data={'location':'be-gen-demo', 'address': 'ovc.demo.greenitglobe.com', 'token': '<iyo jwt token>'})
-vdcuser = robot.services.create(template_uid="github.com/openvcloud/0-templates/vdcuser/0.0.1",
-                                service_name="admin",
-                                data={'openvcloud':'myovc', 'provider': 'itsyouonline', 'email': 'admin@greenitglobe.com'})
-account = robot.services.create(template_uid="github.com/openvcloud/0-templates/account/0.0.1",
-                                service_name="myaccount",
-                                data={'openvcloud':'myovc'})
-vdc = robot.services.create(template_uid="github.com/openvcloud/0-templates/vdc/0.0.1",
-                            service_name="myspace",
-                            data={'account':'myaccount'})
+ovc = robot.services.create(
+    template_uid="github.com/openvcloud/0-templates/openvcloud/0.0.1",
+    service_name="ovc_service",
+    data={'name': 'ovc_instance',
+          'location':'be-gen-demo', 
+          'address': 'ovc.demo.greenitglobe.com',
+          'token': '<iyo jwt token>'}
+)
+ovc.schedule_action('install')
+
+account = robot.services.create(
+    template_uid="github.com/openvcloud/0-templates/account/0.0.1",
+    service_name="account-service",
+    data={'name': 'account_name','openvcloud':'ovc_service'}
+)
+account.schedule_action('install')
+
+vdc = robot.services.create(
+    template_uid="github.com/openvcloud/0-templates/vdc/0.0.1",
+    service_name="vdc-service",
+    data={'name': 'vdc_name' ,'account':'account-service'}
+)
+vdc.schedule_action('install')
+
+sshkey = robot.services.create(
+    template_uid="github.com/openvcloud/0-templates/sshkey/0.0.1",
+    service_name="key-service",
+    data={'name': 'id_rsa', 'dir':'/root/.ssh/', 'passphrase': 'testpassphrase'}
+)
+sshkey.schedule_action('install')
+
 node = robot.services.create(template_uid="github.com/openvcloud/0-templates/node/0.0.1",
-                             service_name="mynode",
-                             data={'sshKey':'mykey', 'vdc':'myspace'})
+    service_name="mynode",
+    data={'sshKey':'key-service', 'vdc':'vdc-service'}
+)
+node.schedule_action('install')
 
 # run actions
 node.schedule_action('install')
@@ -103,24 +121,24 @@ node.schedule_action('uninstall')
 ``` yaml
 
 services:
-    - github.com/openvcloud/0-templates/sshkey/0.0.1__mykey:
-        dir: '/root/.ssh/'
-        passphrase: <passphrase>
-    - github.com/openvcloud/0-templates/openvcloud/0.0.1__myovc:
+    - github.com/openvcloud/0-templates/openvcloud/0.0.1__ovc-service:
+        name: ovc_instance_name
         location: be-gen-demo
         address: 'ovc.demo.greenitglobe.com'
         token: '<iyo jwt token>'
-    - github.com/openvcloud/0-templates/vdcuser/0.0.1__admin:
-        openvcloud: myovc
-        provider: itsyouonline
-        email: admin@greenitglobe.com
     - github.com/openvcloud/0-templates/account/0.0.1__myaccount:
-        openvcloud: myovc
-    - github.com/openvcloud/0-templates/vdc/0.0.1__myspace:
-        account: myaccount
-    - github.com/openvcloud/0-templates/node/0.0.1__mynode:
-        sshKey: mykey
-        vdc: myspace
+        name: account_name
+        openvcloud: ovc-service
+    - github.com/openvcloud/0-templates/vdc/0.0.1__vdc-service:
+        account: account-servcie
+    - github.com/openvcloud/0-templates/sshkey/0.0.1__key-service:
+        name: id_rsa
+        dir: '/root/.ssh/'
+        passphrase: <passphrase>
+    - github.com/openvcloud/0-templates/node/0.0.1__node-service:
+        name: vm_name
+        sshKey: key-service
+        vdc: vdc-service
 actions:
     - actions: ['install']
 ```

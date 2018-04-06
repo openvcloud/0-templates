@@ -24,6 +24,10 @@ class Node(TemplateBase):
         self._machine = None
 
     def validate(self):
+        '''
+        Validate service data received during creation
+        '''
+
         if not self.data['name']:
             raise ValueError('VM name is required')
 
@@ -31,15 +35,7 @@ class Node(TemplateBase):
             raise ValueError('vdc service name is required')
 
         if not self.data['sshKey']:
-            raise ValueError('sshKey name is required')
-
-        matches = self.api.services.find(template_uid=self.VDC_TEMPLATE, name=self.data['vdc'])
-        if len(matches) != 1:
-            raise RuntimeError('found %d vdcs with name "%s"' % (len(matches), self.data['vdc']))
-
-        matches = self.api.services.find(template_uid=self.SSH_TEMPLATE, name=self.data['sshKey'])
-        if len(matches) != 1:
-            raise RuntimeError('found %s ssh keys with name "%s"' % (len(matches), self.data['sshKey']))
+            raise ValueError('sshKey service name is required')
 
     def get_name(self):
         '''
@@ -50,7 +46,7 @@ class Node(TemplateBase):
 
     def _get_proxy(self, template_uid, service_name):
         '''
-        Get proxy object of the service with name
+        Get proxy object of the service with name @service_name
         '''
 
         matches = self.api.services.find(template_uid=template_uid, name=service_name)
@@ -68,7 +64,6 @@ class Node(TemplateBase):
 
         config = {}
         # traverse the tree up words so we have all info we need to return, connection and
-        # account
 
         # get vdc name
         vdc = self._get_proxy(self.VDC_TEMPLATE, self.data['vdc'])
@@ -78,17 +73,17 @@ class Node(TemplateBase):
         task.wait()
         config['vdc'] = task.result
 
-        # get account name
+        # get account service name
         task = vdc.schedule_action('get_account')
         task.wait()
         account_service = task.result
-        #config['account'] 
 
         # get vdc name
         task = vdc.schedule_action('get_name')
         task.wait()
         config['vdc'] = task.result
 
+        # get account name
         account = self._get_proxy(self.ACCOUNT_TEMPLATE, account_service)
         task = account.schedule_action('get_name')
         task.wait()
@@ -173,10 +168,17 @@ class Node(TemplateBase):
         Create a new machine
         """
         data = self.data
+
+        # get name of sshkey       
+        sshkey_proxy = self._get_proxy(self.SSH_TEMPLATE, self.data['sshKey'])
+        task = sshkey_proxy.schedule_action('get_name')
+        task.wait()
+        sshkey = task.result
+
         self._machine = self.space.machine_get(
             create = True,
             name=data['name'],
-            sshkeyname=data['sshKey'],
+            sshkeyname=sshkey,
             image=data['osImage'],
             disksize=data['bootDiskSize'],
             datadisks=[data['dataDiskSize']],
@@ -452,10 +454,7 @@ class Node(TemplateBase):
             return
         # get disk id and type
 
-        proxy = self._get_disk_proxy(disk_service_name)
-        if not proxy:
-            # if service not found, do nothing
-            return
+        proxy = self._get_proxy(self.DISK_TEMPLATE, disk_service_name)
 
         task = proxy.schedule_action(action='get_type')
         disk_type = task.result
@@ -495,10 +494,9 @@ class Node(TemplateBase):
         self.state.check('actions', 'install', 'ok')
 
         # find service in the list of services
-        proxy = self._get_disk_proxy(disk_service_name)
+        proxy = self._get_proxy(self.DISK_TEMPLATE, disk_service_name)
 
-        if proxy:
-            task = proxy.schedule_action('uninstall')
-            task.wait()
-            self.data['disks'].remove(disk_service_name)
+        task = proxy.schedule_action('uninstall')
+        task.wait()
+        self.data['disks'].remove(disk_service_name)
 

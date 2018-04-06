@@ -11,26 +11,39 @@ class Vdcuser(TemplateBase):
 
     def __init__(self, name, guid=None, data=None):
         super().__init__(name=name, guid=guid, data=data)
+        self._ovc_instance = None
 
     def validate(self):
-        for key in ['email']:
-            if key not in self.data:
+        '''
+        Validate service data received during creation
+        '''
+
+        for key in ['name', 'email', 'openvcloud']:
+            if not self.data[key]:
                 raise ValueError('"%s" is required' % key)
 
-        if not self.data['openvcloud']:
-            raise ValueError('openvcloud is mandatory')
+    def _get_proxy(self, template_uid, service_name):
+        '''
+        Get proxy object of the service of type @template_uid with name @service_name
+        '''
 
-        if not self.data['name']:
-            raise ValueError('name is mandatory')
-
-        ovcs = self.api.services.find(template_uid=self.OVC_TEMPLATE, name=self.data['openvcloud'])
-
-        if len(ovcs) != 1:
-            raise RuntimeError('found %s openvcloud connections, requires exactly 1' % len(ovcs))
+        matches = self.api.services.find(template_uid=template_uid, name=service_name)
+        if len(matches) != 1:
+            raise RuntimeError('found %d services with name "%s", required exactly one' % (len(matches), service_name))
+        return matches[0]
 
     @property
     def ovc(self):
-        return j.clients.openvcloud.get(self.data['openvcloud'])
+        '''
+        Get ovc client
+        '''
+        if not self._ovc_instance:
+            # get ovc instance name
+            self._ovc_proxy = self._get_proxy(self.OVC_TEMPLATE, self.data['openvcloud'])
+            task = self._ovc_proxy.schedule_action('get_name')
+            task.wait()
+            self._ovc_instance = task.result
+        return j.clients.openvcloud.get(self._ovc_instance)
 
     def get_name(self):
         '''

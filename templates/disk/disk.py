@@ -7,8 +7,8 @@ class Disk(TemplateBase):
     version = '0.0.1'
     template_name = "disk"
 
+    OVC_TEMPLATE = 'github.com/openvcloud/0-templates/openvcloud/0.0.1'
     VDC_TEMPLATE = 'github.com/openvcloud/0-templates/vdc/0.0.1'
-    SSH_TEMPLATE = 'github.com/openvcloud/0-templates/sshkey/0.0.1'
     ACCOUNT_TEMPLATE = 'github.com/openvcloud/0-templates/account/0.0.1'
 
     def __init__(self, name, guid=None, data=None):
@@ -21,11 +21,36 @@ class Disk(TemplateBase):
         self._space = None
 
     def validate(self):
+        '''
+        Validate service data received during creation
+        '''
+
         if not self.data['vdc']:
             raise RuntimeError('vdc name should be given')
 
         self._validate_limits()
 
+    def _validate_limits(self):
+        """
+        Validate limits on the Disk
+        """
+        data = self.data
+        # ensure that disk has a valid type
+        if data['type'] and data['type'].upper() not in ["D", "B"]:
+            raise RuntimeError("diskovc's type must be data (D) or boot (B) only")
+
+        # ensure that limits are given correctly
+        if (data['maxIops'] or data['totalIopsSec']) and (data['readIopsSec'] or data['writeIopsSec']):
+            raise RuntimeError("total and read/write of iops_sec cannot be set at the same time")
+
+        if data['totalBytesSec'] and (data['readBytesSec'] or data['writeBytesSec']):
+            raise RuntimeError("total and read/write of bytes_sec cannot be set at the same time")
+
+        if data['totalBytesSecMax'] and (data['readBytesSecMax'] or data['writeBytesSecMax']):
+            raise RuntimeError("total and read/write of bytes_sec_max cannot be set at the same time")
+
+        if data['totalIopsSecMax'] and (data['readIopsSecMax'] or data['writeIopsSecMax']):
+            raise RuntimeError("total and read/write of iops_sec_max cannot be set at the same time")
 
     def update(self, maxIops=None, totalBytesSec=None, readBytesSec=None,
                writeBytesSec=None, totalIopsSec=None, readIopsSec=None,
@@ -63,27 +88,6 @@ class Disk(TemplateBase):
                 return True
         return False
       
-    def _validate_limits(self):
-        """
-        Validate limits on the Disk
-        """
-        data = self.data
-        # ensure that disk has a valid type
-        if data['type'] and data['type'].upper() not in ["D", "B"]:
-            raise RuntimeError("diskovc's type must be data (D) or boot (B) only")
-
-        # ensure that limits are given correctly
-        if (data['maxIops'] or data['totalIopsSec']) and (data['readIopsSec'] or data['writeIopsSec']):
-            raise RuntimeError("total and read/write of iops_sec cannot be set at the same time")
-
-        if data['totalBytesSec'] and (data['readBytesSec'] or data['writeBytesSec']):
-            raise RuntimeError("total and read/write of bytes_sec cannot be set at the same time")
-
-        if data['totalBytesSecMax'] and (data['readBytesSecMax'] or data['writeBytesSecMax']):
-            raise RuntimeError("total and read/write of bytes_sec_max cannot be set at the same time")
-
-        if data['totalIopsSecMax'] and (data['readIopsSecMax'] or data['writeIopsSecMax']):
-            raise RuntimeError("total and read/write of iops_sec_max cannot be set at the same time")
 
     def install(self):
         '''
@@ -140,30 +144,34 @@ class Disk(TemplateBase):
         }
         # traverse the tree up words so we have all info we need to return, connection and
         # account
-        matches = self.api.services.find(template_uid=self.VDC_TEMPLATE, name=config['vdc'])
-        if len(matches) != 1:
-            raise RuntimeError('found %d vdcs with name "%s"' % (len(matches), config['vdc']))
 
-        vdc = matches[0]
+        vdc = self._get_proxy(self.VDC_TEMPLATE, config['vdc'])
         task = vdc.schedule_action('get_account')
         task.wait()
+        account_service_name = task.result
 
+        account_proxy = self._get_proxy(self.ACCOUNT_TEMPLATE, account_service_name)
+        task = account_proxy.schedule_action('get_name')
+        task.wait()
         config['account'] = task.result
 
-        matches = self.api.services.find(template_uid=self.ACCOUNT_TEMPLATE, name=config['account'])
-        if len(matches) != 1:
-            raise ValueError('found %s accounts with name "%s"' % (len(matches), config['account']))
-
-        account = matches[0]
-
         # get connection
-        task = account.schedule_action('get_openvcloud')
+        task = account_proxy.schedule_action('get_openvcloud')
         task.wait()
-
         config['ovc'] = task.result
 
         self._config = config
         return self._config
+
+    def _get_proxy(self, template_uid, service_name):
+        '''
+        Get proxy object of the service with name @service_name
+        '''
+
+        matches = self.api.services.find(template_uid=template_uid, name=service_name)
+        if len(matches) != 1:
+            raise RuntimeError('found %d services with name "%s", required exactly one' % (len(matches), service_name))
+        return matches[0]
 
     @property
     def ovc(self):
