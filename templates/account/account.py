@@ -160,7 +160,7 @@ class Account(TemplateBase):
         name = self._fetch_user_name(vdcuser)
 
         users = self.get_users()
-        
+
         for existent_user in users:
             if existent_user['name'] != name:
                 continue

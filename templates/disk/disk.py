@@ -117,6 +117,28 @@ class Disk(TemplateBase):
 
         self.state.set('actions', 'install', 'ok')
 
+    def _create(self):
+        '''
+        Create disk
+        '''
+        data = self.data
+        ovc = self.ovc
+        account = self.account
+        # check existence of the disk. If ID field was updated in the service
+        gid = [location['gid'] for location in ovc.locations if location['name'] == data['location']]
+        if not gid:
+            raise RuntimeError('location "%s" not found' % data['location'])
+        
+        # if doesn't exist - create
+        data['diskId'] = account.disk_create(
+                            name=data['devicename'],
+                            gid=gid,
+                            description=data['description'],
+                            size=data['size'],
+                            type=data['type'],
+                        )
+        self._limit_io()
+        
     def uninstall(self):
         '''
         Uninstall disk. Delete disk if exists.
@@ -131,6 +153,7 @@ class Disk(TemplateBase):
 
         self.state.delete('actions', 'install')
 
+
     @property
     def config(self):
         '''
@@ -139,13 +162,14 @@ class Disk(TemplateBase):
         if self._config is not None:
             return self._config
 
-        config = {
-            'vdc': self.data['vdc'],
-        }
+        config = {}
         # traverse the tree up words so we have all info we need to return, connection and
         # account
 
-        vdc = self._get_proxy(self.VDC_TEMPLATE, config['vdc'])
+        vdc = self._get_proxy(self.VDC_TEMPLATE, self.data['vdc'])
+        task = vdc.schedule_action('get_name')
+        config['vdc'] = task.result
+
         task = vdc.schedule_action('get_account')
         task.wait()
         account_service_name = task.result
@@ -178,6 +202,7 @@ class Disk(TemplateBase):
         """
         An ovc connection instance
         """
+        
         if self._ovc:
             return self._ovc
 
@@ -204,28 +229,6 @@ class Disk(TemplateBase):
             self._account = self.space.account
 
         return self._account
-
-    def _create(self):
-        '''
-        Create disk
-        '''
-        data = self.data
-        ovc = self.ovc
-        account = self.account
-        # check existence of the disk. If ID field was updated in the service
-        guid = [location['gid'] for location in ovc.locations if location['name'] == data['location']]
-        if not guid:
-            raise RuntimeError('location "%s" not found' % data['location'])
-        
-        # if doesn't exist - create
-        data['diskId'] = account.disk_create(
-                            name=data['devicename'],
-                            gid=guid,
-                            description=data['description'],
-                            size=data['size'],
-                            type=data['type'],
-                        )
-        self._limit_io()
 
     def _limit_io(self):
         data = self.data

@@ -2,7 +2,7 @@
 
 ## Description
 
-This template is responsible for creating an account on any openVCloud environment.
+This template is responsible for creating an account on a openVCloud environment.
 
 ## Schema
 
@@ -42,51 +42,102 @@ For information about the different access rights, check docs at [openvcloud](ht
   - `maxNumPublicIP`
   - `maxVDiskCapacity`
 
+## Usage examples via the 0-robot DS
+
+``` python
+from zerorobot.dsl import ZeroRobotAPI
+api = ZeroRobotAPI.ZeroRobotAPI()
+robot = api.robots['main']
+
+# create services
+ovc = robot.services.create(
+    template_uid="github.com/openvcloud/0-templates/openvcloud/0.0.1",
+    service_name="ovc_service",
+    data={'name': 'ovc_instance',
+          'location':'be-gen-demo', 
+          'address': 'ovc.demo.greenitglobe.com',
+          'token': '<iyo jwt token>'}
+)
+ovc.schedule_action('install')
+
+account = robot.services.create(
+    template_uid="github.com/openvcloud/0-templates/account/0.0.1",
+    service_name="account-service",
+    data={'name': 'test_account','openvcloud':'ovc_service'}
+)
+account.schedule_action('install')
+account.schedue_action('update', {'maxMemoryCapacity': 5})
+
+# examples to manage users
+# first create a service for vdcuser admin
+vdcuser = robot.services.create(
+    template_uid="github.com/openvcloud/0-templates/vdcuser/0.0.1",
+    service_name="admin",
+    data={'name': 'username', 'openvcloud':'ovc_service', 'email': 'email@mail.be'}
+)
+vdcuser.schedule_action('install')
+
+# authorize user
+account.schedule_action('user_authorize', {'vdcuser': 'admin', 'accesstype': 'R'})
+# update user access of the existing user
+account.schedule_action('user_authorize', {'vdcuser': 'admin', 'accesstype': 'W'})
+# unauthorize user
+account.schedule_action('user_unauthorize', {'vdcuser': 'admin', 'accesstype': 'W'})
+
+account.schedule_action('uninstall')
+```
+
+## Usage examples via the 0-robot CLI
+
 ```yaml
 services:
     - github.com/openvcloud/0-templates/openvcloud/0.0.1__ovc:
+        name: be-gen-demo
         location: <ovc.demo>
         address: 'ovc.demo.greenitglobe.com'
         token: '<iyo jwt token>'
-    - github.com/openvcloud/0-templates/vdcuser/0.0.1__admin:
+    - github.com/openvcloud/0-templates/account/0.0.1__account-service:
+        name: test_account
         openvcloud: ovc
-        provider: itsyouonline
-        email: admin@greenitglobe.com
-    - github.com/openvcloud/0-templates/account/0.0.1__myaccount:
-       openvcloud: ovc
 actions:
       actions: ['install']
 ```
 
 ```yaml
 actions:
-  - template: github.com/openvcloud/0-templates/account/0.0.1:
-    service: myaccount
-    action: ['uninstall']
+    - template: github.com/openvcloud/0-templates/account/0.0.1:
+      service: account-service
+      action: ['uninstall']
+```
+
+```yaml
+services:
+    - github.com/openvcloud/0-templates/vdcuser/0.0.1__admin:
+        name: ovc-user
+        openvcloud: ovc
+        provider: itsyouonline
+        email: admin@greenitglobe.com
+actions:
+    - service: account-service
+      actions: ['user_add']
+      args:
+          user:
+            vdcuser: admin
+            accesstype: R
 ```
 
 ```yaml
 actions:
-  - service: myaccount
-    actions: ['user_add']
-     args:
-        user:
-          vdcuser: thabet
-          accesstype: R
+    - service: account-service
+      actions: ['user_delete']
+      args:
+        username: testuser
 ```
 
 ```yaml
 actions:
-  - service: myaccount
-    actions: ['user_delete']
-    args:
-      username: testuser
-```
-
-```yaml
-actions:
-  - service: myaccount
-    actions: ['update']
-    args:
-      maxMemoryCapacity: 5
+    - service: account-service
+      actions: ['update']
+      args:
+        maxMemoryCapacity: 5
 ```

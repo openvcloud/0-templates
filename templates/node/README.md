@@ -6,6 +6,7 @@ The template is responsible for managing a virtual machine (VM) on the OpenvClou
 
 ## Schema
 
+- `name`: name of the VM, unique in given vdc. **Required**.
 - `vdc`: name of Virtual Data Center (VDC) where the VM belongs. **Required**.
 - `sshKey`: name of ssh-key used to secure ssh connection to the VM. **Required**.
 - `sizeId`: denotes type of VM, this size impact the number of CPU and memory available for the vm. Default to 1.
@@ -126,11 +127,11 @@ services:
         location: be-gen-demo
         address: 'ovc.demo.greenitglobe.com'
         token: '<iyo jwt token>'
-    - github.com/openvcloud/0-templates/account/0.0.1__myaccount:
+    - github.com/openvcloud/0-templates/account/0.0.1__account-service:
         name: account_name
         openvcloud: ovc-service
     - github.com/openvcloud/0-templates/vdc/0.0.1__vdc-service:
-        account: account-servcie
+        account: account-service
     - github.com/openvcloud/0-templates/sshkey/0.0.1__key-service:
         name: id_rsa
         dir: '/root/.ssh/'

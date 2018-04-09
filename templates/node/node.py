@@ -65,10 +65,11 @@ class Node(TemplateBase):
         config = {}
         # traverse the tree up words so we have all info we need to return, connection and
 
-        # get vdc name
+        # get vdc proxy
         vdc = self._get_proxy(self.VDC_TEMPLATE, self.data['vdc'])
         self._vdc = vdc
 
+        # get vdc name
         task = vdc.schedule_action('get_name')
         task.wait()
         config['vdc'] = task.result
@@ -78,10 +79,6 @@ class Node(TemplateBase):
         task.wait()
         account_service = task.result
 
-        # get vdc name
-        task = vdc.schedule_action('get_name')
-        task.wait()
-        config['vdc'] = task.result
 
         # get account name
         account = self._get_proxy(self.ACCOUNT_TEMPLATE, account_service)

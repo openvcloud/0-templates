@@ -32,20 +32,61 @@ Disk service is unaware if the disk is attached to a machine.
 ## Actions
 
 - `install`: installs disk service; if `diskId` is given links the service with earlier created disk, if not given - creates new disk.
-- `uninstall`: delete disk
+- `uninstall`: delete disk.
+- `update`: update limits.
+
+## Usage examples via the 0-robot DSL
+
+``` python
+from zerorobot.dsl import ZeroRobotAPI
+api = ZeroRobotAPI.ZeroRobotAPI()
+robot = api.robots['main']
+
+# create services
+ovc = robot.services.create(
+    template_uid="github.com/openvcloud/0-templates/openvcloud/0.0.1",
+    service_name="ovc_service",
+    data={'name': 'ovc_instance',
+          'location':'be-gen-demo', 
+          'address': 'ovc.demo.greenitglobe.com',
+          'token': '<iyo jwt token>'}
+)
+ovc.schedule_action('install')
+
+account = robot.services.create(
+    template_uid="github.com/openvcloud/0-templates/account/0.0.1",
+    service_name="account-service",
+    data={'name': 'account_name','openvcloud':'ovc_service'}
+)
+account.schedule_action('install')
+
+vdc = robot.services.create(
+    template_uid="github.com/openvcloud/0-templates/vdc/0.0.1",
+    service_name="vdc-service",
+    data={'name': 'vdc_name' ,'account':'account-service'}
+)
+vdc.schedule_action('install')
+
+disk = = robot.services.create(
+    template_uid="github.com/openvcloud/0-templates/disk/0.0.1",
+    service_name="vdc-service",
+    data={'vdc': 'vdc-service'}
+)
+
+disk.schedule_action('install')
+disk.schedule_action('update', {'writeBytesSec': 5})
+disk.schedule_action('uninstall')
+```
+
+## Usage examples via the 0-robot CLI
 
 ``` yaml
 services:
-    - github.com/openvcloud/0-templates/sshkey/0.0.1__key:
-        path: '/root/.ssh/id_rsa'
     - github.com/openvcloud/0-templates/openvcloud/0.0.1__myovc:
+        name: be-gen
         location: be-gen-demo
         address: 'ovc.demo.greenitglobe.com'
-        login: '<username>'
         token: '<iyo jwt token>'
-    - github.com/openvcloud/0-templates/vdcuser/0.0.1__admin:
-        provider: itsyouonline
-        email: admin@greenitglobe.com
     - github.com/openvcloud/0-templates/account/0.0.1__myaccount:
         openvcloud: myovc
     - github.com/openvcloud/0-templates/vdc/0.0.1__myspace:
@@ -56,6 +97,14 @@ services:
 actions:
     - service: mydisk
       actions: ['install']
+```
+
+``` yaml
+actions:
+    - service: mydisk
+      actions: ['update']
+      args:
+        writeBytesSec: 10
 ```
 
 ``` yaml

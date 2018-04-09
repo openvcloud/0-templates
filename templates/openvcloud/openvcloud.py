@@ -39,15 +39,6 @@ class Openvcloud(TemplateBase):
         # save config
         ovc.config.save()
 
-    def update(self, address=None, login=None, token=None, port=None):
-        kwargs = locals()
-
-        for key in ['address', 'token', 'port']:
-            value = kwargs[key]
-            if value is not None:
-                self.data[key] = value
-
-        self._configure()
 
     def install(self):
         '''
@@ -64,10 +55,23 @@ class Openvcloud(TemplateBase):
 
     def uninstall(self):
         '''
-        Delete connection from config manager
+        Delete ovc connection from config manager on zrobot machine
         '''
 
         conf_manager = j.tools.configmanager
         conf_manager.delete(location="j.clients.openvcloud", instance=self.data['name'])
         self.state.delete('actions', 'install')
 
+    def update(self, address=None, token=None, port=None):
+        '''
+        Update data and reconfigure ovc connection
+        '''
+        self.state.check('actions', 'install', 'ok')
+        kwargs = locals()
+
+        for key in ['address', 'token', 'port']:
+            value = kwargs[key]
+            if value is not None:
+                self.data[key] = value
+
+        self._configure()

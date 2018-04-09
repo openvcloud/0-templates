@@ -104,6 +104,9 @@ class TestNode(TestCase):
         Test fetching config from vdc, account, and ovc services
         '''
         instance = self.type(name='test', data=self.valid_data)
+        vdc_name = 'test_vdc'
+        account_name = 'test_account'
+        ovc_name = 'test_ovc'
         with patch.object(instance, 'api') as api:
             api.services.find.side_effect = [[], [None,None]]
             # test when no vdc service is found
@@ -117,27 +120,29 @@ class TestNode(TestCase):
                 instance.config
 
             # test when no account service is found
-            account_name = 'test_account'
-            task_mock = MagicMock(result=account_name)
-            mock_find_ovc = MagicMock(schedule_action=MagicMock(return_value=task_mock))            
-            api.services.find.side_effect = [ [mock_find_ovc], []]
+            task_mock = MagicMock(result=vdc_name)
+            mock_find_vdc = MagicMock(schedule_action=MagicMock(return_value=task_mock))            
+            api.services.find.side_effect = [ [mock_find_vdc], []]
             with pytest.raises(RuntimeError,
                                message='found 0 accounts with name "%s", required exactly one' % account_name):
                 instance.config
 
             # test when more than 1 account service is found
-            api.services.find.side_effect = [ [mock_find_ovc], [None, None]]
+            api.services.find.side_effect = [ [mock_find_vdc], [None, None]]
             with pytest.raises(RuntimeError,
                                message='found 2 accounts with name "%s", required exactly one' % account_name):
                 instance.config
 
             # test success
-            ovc_name = 'test_ovc'
-            task_mock = MagicMock(result=ovc_name)
-            mock_find_acc = MagicMock(schedule_action=MagicMock(return_value=task_mock))
-            api.services.find.side_effect = [ [mock_find_ovc], [mock_find_acc]]
-            instance.config
 
+            result = mock.PropertyMock()
+            result.side_effect = [account_name, ovc_name]
+            task_mock = MagicMock()
+            type(task_mock).result = result
+
+            mock_find_acc = MagicMock(schedule_action=MagicMock(return_value=task_mock))
+            api.services.find.side_effect = [[mock_find_vdc],[mock_find_acc]]
+            instance.config
             self.assertEqual(instance.config['ovc'], ovc_name)
             self.assertEqual(instance.config['account'], account_name)
 

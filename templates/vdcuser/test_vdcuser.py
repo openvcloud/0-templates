@@ -1,8 +1,11 @@
-from js9 import j
 import os
+import pytest
+from mock import MagicMock
+
 
 from unittest import TestCase
 from unittest import mock
+from js9 import j
 
 from zerorobot import config, template_collection
 from zerorobot.template.state import StateCheckError
@@ -16,72 +19,50 @@ class TestVdcUser(TestCase):
             os.path.dirname(__file__)
         )
 
-    def test_validate_openvcloud(self):
-        name = 'test'
+    def test_validate(self):
+        # test fails:
+        # missing username
         data = {
             'openvcloud': 'connection',
-            'name': name,
+            'password': 'passwd',
+            'email': 'email@test.com',          
         }
-        instance = self.type('vdcuser1', None, data)
-
-        def find(template_uid, name):
-            self.assertEqual(template_uid, self.type.OVC_TEMPLATE)
-            self.assertEqual(name, data['openvcloud'])
-
-            result = mock.MagicMock()
-            result.name = name
-            return [result]
-
-        with mock.patch.object(instance, 'api') as api:
-            api.services.find.side_effect = find
+        instance = self.type('vdcuser', None, data)
+        with pytest.raises(ValueError,
+                           message='name is required'):
             instance.validate()
 
-        api.services.find.assert_called_once_with(template_uid=self.type.OVC_TEMPLATE, name=data['openvcloud'])
-
-        # Next, we test when NO connection is given
-        api.reset_mock()
-
-        data = {}
-        instance = self.type(name, None, data)
-
-        def find(template_uid, name):
-            self.assertEqual(template_uid, self.type.OVC_TEMPLATE)
-            self.assertEqual(name, None)
-
-            result = mock.MagicMock()
-            result.name = name
-            return [result]
-
-        with mock.patch.object(instance, 'api') as api:
-            api.services.find.side_effect = find
-            with self.assertRaises(ValueError):
-                instance.validate()
-
-        api.services.find.assert_not_called()
-
-        # Finally, if the search returned more than one object
-        api.reset_mock()
-
+        # missing email
         data = {
             'openvcloud': 'connection',
-            'name': name,
+            'password': 'passwd',
+            'name': 'username',          
         }
-        instance = self.type('vdcuser1', None, data)
+        instance = self.type('vdcuser', None, data)
+        with pytest.raises(ValueError,
+                           message='email is required'):
+            instance.validate()          
 
-        def find(template_uid, name):
-            self.assertEqual(template_uid, self.type.OVC_TEMPLATE)
-            self.assertEqual(name, data['openvcloud'])
+        # missing openvcloud
+        data = {
+            'password': 'passwd',
+            'name': 'username',
+            'email': 'email@test.com',     
+        }
+        instance = self.type('vdcuser', None, data)
+        with pytest.raises(ValueError,
+                           message='openvcloud is required'):
+            instance.validate()          
 
-            result = mock.MagicMock()
-            result.name = name
-            return [result, result]  # return 2
-
-        with mock.patch.object(instance, 'api') as api:
-            api.services.find.side_effect = find
-            with self.assertRaises(RuntimeError):
-                instance.validate()
-
-        api.services.find.assert_called_once_with(template_uid=self.type.OVC_TEMPLATE, name=data['openvcloud'])
+        # test success
+        data = {
+            'name': 'username',
+            'openvcloud': 'connection',
+            'password': 'passwd',
+            'email': 'email@test.com',
+        }
+        instance = self.type('vdcuser', None, data)
+        instance.validate()
 
     @mock.patch.object(j.clients, '_openvcloud')
     def test_install(self, openvcloud):
@@ -92,55 +73,75 @@ class TestVdcUser(TestCase):
             'email': 'email@test.com',
             'name': name,
         }
+        connection_name = 'be-gen'
+        def find(template_uid, name): 
+            self.assertEqual(template_uid, self.type.OVC_TEMPLATE)
+            self.assertEqual(name, data['openvcloud'])    
+            task_mock = MagicMock(result=connection_name)
+            proxy = MagicMock(schedule_action=MagicMock(return_value=task_mock))
+            return [proxy]
 
         instance = self.type('vdcuser1', None, data)
         client = openvcloud.get.return_value
         # user exists
         client.api.system.usermanager.userexists.return_value = True
-        instance.install()
+        with mock.patch.object(instance, 'api') as api:
+            api.services.find.side_effect = find        
+            instance.install()
 
-        client.api.system.usermanager.userexists.assert_called_once_with(name=name)
+        client.api.system.usermanager.userexists.assert_called_once_with(name=name+'@itsyouonline')
 
         openvcloud.reset_mock()
         client.api.system.usermanager.userexists.return_value = False
-
         instance.state.delete('actions', 'install')
-        instance.install()
+        with mock.patch.object(instance, 'api') as api:
+            api.services.find.side_effect = find        
+            instance.install()
 
         client.api.system.usermanager.create.assert_called_once_with(
             username=name,
-            password=data['password'],
             groups=[],
             emails=[data['email']],
             domain='',
-            provider='',
+            provider='itsyouonline',
         )
-        openvcloud.get.assert_called_once_with(data['openvcloud'])
+        openvcloud.get.assert_called_once_with(connection_name)
 
     @mock.patch.object(j.clients, '_openvcloud')
     def test_uninstall(self, openvcloud):
         name = 'user1'
         data = {
             'openvcloud': 'connection',
-            'password': 'passwd',
             'email': 'email@test.com',
             'name': name,
         }
+        connection_name = 'be-gen'
+        def find(template_uid, name): 
+            self.assertEqual(template_uid, self.type.OVC_TEMPLATE)
+            self.assertEqual(name, data['openvcloud'])    
+            task_mock = MagicMock(result=connection_name)
+            proxy = MagicMock(schedule_action=MagicMock(return_value=task_mock))
+            return [proxy]
+
         client = openvcloud.get.return_value
         instance = self.type('vdcuser1', None, data)
-        instance.install()
+        with mock.patch.object(instance, 'api') as api:
+            api.services.find.side_effect = find
+            instance.install()
         openvcloud.reset_mock()
 
         # user exists
         client.api.system.usermanager.userexists.return_value = True
-        instance.uninstall()
+        with mock.patch.object(instance, 'api') as api:
+            api.services.find.side_effect = find 
+            instance.uninstall()
 
-        client.api.system.usermanager.userexists.assert_called_once_with(name=name)
+        client.api.system.usermanager.userexists.assert_called_once_with(name=name+'@itsyouonline')
 
         client.api.system.usermanager.delete.assert_called_once_with(
-            username=name,
+            username=name+'@itsyouonline',
         )
-        openvcloud.get.assert_called_once_with(data['openvcloud'])
+        openvcloud.get.assert_called_once_with(connection_name)
 
     @mock.patch.object(j.clients, '_openvcloud')
     def test_set_groups(self, openvcloud):
@@ -152,15 +153,27 @@ class TestVdcUser(TestCase):
             'name': name,
         }
         instance = self.type('vdcuser1', None, data)
-
         with self.assertRaises(StateCheckError):
             instance.groups_set([])
 
+        connection_name = 'be-gen'
+        def find(template_uid, name):
+            self.assertEqual(template_uid, self.type.OVC_TEMPLATE)
+            self.assertEqual(name, data['openvcloud'])    
+            task_mock = MagicMock(result=connection_name)
+            proxy = MagicMock(schedule_action=MagicMock(return_value=task_mock))
+            return [proxy]
+
         client = openvcloud.get.return_value
-        # user exists
         client.api.system.usermanager.userexists.return_value = True
         instance.state.set('actions', 'install', 'ok')
-        instance.groups_set([])  # not changing the groups
+
+        with mock.patch.object(instance, 'api') as api:
+            api.services.find.side_effect = find
+
+
+            # user exists
+            instance.groups_set([])  # not changing the groups
 
         client.api.system.usermanager.editUser.assert_not_called()
 
@@ -170,8 +183,8 @@ class TestVdcUser(TestCase):
         instance.groups_set(groups)
 
         client.api.system.usermanager.editUser.assert_called_once_with(
-            username=name,
+            username=name+'@itsyouonline',
             groups=groups,
-            provider='',
+            provider='itsyouonline',
             emails=[data['email']]
         )

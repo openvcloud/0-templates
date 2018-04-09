@@ -28,7 +28,7 @@ class Vdc(TemplateBase):
             raise ValueError('vdc name is required')
 
         if not self.data['account']:
-            raise ValueError('account is required')
+            raise ValueError('account service name is required')
 
     def _get_proxy(self, template_uid, service_name):
         '''
@@ -334,19 +334,19 @@ class Vdc(TemplateBase):
         self.state.check('actions', 'install', 'ok')
 
         if not self.data['create']:
-            raise RuntimeError('readonly account')
+            raise RuntimeError('readonly cloudspace')
 
         self.state.check('actions', 'install', 'ok')
         
         # fetch user name from the vdcuser service
         username = self._fetch_user_name(vdcuser)
 
-        # get user access on the account
+        # get user access on the cloudspace
         users = self.get_users()
 
         for user in users:
             if username == user['name']:
-                if self.account.unauthorize_user(username=user['name']) == True:
+                if self.space.unauthorize_user(username=user['name']) == True:
                     self.data['users'].remove(user)
                     break
                 raise RuntimeError('failed to remove user "%s"' % username)
