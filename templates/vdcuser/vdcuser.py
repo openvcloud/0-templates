@@ -39,8 +39,8 @@ class Vdcuser(TemplateBase):
         '''
         if not self._ovc_instance:
             # get ovc instance name
-            self._ovc_proxy = self._get_proxy(self.OVC_TEMPLATE, self.data['openvcloud'])
-            task = self._ovc_proxy.schedule_action('get_name')
+            proxy = self._get_proxy(self.OVC_TEMPLATE, self.data['openvcloud'])
+            task = proxy.schedule_action('get_name')
             task.wait()
             self._ovc_instance = task.result
         return j.clients.openvcloud.get(self._ovc_instance)
@@ -73,19 +73,19 @@ class Vdcuser(TemplateBase):
 
         # create user if it doesn't exists
         username = self._get_fqid()
-        password = self.data['password']
+        #password = self.data['password']
         email = self.data['email']
 
         provider = self.data.get('provider')
-        password = password if not provider else \
-            j.data.idgenerator.generatePasswd(8, '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
+        #password = password if not provider else \
+        #    j.data.idgenerator.generatePasswd(8, '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
 
         client = self.ovc
         if not client.api.system.usermanager.userexists(name=username):
             groups = self.data['groups']
             client.api.system.usermanager.create(
-                username=username,
-                password=password,
+                username=self.data['name'],
+            #    password=password,
                 groups=groups,
                 emails=[email],
                 domain='',
@@ -100,7 +100,7 @@ class Vdcuser(TemplateBase):
         """      
         client = self.ovc
         try:
-            username = self.get_fqid()
+            username = self._get_fqid()
         except StateCheckError:
             # skip uninstall as install was not run before
             return
