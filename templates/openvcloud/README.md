@@ -11,7 +11,7 @@ This template is responsible for configuring an OpenvCloud(OVC) connection.
 - `token`: Itsyou.online JWT token. **Required**.
 - `location`: environment to connect to. **Required**.
 - `port`: API port. Default to 443.
-- `description`: Arbitrary description of the account. **Optional**.
+- `description`: Arbitrary description. **Optional**.
 
 ## Actions
 
@@ -37,7 +37,7 @@ ovc = robot.services.create(
 )
 ovc.schedule_action('install')
 ovc.schedule_action('update', {'address': 'new_address.demo.com'})
-ovc.schedule_action('install')
+ovc.schedule_action('uninstall')
 ```
 
 ## Usage examples via the 0-robot CLI

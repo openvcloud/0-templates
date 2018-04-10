@@ -2,7 +2,7 @@
 
 ## Description
 
-This template manages VDC (Virtual Data Center) on the specified environment. If VDC with given name doesn't exist, it will be created. Service of type `vdc` depends on the services of types [`ovc`](../ovc) and [`account`](../account).
+This template manages VDC (Virtual Data Center) on the specified environment. If VDC with given name doesn't exist, it will be created. Service of type `vdc` depends on the services of types [`ovc`](../openvcloud) and [`account`](../account).
 
 ## Schema
 
@@ -113,66 +113,66 @@ services:
         name: ovc_space_name
         account: account
 actions:
-      actions: ['install']
+      - actions: ['install']
 ```
 
 ```yaml
 actions:
-  - temlate: github.com/openvcloud/0-templates/vdcuser/0.0.1
-    service: space
-    actions: ['update']
-    args:
-      maxMemoryCapacity: 5
-      maxCPUCapacity: 1
-      maxVDiskCapacity: 20
-      maxNumPublicIP: 1
-      externalNetworkID: -1
-      maxNetworkPeerTransfer: 10
+    - template: github.com/openvcloud/0-templates/vdcuser/0.0.1
+      service: space
+      actions: ['update']
+      args:
+        maxMemoryCapacity: 5
+        maxCPUCapacity: 1
+        maxVDiskCapacity: 20
+        maxNumPublicIP: 1
+        externalNetworkID: -1
+        maxNetworkPeerTransfer: 10
 ```
 
 ```yaml
 actions:
-  - template: temlate: github.com/openvcloud/0-templates/vdcuser/0.0.1
-    service: space
-    actions: ['uninstall']
+    - template: github.com/openvcloud/0-templates/vdcuser/0.0.1
+      service: space
+      actions: ['uninstall']
 ```
 
 ```yaml
 actions:
-  - temlate: github.com/openvcloud/0-templates/vdcuser/0.0.1
-    service: space
-    actions: ['disable']
+    - temlate: github.com/openvcloud/0-templates/vdcuser/0.0.1
+      service: space
+      actions: ['disable']
 ```
 
 ```yaml
 actions:
-  - temlate: github.com/openvcloud/0-templates/vdcuser/0.0.1
-    service: space
-    actions: ['enable']
+    - temlate: github.com/openvcloud/0-templates/vdcuser/0.0.1
+      service: space
+      actions: ['enable']
 ```
 
 ```yaml
 actions:
-  - temlate: github.com/openvcloud/0-templates/vdcuser/0.0.1
-    service: space
-    actions: ['portforward_create']
-    args:
-      machineId: 2342
-      port_forwards:
-        - destination: <local port>
-          source: <public port>
+    - temlate: github.com/openvcloud/0-templates/vdcuser/0.0.1
+      service: space
+      actions: ['portforward_create']
+      args:
+        machineId: 2342
+        port_forwards:
+          - destination: <local port>
+            source: <public port>
 ```
 
 ```yaml
 actions:
-  - temlate: github.com/openvcloud/0-templates/vdcuser/0.0.1
-    service: space
-    actions: ['portforward_delete']
-    args:
-      machineId: 2342
-      port_forwards:
-        - destination: <local port>
-          source: <public port>
+    - temlate: github.com/openvcloud/0-templates/vdcuser/0.0.1
+      service: space
+      actions: ['portforward_delete']
+      args:
+        machineId: 2342
+        port_forwards:
+          - destination: <local port>
+            source: <public port>
 ```
 
 Authorizing/unauthorizing/updating rights is only supported for users managed by services of type `vdcuser`.
@@ -186,19 +186,19 @@ services:
         provider: itsyouonline
         email: admin@greenitglobe.com
 actions:
-  - temlate: github.com/openvcloud/0-templates/vdcuser/0.0.1
-    service: space
-    actions: ['user_add']
-     args:
-        vdcuser: admin
-        accesstype: R
+    - temlate: github.com/openvcloud/0-templates/vdcuser/0.0.1
+      service: space
+      actions: ['user_add']
+      args:
+          vdcuser: admin
+          accesstype: R
 ```
 
 ```yaml
 actions:
-  - temlate: github.com/openvcloud/0-templates/vdcuser/0.0.1
-    service: space
-    actions: ['user_delete']
-    args:
-      username: admin
+    - temlate: github.com/openvcloud/0-templates/vdcuser/0.0.1
+      service: space
+      actions: ['user_delete']
+      args:
+        username: admin
 ```

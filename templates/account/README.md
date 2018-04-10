@@ -131,7 +131,7 @@ actions:
     - service: account-service
       actions: ['user_delete']
       args:
-        username: testuser
+        vdcuser: admin
 ```
 
 ```yaml

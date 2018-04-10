@@ -2,13 +2,12 @@
 
 ## Description
 
-This template represents a user on an environment. If the user doesn't exist it will be created. Service of type `vdcuser` depends on a service of type [`ovc`](../ovc).
+This template represents a user on an environment. If the user doesn't exist it will be created. Service of type `vdcuser` depends on a service of type [`ovc`](../openvcloud).
 
 ## Schema
 
 - `name`: name of the vdc user on OpenVCloud. **Required**.
 - `openvcloud`: Name of the [openvcloud](../openvcloud) instance used to connect to the environment. **Required**.
-[comment]: - password: Password of the user. (optional) if an Oauth provider is set.
 - `email`: Email of the user. **Required**.
 - `provider`: Oauth provider. Currently: itsyou.online
 - `groups`: Groups that the user will belong to.

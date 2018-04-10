@@ -88,8 +88,10 @@ services:
         address: 'ovc.demo.greenitglobe.com'
         token: '<iyo jwt token>'
     - github.com/openvcloud/0-templates/account/0.0.1__myaccount:
+        name: my_account_name
         openvcloud: myovc
     - github.com/openvcloud/0-templates/vdc/0.0.1__myspace:
+        name: my_space_name
         account: myaccount
     - github.com/openvcloud/0-templates/disk/0.0.1__mydisk:
         vdc: myspace

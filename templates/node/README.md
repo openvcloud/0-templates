@@ -8,15 +8,15 @@ The template is responsible for managing a virtual machine (VM) on the OpenvClou
 
 - `name`: name of the VM, unique in given vdc. **Required**.
 - `vdc`: name of Virtual Data Center (VDC) where the VM belongs. **Required**.
-- `sshKey`: name of ssh-key used to secure ssh connection to the VM. **Required**.
+- `sshKey`: name of ssh-key service that manages ssh-key used to secure ssh connection to the VM. **Required**.
 - `sizeId`: denotes type of VM, this size impact the number of CPU and memory available for the vm. Default to 1.
 - `osImage`: OS image to use for the VM. Default to 'Ubuntu 16.04'.
-- `bootdiskSize`: boot disk size in GB. Default t0 10.
+- `bootdiskSize`: boot disk size in GB. Default to 10.
 - `dataDiskSize`: size of data disk in GB. Default to 10.
 - `dataDiskMountpoint`: data disk mount point. Default to `/var`.
 - `dataDiskFilesystem`: file system of the data disk, supports: `xfs`, `ext2`, `ext3`, `ext4`. **Optional**.
 - `description`: arbitrary description of the VM. **Optional**.
-- `ports`: list of port forwards of the VM. Ports can be configured with actions `portforward_create`, `portforward_delete`. **Filled in automatically, don't specify it in the blueprint**.
+- `ports`: list of port forwards of the VM. **Filled in automatically, don't specify it in the blueprint**.
 - `vCpus`: number of CPUs in the VM. **Filled in automatically, don't specify it in the blueprint**.
 - `memSize`: memory size in the VM **Filled in automatically, don't specify it in the blueprint**.
 - `machineId`: unique identifier of the VM. **Filled in automatically, don't specify it in the blueprint**.
@@ -206,21 +206,22 @@ actions:
 
 ``` yaml
 actions:
-  - template: github.com/openvcloud/0-templates/node/0.0.1
-    service: mynode
-    actions: ['snapshot_rollback']
-    args:
+    - template: github.com/openvcloud/0-templates/node/0.0.1
+      service: mynode
+      actions: ['snapshot_rollback']
+      args:
         snapshot_epoch: <epoch>
 ```
 
 ``` yaml
-- template: github.com/openvcloud/0-templates/node/0.0.1
-  service: mynode
-  actions: ['portforward_create']
-  args:
-    ports:
-        - source: <public port>
-          destination: <local port>
+actions:
+    - template: github.com/openvcloud/0-templates/node/0.0.1
+      service: mynode
+      actions: ['portforward_create']
+      args:
+        ports:
+            - source: <public port>
+              destination: <local port>
 ```
 
 ``` yaml
