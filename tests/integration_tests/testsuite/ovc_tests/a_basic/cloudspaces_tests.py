@@ -119,14 +119,13 @@ class BasicTests(OVC_BaseTest):
                                       }
         self.log("Create cloudspace with %s limitations , should %s."%(type, "succeed" if factor == 1 else "fail"))
         res = self.create_cs(accounts=self.accounts, cloudspaces=self.cloudspaces, temp_actions=self.temp_actions)
-        self.wait_for_service_action_status(self.cs1, res[self.cs1]['install'])
+        result = self.wait_for_service_action_status(self.cs1, res[self.cs1]['install'])
         time.sleep(2)
         cloudspace = self.get_cloudspace(self.cs1)
         if type == "Negative values":
-            self.assertFalse(cloudspace)
+            self.assertIn('resource limit should be a positive number or -1 (unlimited)', result)
         else:
             self.assertTrue(cloudspace)
-
             self.log('Check that the cloudspaces have been created with right limitaions')
             self.assertEqual(cloudspace['status'], 'DEPLOYED')
             self.assertEqual(cloudspace['resourceLimits']['CU_D'], CU_D)
@@ -332,7 +331,40 @@ class CloudspaceActions(OVC_BaseTest):
         time.sleep(4)
         pf_list = self.get_portforward_list(self.cs1, vm_name)
         self.assertNotIn(public_port, [int(x["publicPort"]) for x in pf_list]) 
-    
+
+    @unittest.skip("https://github.com/openvcloud/0-templates/issues/97")
+    def test005_add_and_delete_non_exist_user_to_cloudspace(self):
+        """ ZRT-OVC-010
+        *Test case for adding and deleting non-existing user to cloudspace *
+
+        **Test Scenario:**
+
+        #. Create a cloudspace[CS1], should succeed. 
+        #. Add non-existing user to cloudspace[CS1] , should fail.
+        #. Delete non-existing user from cloudspace[CS1], should fail.
+        """
+
+        self.log('%s STARTED' % self._testID)
+
+        self.log('Add non-existing user to cloudspace[CS1] , should fail.')
+        fake_user = self.random_string()
+        temp_actions = {'vdc': {'actions': ['user_add'], 'service': self.cs1, 
+                                'args': {'user': {'name': '%s@itsyouonline' % fake_user, 'accesstype': 'R'}}}}
+        res = self.create_cs(accounts=self.accounts, cloudspaces=self.cloudspaces, temp_actions=temp_actions)
+        result = self.wait_for_service_action_status(self.cs1, res[self.cs1]['user_add'])
+        self.assertTrue(result)
+        self.assertIn('no vdcuser service found with name "%s"'%fake_user, result)
+
+        self.log("Delete User [U1] from cloudspace, should succeed.")
+        temp_actions = {'vdc': {'actions': ['user_delete'], 'service': self.cs1, 
+                                'args': {'username':  '%s@itsyouonline' % fake_user}}}
+        res = self.create_cs(accounts=self.accounts, cloudspaces=self.cloudspaces, temp_actions=temp_actions)
+        result = self.wait_for_service_action_status(self.cs1, res[self.cs1]['user_delete'])
+        self.assertTrue(result)
+        self.assertIn('no vdcuser service found with name "%s"'%fake_user, result)
+
+        self.log('%s ENDED' % self._testID)
+
     @classmethod
     def tearDownClass(cls):
         self = cls()
