@@ -20,7 +20,8 @@ class TestAccount(TestCase):
 
         # define properties of account mock
         acc_mock =  MagicMock(model={'acl': []})
-        self.ovc_mock = MagicMock(account_get=MagicMock(return_value=acc_mock))      
+        self.ovc_mock = MagicMock(account_get=MagicMock(return_value=acc_mock),
+                                  accounts={})      
 
     def test_validate_openvcloud(self):
         data = {
@@ -182,12 +183,22 @@ class TestAccount(TestCase):
             'name': 'test_account',
             }
 
+        # if account doesn't exist on ovc do nothing
         account = ovc.get.return_value.account_get.return_value
         instance = self.type('test', None, data)
         with mock.patch.object(instance, 'api') as api:
             api.services.find.return_value = [MagicMock()]        
             instance.uninstall()
-        account.delete.assert_called_once_with()     
+        account.delete.assert_not_called()
+
+        # successful delete
+        account = ovc.get.return_value.account_get.return_value
+        instance = self.type('test', None, data)
+        with mock.patch.object(instance, 'api') as api:
+            api.services.find.return_value = [MagicMock()]
+            ovc.get.return_value.accounts = [MagicMock(model={'name': data['name']})]
+            instance.uninstall()
+        account.delete.assert_called_once_with()       
 
     @mock.patch.object(j.clients, '_openvcloud')
     def test_update(self, openvcloud):

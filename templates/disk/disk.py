@@ -197,6 +197,12 @@ class Disk(TemplateBase):
             raise RuntimeError('found %d services with name "%s", required exactly one' % (len(matches), service_name))
         return matches[0]
 
+    def get_space(self):
+        '''
+        Return vdc service name where disk belongs to
+        '''
+        return self.data['vdc']
+
     @property
     def ovc(self):
         """

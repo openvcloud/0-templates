@@ -6,7 +6,7 @@ This template is responsible for creating an account on a openVCloud environment
 
 ## Schema
 
-- `name`: Name of the account on OVC **required**
+- `name`: Name of the account on OVC **Required**.
 - `openvcloud`: Name of the [openvcloud](../openvcloud) instance used to connect to the environment.  **Required**.
 - `description`: Arbitrary description of the account. **Optional**.
 - `maxMemoryCapacity`: The limit on the memory capacity that can be used by the account. Default to -1 (unlimited).
@@ -32,8 +32,8 @@ For information about the different access rights, check docs at [openvcloud](ht
 ## Actions
 
 - `install`: creates an account or gets an existent account.
-- `uninstall`: delete an account. All VDCs (Virtual Data Centers) related to this account will be destroyed and uninstall should not be called on those VDC services when uninstalling an account.
-- `user_add`: adds a user to the account or updates access rights. In order to add a user, corresponding [`vdcuser`](#vdc-user) service should be installed.
+- `uninstall`: delete an account and trigger uninstall on all VDCs (Virtual Data Centers) linked to this account.
+- `user_add`: adds a user to the account or updates access rights. In order to add/delete/update a user, corresponding [`vdcuser`](#vdc-user) service should be installed.
 - `user_delete`: deletes a user from the account.
 - `update`: updates the account attributes:
 
