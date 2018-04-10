@@ -187,12 +187,11 @@ class accounts(OVC_BaseTest):
         account = self.get_account(self.acc1)
         self.assertNotIn('%s@itsyouonline' % self.vdcuser,
                          [user['userGroupId'] for user in account['acl']])
-
-
+                         
     @unittest.skip('https://github.com/openvcloud/0-templates/issues/95')
     def test005_account_add_delete_non_existing_user(self):
         """ ZRT-OVC-021
-        *Test case for add and delete  non-existing user from account. *
+        *Test case for adding and deleting  non-existing user from account. *
 
         **Test Scenario:**
 
