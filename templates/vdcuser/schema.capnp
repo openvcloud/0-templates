@@ -6,7 +6,7 @@ struct Schema {
  	name @0 : Text;
 
 	# password of the vdc user
-	password @1 :Text = "rooter";
+	password @1 :Text = "rooter00";
 
 	# email of the vdc user
 	email @2 :Text;

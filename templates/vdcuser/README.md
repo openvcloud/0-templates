@@ -9,8 +9,9 @@ This template represents a user on an environment. If the user doesn't exist it 
 - `name`: name of the vdc user on OpenVCloud. **Required**.
 - `openvcloud`: Name of the [openvcloud](../openvcloud) instance used to connect to the environment. **Required**.
 - `email`: Email of the user. **Required**.
-- `provider`: Oauth provider. Currently: itsyou.online
-- `groups`: Groups that the user will belong to.
+- `provider`: Oauth provider. Default to `itsyouonline`.
+- `groups`: Groups that the user will belong to. **Optional**.
+- `password`: Password of the user. Used only if `provider` is set to an empty string. **Optional**.
 
 ## Actions
 

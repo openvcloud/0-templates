@@ -69,7 +69,7 @@ class TestVdcUser(TestCase):
         name = 'user1'
         data = {
             'openvcloud': 'connection',
-            'password': 'passwd',
+            'password': 'password',
             'email': 'email@test.com',
             'name': name,
         }
@@ -103,6 +103,7 @@ class TestVdcUser(TestCase):
             groups=[],
             emails=[data['email']],
             domain='',
+            password=data['password'],
             provider='itsyouonline',
         )
         openvcloud.get.assert_called_once_with(connection_name)

@@ -73,19 +73,16 @@ class Vdcuser(TemplateBase):
 
         # create user if it doesn't exists
         username = self._get_fqid()
-        #password = self.data['password']
+        provider = self.data['provider']
+        password = self.data['password']
         email = self.data['email']
-
-        provider = self.data.get('provider')
-        #password = password if not provider else \
-        #    j.data.idgenerator.generatePasswd(8, '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
 
         client = self.ovc
         if not client.api.system.usermanager.userexists(name=username):
             groups = self.data['groups']
             client.api.system.usermanager.create(
                 username=self.data['name'],
-            #    password=password,
+                password=password,
                 groups=groups,
                 emails=[email],
                 domain='',
