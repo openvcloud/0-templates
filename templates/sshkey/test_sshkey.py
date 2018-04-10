@@ -19,13 +19,14 @@ class TestSshKey(TestCase):
     def test_create(self, ssh):
         dir = '/tmp'
         passphrase = '123456'
-
+        sshkeyname = 'id_test'
         name = 'test'
-        service = self.type(name, None, {'dir': dir, 'passphrase': passphrase})
+        data = {'name': sshkeyname, 'dir': dir, 'passphrase': passphrase}
+        service = self.type(name, None, data)
         service.validate()
         service.install()
 
-        dir = '%s/%s' % (dir, name)
+        dir = '%s/%s' % (dir, sshkeyname)
         ssh.key_generate.assert_called_once_with(
             dir,
             passphrase=passphrase,
@@ -34,7 +35,7 @@ class TestSshKey(TestCase):
         )
 
         ssh.get.assert_called_once_with(
-            name,
+            sshkeyname,
             create=True,
             data={
                 'path': dir,
@@ -44,15 +45,16 @@ class TestSshKey(TestCase):
 
     @mock.patch.object(j.clients, '_sshkey')
     def test_create_default_dir(self, ssh):
-        dir = '/root/.ssh'
+        dir = '/root/tmp'
         passphrase = '123456'
-
+        sshkeyname = 'id_test'
         name = 'test'
-        service = self.type(name, None, {'passphrase': passphrase})
+        data = {'name': sshkeyname, 'dir': dir, 'passphrase': passphrase}
+        service = self.type(name, None, data)
         service.validate()
         service.install()
 
-        dir = '%s/%s' % (dir, name)
+        dir = '%s/%s' % (dir, sshkeyname)
         ssh.key_generate.assert_called_once_with(
             dir,
             passphrase=passphrase,
@@ -61,7 +63,7 @@ class TestSshKey(TestCase):
         )
 
         ssh.get.assert_called_once_with(
-            name,
+            sshkeyname,
             create=True,
             data={
                 'path': dir,

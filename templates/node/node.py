@@ -24,28 +24,34 @@ class Node(TemplateBase):
         self._machine = None
 
     def validate(self):
+        '''
+        Validate service data received during creation
+        '''
+
+        if not self.data['name']:
+            raise ValueError('VM name is required')
+
         if not self.data['vdc']:
-            raise ValueError('vdc name is required')
+            raise ValueError('vdc service name is required')
 
         if not self.data['sshKey']:
-            raise ValueError('sshKey name is required')
+            raise ValueError('sshKey service name is required')
 
-        matches = self.api.services.find(template_uid=self.VDC_TEMPLATE, name=self.data['vdc'])
-        if len(matches) != 1:
-            raise RuntimeError('found %d vdcs with name "%s"' % (len(matches), self.data['vdc']))
-
-        matches = self.api.services.find(template_uid=self.SSH_TEMPLATE, name=self.data['sshKey'])
-        if len(matches) != 1:
-            raise RuntimeError('found %s ssh keys with name "%s"' % (len(matches), self.data['sshKey']))
-
-    def _get_disk_proxy(self, service_name):
+    def get_name(self):
         '''
-        Get proxy object of the service with name
+        Return name of the VM
         '''
 
-        matches = self.api.services.find(template_uid=self.DISK_TEMPLATE, name=service_name)
+        return self.data['name']
+
+    def _get_proxy(self, template_uid, service_name):
+        '''
+        Get proxy object of the service with name @service_name
+        '''
+
+        matches = self.api.services.find(template_uid=template_uid, name=service_name)
         if len(matches) != 1:
-            raise RuntimeError('found %d disk services with name "%s"' % (len(matches), service_name))
+            raise RuntimeError('found %d services with name "%s", required exactly one' % (len(matches), service_name))
         return matches[0]
 
     @property
@@ -56,33 +62,35 @@ class Node(TemplateBase):
         if self._config is not None:
             return self._config
 
-        config = {
-            'vdc': self.data['vdc'],
-        }
+        config = {}
         # traverse the tree up words so we have all info we need to return, connection and
-        # account
-        matches = self.api.services.find(template_uid=self.VDC_TEMPLATE, name=config['vdc'])
-        if len(matches) != 1:
-            raise RuntimeError('found %d vdcs with name "%s", required exactly one' % (len(matches), config['vdc']))
 
-        vdc = matches[0]
+        # get vdc proxy
+        vdc = self._get_proxy(self.VDC_TEMPLATE, self.data['vdc'])
         self._vdc = vdc
+
+        # get vdc name
+        task = vdc.schedule_action('get_name')
+        task.wait()
+        config['vdc'] = task.result
+
+        # get account service name
         task = vdc.schedule_action('get_account')
         task.wait()
+        account_service = task.result
 
+
+        # get account name
+        account = self._get_proxy(self.ACCOUNT_TEMPLATE, account_service)
+        task = account.schedule_action('get_name')
+        task.wait()
         config['account'] = task.result
 
-        matches = self.api.services.find(template_uid=self.ACCOUNT_TEMPLATE, name=config['account'])
-        if len(matches) != 1:
-            raise RuntimeError('found %s accounts with name "%s", required exactly one' % (len(matches), config['account']))
-
-        account = matches[0]
         # get connection
         task = account.schedule_action('get_openvcloud')
         task.wait()
-
         config['ovc'] = task.result
-
+        
         self._config = config
         return self._config
 
@@ -123,8 +131,8 @@ class Node(TemplateBase):
         '''
 
         if not self._machine:
-            if self.name in self.space.machines:
-                self._machine = self.space.machine_get(name=self.name)
+            if self.data['name'] in self.space.machines:
+                self._machine = self.space.machine_get(name=self.data['name'])
 
         return self._machine
 
@@ -157,10 +165,17 @@ class Node(TemplateBase):
         Create a new machine
         """
         data = self.data
+
+        # get name of sshkey       
+        sshkey_proxy = self._get_proxy(self.SSH_TEMPLATE, self.data['sshKey'])
+        task = sshkey_proxy.schedule_action('get_name')
+        task.wait()
+        sshkey = task.result
+
         self._machine = self.space.machine_get(
             create = True,
-            name=self.name,
-            sshkeyname=data['sshKey'],
+            name=data['name'],
+            sshkeyname=sshkey,
             image=data['osImage'],
             disksize=data['bootDiskSize'],
             datadisks=[data['dataDiskSize']],
@@ -174,7 +189,6 @@ class Node(TemplateBase):
         """
         Configure one boot disk and one data disk when installing a machine.
         """
-        # TODO: add ssh portforward if none
         machine = self.machine
 
         # set defaults for datadisk
@@ -231,14 +245,11 @@ class Node(TemplateBase):
                     device=device, mp_found=mp_found, mp=mount_point
                 ))
 
-            # check if filesystem on the device is correct
-            # _, disk_info, _ = prefab.core.run("blkid '/dev/vdb' -s TYPE")
-
             # check type of the filesystem           
             fs_found = re.search('%s on %s type (.+?) ' % (device, mount_point), disk_info)
             if fs_found == None or fs_found.group(1) != fs_type:
                 raise RuntimeError('VM "{vm}" has volume mounted on {mp} with filesystem "{fs}", should be "{fs_type}"'.format(
-                                    vm=self.name, mp=mount_point, fs=fs_found, fs_type=fs_type))
+                                    vm=self.data['name'], mp=mount_point, fs=fs_found, fs_type=fs_type))
             # if filesystem is correct, install is complete
             return
 
@@ -440,10 +451,7 @@ class Node(TemplateBase):
             return
         # get disk id and type
 
-        proxy = self._get_disk_proxy(disk_service_name)
-        if not proxy:
-            # if service not found, do nothing
-            return
+        proxy = self._get_proxy(self.DISK_TEMPLATE, disk_service_name)
 
         task = proxy.schedule_action(action='get_type')
         disk_type = task.result
@@ -483,10 +491,9 @@ class Node(TemplateBase):
         self.state.check('actions', 'install', 'ok')
 
         # find service in the list of services
-        proxy = self._get_disk_proxy(disk_service_name)
+        proxy = self._get_proxy(self.DISK_TEMPLATE, disk_service_name)
 
-        if proxy:
-            task = proxy.schedule_action('uninstall')
-            task.wait()
-            self.data['disks'].remove(disk_service_name)
+        task = proxy.schedule_action('uninstall')
+        task.wait()
+        self.data['disks'].remove(disk_service_name)
 

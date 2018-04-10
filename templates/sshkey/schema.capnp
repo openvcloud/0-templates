@@ -1,7 +1,12 @@
 @0xc040a794dfa9e862;
 
 struct Schema {
-    dir @0 :Text = "/root/.ssh";
+    # name of sshkey
+    name @0 :Text;
 
-    passphrase @1 :Text;
+    # directory of the sshkey
+    dir @1 :Text = "/root/.ssh";
+
+    # passphrase of the sshkey
+    passphrase @2 :Text;
 }

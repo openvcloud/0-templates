@@ -20,13 +20,32 @@ class Vdc(TemplateBase):
         self._space = None
 
     def validate(self):
-        if not self.data['account']:
-            raise ValueError('account is required')
+        '''
+        Validate service data received during creation
+        '''
+        
+        if not self.data['name']:
+            raise ValueError('vdc name is required')
 
-        # validate accounts
-        accounts = self.api.services.find(template_uid=self.ACCOUNT_TEMPLATE, name=self.data['account'])
-        if len(accounts) != 1:
-            raise RuntimeError('found %s accounts, requires exactly one' % len(accounts))
+        if not self.data['account']:
+            raise ValueError('account service name is required')
+
+    def _get_proxy(self, template_uid, service_name):
+        '''
+        Get proxy object of the service with name @service_name
+        '''
+
+        matches = self.api.services.find(template_uid=template_uid, name=service_name)
+        if len(matches) != 1:
+            raise RuntimeError('found %d services with name "%s", required exactly one' % (len(matches), service_name))
+        return matches[0]
+
+    def get_name(self):
+        '''
+        Return vdc name
+        '''
+
+        return self.data['name']
 
     @property
     def ovc(self):
@@ -57,7 +76,14 @@ class Vdc(TemplateBase):
             return self._account
         ovc = self.ovc
 
-        self._account = ovc.account_get(self.data['account'], create=False)
+        proxy =self._get_proxy(self.ACCOUNT_TEMPLATE, self.data['account']) 
+
+        # get actual account name
+        task = proxy.schedule_action('get_name')
+        task.wait()
+        account_name = task.result
+
+        self._account = ovc.account_get(account_name, create=False)
         return self._account
 
     def get_account(self):
@@ -72,7 +98,7 @@ class Vdc(TemplateBase):
             return self._space
 
         acc = self.account
-        self._space = acc.space_get(name=self.name, create=False)
+        self._space = acc.space_get(name=self.data['name'], create=False)
         return self._space
 
     def get_users(self, refresh=True):
@@ -112,7 +138,7 @@ class Vdc(TemplateBase):
         if externalnetworkId == -1:
             externalnetworkId = None
         self._space = acc.space_get(
-            name=self.name,
+            name=self.data['name'],
             create=True,
             maxMemoryCapacity=self.data.get('maxMemoryCapacity', -1),
             maxVDiskCapacity=self.data.get('maxVDiskCapacity', -1),
@@ -165,12 +191,12 @@ class Vdc(TemplateBase):
         self.state.check('actions', 'install', 'ok')
 
         if not self.data['create']:
-            raise RuntimeError('"%s" is readonly cloudspace' % self.name)
+            raise RuntimeError('"%s" is readonly cloudspace' % self.data['name'])
 
         # Get space, raise error if not found
         self.state.check('actions', 'install', 'ok')
         space = self.account.space_get(
-            name=self.name,
+            name=self.data['name'],
             create=False
         )
 
@@ -189,7 +215,7 @@ class Vdc(TemplateBase):
         # Get space, raise error if not found
         self.state.check('actions', 'install', 'ok')
         space = self.account.space_get(
-            name=self.name,
+            name=self.data['name'],
             create=False
         )
 
@@ -242,36 +268,38 @@ class Vdc(TemplateBase):
                         machineId=machineId,
                     )
 
-    def user_add(self, user):
+    def _fetch_user_name(self, service_name):
+        '''
+        Get vdcuser name. Succeed only if vdcuser service is installed.
+        :param service_name: name of the vdc service 
+        '''
+
+        find = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=service_name)
+        if len(find) != 1:
+            raise ValueError('found %s vdcuser services with name "%s", requires exactly 1' % (len(find), service_name))
+
+        vdcuser = find[0]
+        task = vdcuser.schedule_action('get_name')
+        task.wait()
+        return task.result
+
+    def user_authorize(self, vdcuser, accesstype='R'):
         '''
         Add/Update user access to a space
-        :param user: user dictionary {'name': , 'accesstype': }
+        :param vdcuser: reference to the vdc user service
+        :param accesstype: accesstype that will be set for the user
         '''
         self.state.check('actions', 'install', 'ok')
 
         if not self.data['create']:
             raise RuntimeError('readonly cloudspace')
-
-        # check that username is given 
-        if not user.get('name'):
-            raise ValueError("failed to add user, field 'name' is required")
-
-        # derive service name from username
-        service_name = user['name'].split('@')[0]
-
-        find = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=service_name)
-        if len(find) != 1:
-            raise ValueError('no vdcuser service found with name "%s"' % user['name'])
-
-        # check that user was successfully installed
-        find[0].state.check('actions', 'install', 'ok')
         
         # fetch list of authorized users to self.data['users']
-        self.get_users()
-        users = self.data['users']
+        users = self.get_users()
 
-        name = user['name']
-        accesstype = user.get('accesstype')
+        # derive service name from username
+        name = self._fetch_user_name(vdcuser)
+
         for existent_user in users:
             if existent_user['name'] != name:
                 continue
@@ -280,7 +308,7 @@ class Vdc(TemplateBase):
                 # nothing to do here
                 break
 
-            if self.space.update_access(username=name, right=accesstype) == True:
+            if self.space.update_access(username=name, right=accesstype):
                 existent_user['accesstype'] = accesstype
                 break
             # fail to update access type
@@ -288,32 +316,40 @@ class Vdc(TemplateBase):
 
         else:
             # user not found (looped over all users)
-            if self.space.authorize_user(username=name, right=accesstype) == True:
-                users.append(user)
+            if self.space.authorize_user(username=name, right=accesstype):
+                new_user = {
+                    "name": name, 
+                    "accesstype": accesstype
+                    }
+                self.data['users'].append(new_user)
             else:
                 raise RuntimeError('failed to add user "%s"' % name)
 
-    def user_delete(self, username):
+    def user_unauthorize(self, vdcuser):
         '''
         Delete user access
-
-        :param username: user instance name
+        :param vdcuser: service name
         '''
+
         self.state.check('actions', 'install', 'ok')
 
         if not self.data['create']:
             raise RuntimeError('readonly cloudspace')
 
-        # fetch list of authorized users to self.data['users']
-        self.get_users()
-        users = self.data['users']
+        self.state.check('actions', 'install', 'ok')
+        
+        # fetch user name from the vdcuser service
+        username = self._fetch_user_name(vdcuser)
+
+        # get user access on the cloudspace
+        users = self.get_users()
+
         for user in users:
             if username == user['name']:
                 if self.space.unauthorize_user(username=user['name']):
-                    users.remove(user)
+                    self.data['users'].remove(user)
                     break
-                else:
-                    raise RuntimeError('failed to delete user "%s"' % username)
+                raise RuntimeError('failed to remove user "%s"' % username)
 
     def update(self, maxMemoryCapacity=None, maxVDiskCapacity=None, maxNumPublicIP=None,
                maxCPUCapacity=None, maxNetworkPeerTransfer=None):
@@ -336,7 +372,7 @@ class Vdc(TemplateBase):
 
         self.state.check('actions', 'install', 'ok')
         space = self.account.space_get(
-            name=self.name,
+            name=self.data['name'],
             create=False
         )
 

@@ -18,13 +18,15 @@ class Sshkey(TemplateBase):
         Implements 0-Robot validate
         Validates the sshkey service
         '''
-        # validate dir
-        if 'dir' not in self.data:
-            raise ValueError('dir is required')
+
+        # validate sshkey name
+        if not self.data['name']:
+            raise ValueError('name is required')
 
         # validate passphrase
-        if 'passphrase' not in self.data:
+        if not self.data['passphrase']:
             raise ValueError('passphrase is required')
+
         if len(self.data['passphrase']) < 5:
             raise ValueError('passphrase must be min of 5 characters')
 
@@ -40,8 +42,9 @@ class Sshkey(TemplateBase):
 
         dir = self.data['dir']
         passphrase = self.data['passphrase']
+        name = self.data['name']
 
-        path = j.sal.fs.joinPaths(dir, self.name)
+        path = j.sal.fs.joinPaths(dir, name)
         if not j.sal.fs.exists(path):
             j.clients.sshkey.key_generate(path, passphrase=passphrase, overwrite=True, returnObj=False)
         else:
@@ -65,12 +68,19 @@ class Sshkey(TemplateBase):
         """
         returns an SSHKey instance of provided key in provided path
         """
-        path = j.sal.fs.joinPaths(self.data['dir'], self.name)
+        path = j.sal.fs.joinPaths(self.data['dir'], self.data['name'])
         return j.clients.sshkey.get(
-            self.name,
+            self.data['name'],
             create=True,
             data={
                 'path': path,
                 'passphrase_': self.data['passphrase'],
             },
         )
+
+    def get_name(self):
+        '''
+        Return key name
+        '''
+
+        return self.data['name']

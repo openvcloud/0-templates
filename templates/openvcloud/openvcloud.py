@@ -1,6 +1,6 @@
 from js9 import j
 from zerorobot.template.base import TemplateBase
-
+from zerorobot.template.state import StateCheckError
 
 class Openvcloud(TemplateBase):
 
@@ -10,17 +10,23 @@ class Openvcloud(TemplateBase):
     def __init__(self, name, guid=None, data=None):
         super().__init__(name=name, guid=guid, data=data)
 
-        self._validate_data()
-        self._configure()
 
-    def _validate_data(self):
-        for key in ['address', 'token', 'location']:
+    def validate(self):
+        for key in ['name', 'address', 'token', 'location']:
             if not self.data[key]:
                 raise ValueError('%s is required' % key)
 
+    def get_name(self):
+        '''
+        Return name of ovc connection if successfully installed
+        '''
+
+        self.state.check('actions', 'install', 'ok')
+        return self.data['name']
+
     def _configure(self):
         ovc = j.clients.openvcloud.get(
-            self.name,
+            self.data['name'],
             {
                 'address': self.data['address'],
                 'jwt_': self.data['token'],
@@ -30,10 +36,37 @@ class Openvcloud(TemplateBase):
             create=True
         )
 
-        # No, the create flag is not enough, we need to save
+        # save config
         ovc.config.save()
 
-    def update(self, address=None, login=None, token=None, port=None):
+
+    def install(self):
+        '''
+        Configure ovc connection
+        '''
+        try:
+            self.state.check('actions', 'install', 'ok')
+            return
+        except StateCheckError:
+            pass
+
+        self._configure()
+        self.state.set('actions', 'install', 'ok')
+
+    def uninstall(self):
+        '''
+        Delete ovc connection from config manager on zrobot machine
+        '''
+
+        conf_manager = j.tools.configmanager
+        conf_manager.delete(location="j.clients.openvcloud", instance=self.data['name'])
+        self.state.delete('actions', 'install')
+
+    def update(self, address=None, token=None, port=None):
+        '''
+        Update data and reconfigure ovc connection
+        '''
+        self.state.check('actions', 'install', 'ok')
         kwargs = locals()
 
         for key in ['address', 'token', 'port']:
@@ -42,8 +75,3 @@ class Openvcloud(TemplateBase):
                 self.data[key] = value
 
         self._configure()
-
-    def install(self):
-        # we do nothing in install, but we add it to make calling install
-        # on all services easier
-        pass

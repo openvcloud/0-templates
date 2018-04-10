@@ -24,6 +24,7 @@ class TestNode(TestCase):
         )
 
         self.valid_data ={
+            'name': 'nodeName',
             'vdc': 'vdcName', 
             'sshKey': 'keyName'
             }
@@ -43,7 +44,7 @@ class TestNode(TestCase):
         type(self.machine_mock).disks=disks
 
         space_mock = MagicMock(machine_get=MagicMock(return_value=self.machine_mock),
-                                machines={'test':MagicMock(delete=MagicMock())})
+                                machines={'nodeName':MagicMock(delete=MagicMock())})
 
         self.ovc_mock=MagicMock(space_get=MagicMock(return_value=space_mock))
 
@@ -65,8 +66,21 @@ class TestNode(TestCase):
         validate(instance)
         instance.delete()
 
+        # test missing name
+        invalid_data ={
+            'vdc': 'vdcName',
+            'sshKey': 'keyName'
+            }
+
+        instance = self.type(name=name, guid=None, data=invalid_data)
+        with pytest.raises(ValueError,
+                           message='VM name is required'):
+            instance.validate()
+        instance.delete()              
+
         # test missing sshkey service name
         invalid_data ={
+            'name': 'nodeName',
             'vdc': 'vdcName',
             }
 
@@ -90,6 +104,9 @@ class TestNode(TestCase):
         Test fetching config from vdc, account, and ovc services
         '''
         instance = self.type(name='test', data=self.valid_data)
+        vdc_name = 'test_vdc'
+        account_name = 'test_account'
+        ovc_name = 'test_ovc'
         with patch.object(instance, 'api') as api:
             api.services.find.side_effect = [[], [None,None]]
             # test when no vdc service is found
@@ -103,27 +120,29 @@ class TestNode(TestCase):
                 instance.config
 
             # test when no account service is found
-            account_name = 'test_account'
-            task_mock = MagicMock(result=account_name)
-            mock_find_ovc = MagicMock(schedule_action=MagicMock(return_value=task_mock))            
-            api.services.find.side_effect = [ [mock_find_ovc], []]
+            task_mock = MagicMock(result=vdc_name)
+            mock_find_vdc = MagicMock(schedule_action=MagicMock(return_value=task_mock))            
+            api.services.find.side_effect = [ [mock_find_vdc], []]
             with pytest.raises(RuntimeError,
                                message='found 0 accounts with name "%s", required exactly one' % account_name):
                 instance.config
 
             # test when more than 1 account service is found
-            api.services.find.side_effect = [ [mock_find_ovc], [None, None]]
+            api.services.find.side_effect = [ [mock_find_vdc], [None, None]]
             with pytest.raises(RuntimeError,
                                message='found 2 accounts with name "%s", required exactly one' % account_name):
                 instance.config
 
             # test success
-            ovc_name = 'test_ovc'
-            task_mock = MagicMock(result=ovc_name)
-            mock_find_acc = MagicMock(schedule_action=MagicMock(return_value=task_mock))
-            api.services.find.side_effect = [ [mock_find_ovc], [mock_find_acc]]
-            instance.config
 
+            result = mock.PropertyMock()
+            result.side_effect = [account_name, ovc_name]
+            task_mock = MagicMock()
+            type(task_mock).result = result
+
+            mock_find_acc = MagicMock(schedule_action=MagicMock(return_value=task_mock))
+            api.services.find.side_effect = [[mock_find_vdc],[mock_find_acc]]
+            instance.config
             self.assertEqual(instance.config['ovc'], ovc_name)
             self.assertEqual(instance.config['account'], account_name)
 
@@ -141,15 +160,36 @@ class TestNode(TestCase):
 
         # test installing vm
         instance.state.delete('actions', 'install')
+
+        # set names
+        key_name = 'keyName'
+        account_service = 'account_service'
+        account_name = 'account_name'
+        sshkey_name = 'sshkey_name'
+        ovc_name = 'ovc_name'
+
+        # mock finding services
+        def find(template_uid, name):     
+            result_mock = mock.PropertyMock()
+            result_mock.side_effect = [
+                key_name, account_service, account_name,
+                sshkey_name, ovc_name
+                ]
+            task_mock = MagicMock()
+            type(task_mock).result = result_mock 
+            proxy = MagicMock(schedule_action=MagicMock(return_value=task_mock))
+            return [proxy]
+
         with patch.object(instance, 'api') as api:
-            api.services.find.return_value = [MagicMock(schedule_action=MagicMock())]
+            api.services.find.side_effect = find
+
             ovc.get.return_value = self.ovc_mock
 
             # test when device is mounted
-            instance.state.delete('actions', 'install')
             ovc.get.return_value.space_get.return_value.\
                                  machine_get.return_value. \
                                  prefab.core.run.return_value = (None, '/dev/vdb on /var type ext4 ', None)
+
             instance.install()
             ovc.get.return_value.space_get.return_value. \
                                  machine_get.return_value.\
@@ -158,7 +198,7 @@ class TestNode(TestCase):
             # check call to get/create machine
             ovc.get.return_value.space_get.return_value.machine_get.assert_called_once_with(
                 create=True,
-                name=name,
+                name=instance.get_name(),
                 sshkeyname=self.valid_data['sshKey'],
                 sizeId=1,
                 managed_private=False,
@@ -225,7 +265,6 @@ class TestNode(TestCase):
 
             # test uninstall
             ovc.get.return_value = self.ovc_mock
-
             instance.uninstall()
             ovc.get.return_value.space_get.return_value. \
                                  machine_get.return_value.\
@@ -573,7 +612,7 @@ class TestNode(TestCase):
         with patch.object(instance, 'api') as api:
             api.services.find.return_value = [service_mock]
             instance._machine = self.machine_mock
-            # import ipdb; ipdb.set_trace()
+
             instance.disk_detach(disk_service_name=disk_service_name)
             instance.machine.disk_detach.assert_called_with(disk_id)
 

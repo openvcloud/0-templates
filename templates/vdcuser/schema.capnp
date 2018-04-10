@@ -1,9 +1,22 @@
 
-@0x9280ea6bc3fd972a;
+@0xbef315a500acd3d8;
+
 struct Schema {
-	password @0 :Text = "rooter";
-	email @1 :Text;
-	provider @2 :Text;
-	groups @3 :List(Text);
-	openvcloud @4 :Text;
+	# name of the vdc user
+ 	name @0 : Text;
+
+	# password of the vdc user
+	password @1 :Text = "rooter00";
+
+	# email of the vdc user
+	email @2 :Text;
+
+	# provider of the vdc user
+	provider @3 :Text = "itsyouonline";
+
+	# groups of the vdc user
+	groups @4 :List(Text);
+
+	# name of the openvcloud connection
+	openvcloud @5 :Text;
 }
