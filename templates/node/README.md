@@ -27,7 +27,7 @@ The template is responsible for managing a virtual machine (VM) on the OpenvClou
 
 ## Actions
 
-- `install`: install VM. If state of action `install` is not `ok`, a new VM will be created. If machine with the same name already exists, if will be deleted and installed again.
+- `install`: install VM. If state of action `install` is not `ok`, and VM with given `name` doesn't exist a new VM will be created. If VM already exists `install` action will try to bring it to desired state, if not possible, throws an error. Desired state: 1 boot disk of size `bootdiskSize`, one data disk of size `dataDiskSize` with filesystem `ext4` mounted on `/var`.
 - `uninstall`: delete VM.
 - `stop`: stop VM.
 - `start`: start VM.

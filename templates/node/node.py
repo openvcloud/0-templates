@@ -49,6 +49,19 @@ class Node(TemplateBase):
 
         self.state.check('actions', 'install', 'ok') 
         return self.data['machineId']
+        
+    def get_disk_services(self):
+        '''
+        Return service names of the disks attached to the VM
+        '''        
+        
+        return self.data['disks']
+
+    def get_space(self):
+        '''
+        Return vdc service name
+        '''           
+        return self.data['vdc']
 
     def _get_proxy(self, template_uid, service_name):
         """
@@ -283,9 +296,6 @@ class Node(TemplateBase):
         # append service name to the list of attached disks
         self.data['disks'].append(service_name)
 
-    def get_disk_services(self):
-        return self.data['disks']
-
     def _get_prefab(self):
         """ Get prefab """
 
@@ -301,6 +311,11 @@ class Node(TemplateBase):
 
         if self.machine:
             self.machine.delete()
+
+        # uninstall services for disks attached to the vm
+        for disk in self.data['disks']:
+            proxy = self._get_proxy(self.DISK_TEMPLATE, disk)
+            proxy.schedule_action('uninstall')
 
         self._machine = None
 

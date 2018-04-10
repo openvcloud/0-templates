@@ -151,7 +151,6 @@ class TestVDC(TestCase):
 
         instance = self.type('test', None, data)
 
-
         with patch.object(instance, 'api') as api:
             api.services.find.return_value = []
             with pytest.raises(RuntimeError,
