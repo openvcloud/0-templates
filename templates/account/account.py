@@ -168,13 +168,13 @@ class Account(TemplateBase):
             if existent_user['accesstype'] == accesstype:
                 # nothing to do here
                 break
-            if self.account.update_access(username=name, right=accesstype) == True:
+            if self.account.update_access(username=name, right=accesstype):
                 existent_user['accesstype'] = accesstype
                 break
             raise RuntimeError('failed to update access type of user "%s"' % name)
         else:
             # user not found (looped over all users)
-            if self.account.authorize_user(username=name, right=accesstype) == True:
+            if self.account.authorize_user(username=name, right=accesstype):
                 new_user = {
                     "name": name, 
                     "accesstype": accesstype
@@ -204,7 +204,7 @@ class Account(TemplateBase):
 
         for user in users:
             if username == user['name']:
-                if self.account.unauthorize_user(username=user['name']) == True:
+                if self.account.unauthorize_user(username=user['name']):
                     self.data['users'].remove(user)
                     break
                 raise RuntimeError('failed to remove user "%s"' % username)

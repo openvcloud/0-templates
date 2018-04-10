@@ -308,7 +308,7 @@ class Vdc(TemplateBase):
                 # nothing to do here
                 break
 
-            if self.space.update_access(username=name, right=accesstype) == True:
+            if self.space.update_access(username=name, right=accesstype):
                 existent_user['accesstype'] = accesstype
                 break
             # fail to update access type
@@ -316,7 +316,7 @@ class Vdc(TemplateBase):
 
         else:
             # user not found (looped over all users)
-            if self.space.authorize_user(username=name, right=accesstype) == True:
+            if self.space.authorize_user(username=name, right=accesstype):
                 new_user = {
                     "name": name, 
                     "accesstype": accesstype
@@ -346,7 +346,7 @@ class Vdc(TemplateBase):
 
         for user in users:
             if username == user['name']:
-                if self.space.unauthorize_user(username=user['name']) == True:
+                if self.space.unauthorize_user(username=user['name']):
                     self.data['users'].remove(user)
                     break
                 raise RuntimeError('failed to remove user "%s"' % username)

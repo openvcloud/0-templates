@@ -42,7 +42,7 @@ For information about the different access rights, check docs at [openvcloud](ht
   - `maxNumPublicIP`
   - `maxVDiskCapacity`
 
-## Usage examples via the 0-robot DS
+## Usage examples via the 0-robot DSL
 
 ``` python
 from zerorobot.dsl import ZeroRobotAPI
