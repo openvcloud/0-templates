@@ -11,6 +11,7 @@ class Vdc(TemplateBase):
 
     ACCOUNT_TEMPLATE = 'github.com/openvcloud/0-templates/account/0.0.1'
     VDCUSER_TEMPLATE = 'github.com/openvcloud/0-templates/vdcuser/0.0.1'
+    NODE_TEMPLATE = 'github.com/openvcloud/0-templates/node/0.0.1'
 
     def __init__(self, name, guid=None, data=None):
         super().__init__(name=name, guid=guid, data=data)
@@ -222,14 +223,20 @@ class Vdc(TemplateBase):
         space.disable('The space should be disabled.')
         self.data['disabled'] = True
 
-    def portforward_create(self, machineId, port_forwards=[], protocol='tcp'):
+    def portforward_create(self, node_service, port_forwards=[], protocol='tcp'):
         """
         Create port forwards
+        @node_service denotes name of the service managing the vm
         """
         self.state.check('actions', 'install', 'ok')
 
         ovc = self.ovc
         space = self.space
+
+        proxy = self._get_proxy(self.NODE_TEMPLATE, node_service)
+        task = proxy.schedule_action('get_id')
+        task.wait()
+        machineId = task.result
 
         # add portforwards
         for port in port_forwards:
@@ -242,14 +249,21 @@ class Vdc(TemplateBase):
                 machineId=machineId,
                 )
 
-    def portforward_delete(self, machineId, port_forwards=[], protocol='tcp'):
+    def portforward_delete(self, node_service, port_forwards=[], protocol='tcp'):
         """
         Delete port forwards
+        @node_service denotes name of the service managing the vm
         """
         self.state.check('actions', 'install', 'ok')
 
         ovc = self.ovc
         space = self.space
+
+        proxy = self._get_proxy(self.NODE_TEMPLATE, node_service)
+        task = proxy.schedule_action('get_id')
+        task.wait()
+        machineId = task.result
+
         existent_ports = [(port['publicPort'], port['localPort'], port['id'])
                             for port in ovc.api.cloudapi.portforwarding.list(
                                             cloudspaceId=space.id, machineId=machineId,
