@@ -39,10 +39,17 @@ class Node(TemplateBase):
 
     def get_name(self):
         '''
-        Return name of the VM
+        Return VM name
         '''
-
+        self.state.check('action', 'install', 'ok')
         return self.data['name']
+
+    def get_id(self):
+        '''
+        Return VM id
+        '''
+        self.state.check('action', 'install', 'ok')        
+        return self.data['machineId']
 
     def _get_proxy(self, template_uid, service_name):
         '''
@@ -312,7 +319,7 @@ class Node(TemplateBase):
         self.vdc.schedule_action(
             'portforward_create',
             {
-                'machineId': self.machine.id,
+                'node_service': self.name,
                 'port_forwards': ports,
                 'protocol': 'tcp'
             }
@@ -329,7 +336,7 @@ class Node(TemplateBase):
         self.vdc.schedule_action(
             'portforward_delete',
             {
-                'machineId': self.machine.id,
+                'node_service': self.name,
                 'port_forwards': ports,
                 'protocol': 'tcp'
             }
