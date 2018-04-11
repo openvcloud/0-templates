@@ -21,9 +21,9 @@ class Disk(TemplateBase):
         self._space = None
 
     def validate(self):
-        '''
+        """
         Validate service data received during creation
-        '''
+        """
 
         if not self.data['vdc']:
             raise RuntimeError('vdc name should be given')
@@ -57,9 +57,7 @@ class Disk(TemplateBase):
                writeIopsSec=None, totalBytesSecMax=None, readBytesSecMax=None,
                writeBytesSecMax=None, totalIopsSecMax=None, readIopsSecMax=None,
                writeIopsSecMax=None, sizeIopsSec=None):
-        '''
-        Update limits
-        '''
+        """ Update limits """
 
         updated = []
         updated.append(self._update_value('maxIops', maxIops))
@@ -90,11 +88,11 @@ class Disk(TemplateBase):
       
 
     def install(self):
-        '''
+        """
         Install disk.
         If disk @id is present in data: check if disk with id exists and apply limits.
         If disk @id is not given: create new disk with given limits.
-        '''
+        """
 
         try:
             self.state.check('actions', 'install', 'ok')
@@ -117,9 +115,7 @@ class Disk(TemplateBase):
         self.state.set('actions', 'install', 'ok')
 
     def _create(self):
-        '''
-        Create disk
-        '''
+        """ Create disk  """
         data = self.data
         ovc = self.ovc
         account = self.account
@@ -139,9 +135,9 @@ class Disk(TemplateBase):
         self._limit_io()
         
     def uninstall(self):
-        '''
+        """
         Uninstall disk. Delete disk if exists.
-        '''
+        """
         disks = [disk['id'] for disk in self.account.disks]
 
         if self.data['type'] == 'B':
@@ -155,9 +151,9 @@ class Disk(TemplateBase):
 
     @property
     def config(self):
-        '''
-        returns an object with names of vdc, account, and ovc
-        '''
+        """
+        Return an object with names of vdc, account, and ovc
+        """
 
         if self._config is not None:
             return self._config
@@ -189,9 +185,9 @@ class Disk(TemplateBase):
         return self._config
 
     def _get_proxy(self, template_uid, service_name):
-        '''
+        """
         Get proxy object of the service with name @service_name
-        '''
+        """
 
         matches = self.api.services.find(template_uid=template_uid, name=service_name)
         if len(matches) != 1:
@@ -200,9 +196,7 @@ class Disk(TemplateBase):
 
     @property
     def ovc(self):
-        """
-        An ovc connection instance
-        """
+        """ An ovc connection instance """
         
         if self._ovc:
             return self._ovc
@@ -213,9 +207,8 @@ class Disk(TemplateBase):
 
     @property
     def space(self):
-        '''
-        Return vdc client
-        '''
+        """ Return vdc client """
+
         if not self._space:
             self._space = self.ovc.space_get(
                 accountName=self.config['account'],
@@ -247,15 +240,13 @@ class Disk(TemplateBase):
         )
 
     def get_id(self):
-        '''
-        Return id of the disk
-        '''
+        """ Return id of the disk """
+
         self.state.check('actions', 'install', 'ok')
         return self.data['diskId']
 
     def get_type(self):
-        '''
-        Return type of the disk
-        '''
+        """ Return type of the disk """
+        
         self.state.check('actions', 'install', 'ok')
         return self.data['type']        

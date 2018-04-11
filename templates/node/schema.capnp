@@ -31,7 +31,7 @@ struct Schema {
 	vCpus @9 :Int64;
 
 	# Memory in MB
-    memSize @10 :Int64;
+	memSize @10 :Int64;
 
 	# ID of the VM. **Filled in automatically, don't specify it in the blueprint**
 	machineId @11 :Int64 = 0;
@@ -51,6 +51,10 @@ struct Schema {
 
 	# Filesystem of data disk. **Filled in automatically, don't specify it in the blueprint**
 	dataDiskFilesystem @17 :FilesystemType;
+
+	# Mount point of data disk. **Filled in automatically, don't specify it in the blueprint**
+	dataDiskMountpoint @18 :Text = "/var";
+
 	enum FilesystemType{
 		xfs @0;
 		ext2 @1;
@@ -58,7 +62,4 @@ struct Schema {
 		ext4 @3;
 		btrfs @4;
 	}
-
-	# Mount point of data disk. **Filled in automatically, don't specify it in the blueprint**
-	dataDiskMountpoint @18 :Text = "/var";
 }

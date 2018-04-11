@@ -21,9 +21,9 @@ class Vdc(TemplateBase):
         self._space = None
 
     def validate(self):
-        '''
+        """
         Validate service data received during creation
-        '''
+        """
         
         if not self.data['name']:
             raise ValueError('vdc name is required')
@@ -32,18 +32,16 @@ class Vdc(TemplateBase):
             raise ValueError('account service name is required')
 
     def _get_proxy(self, template_uid, service_name):
-        '''
+        """
         Get proxy object of the service with name @service_name
-        '''
+        """
         matches = self.api.services.find(template_uid=template_uid, name=service_name)
         if len(matches) != 1:
             raise RuntimeError('found %d services with name "%s", required exactly one' % (len(matches), service_name))
         return matches[0]
 
     def get_name(self):
-        '''
-        Return vdc name
-        '''
+        """ Return vdc name """
 
         return self.data['name']
 
@@ -66,9 +64,8 @@ class Vdc(TemplateBase):
 
     @property
     def account(self):
-        """
-        An account getter
-        """
+        """ An account getter """
+
         if self._account is not None:
             return self._account
 
@@ -83,13 +80,15 @@ class Vdc(TemplateBase):
         return self._account
 
     def get_account(self):
+        """ Return account service name """
+
+        self.state.check('actions', 'install', 'ok')
         return self.data['account']
 
     @property
     def space(self):
-        """
-        A space getter
-        """
+        """ A space getter """
+
         if self._space:
             return self._space
 
@@ -97,9 +96,9 @@ class Vdc(TemplateBase):
         return self._space
 
     def get_users(self, refresh=True):
-        '''
+        """
         Fetch authorized vdc users
-        '''
+        """
         if refresh:
             self.space.refresh()
         users = []
@@ -109,9 +108,9 @@ class Vdc(TemplateBase):
         return self.data['users']
 
     def install(self):
-        '''
+        """
         Install vdc. Will be created if doesn't exist
-        '''
+        """
 
         try:
             self.state.check('actions', 'install', 'ok')
@@ -169,9 +168,9 @@ class Vdc(TemplateBase):
         self.state.set('actions', 'install', 'ok')
 
     def uninstall(self):
-        '''
+        """
         Delete VDC
-        '''
+        """
         if not self.data['create']:
             raise RuntimeError('readonly cloudspace')
 
@@ -180,9 +179,8 @@ class Vdc(TemplateBase):
         self.state.delete('actions', 'install')
 
     def enable(self):
-        '''
-        Enable VDC
-        '''        
+        """ Enable VDC """
+
         self.state.check('actions', 'install', 'ok')
 
         if not self.data['create']:
@@ -199,9 +197,7 @@ class Vdc(TemplateBase):
         self.data['disabled'] = False
 
     def disable(self):
-        '''
-        Disable VDC
-        '''
+        """ Disable VDC """
 
         self.state.check('actions', 'install', 'ok')
         if not self.data['create']:
@@ -277,10 +273,10 @@ class Vdc(TemplateBase):
                     )
 
     def _fetch_user_name(self, service_name):
-        '''
+        """
         Get vdcuser name. Succeed only if vdcuser service is installed.
         :param service_name: name of the vdc service 
-        '''
+        """
 
         vdcuser = self._get_proxy(self.VDCUSER_TEMPLATE, service_name)
         task = vdcuser.schedule_action('get_name')
@@ -288,11 +284,11 @@ class Vdc(TemplateBase):
         return task.result
 
     def user_authorize(self, vdcuser, accesstype='R'):
-        '''
+        """
         Add/Update user access to a space
         :param vdcuser: reference to the vdc user service
         :param accesstype: accesstype that will be set for the user
-        '''
+        """
         self.state.check('actions', 'install', 'ok')
 
         if not self.data['create']:
@@ -330,10 +326,10 @@ class Vdc(TemplateBase):
                 raise RuntimeError('failed to add user "%s"' % name)
 
     def user_unauthorize(self, vdcuser):
-        '''
+        """
         Delete user access
         :param vdcuser: service name
-        '''
+        """
 
         self.state.check('actions', 'install', 'ok')
 
@@ -357,7 +353,7 @@ class Vdc(TemplateBase):
 
     def update(self, maxMemoryCapacity=None, maxVDiskCapacity=None, maxNumPublicIP=None,
                maxCPUCapacity=None, maxNetworkPeerTransfer=None):
-        '''
+        """
         Update account flags
 
         :param maxMemoryCapacity: The limit on the memory capacity that can be used by the account
@@ -365,7 +361,7 @@ class Vdc(TemplateBase):
         :param maxNumPublicIP: The limit on the number of public IPs that can be used by the account.
         :param maxVDiskCapacity: The limit on the disk capacity that can be used by the account.
         :param maxNetworkPeerTransfer: Cloudspace limits, max sent/received network transfer peering(GB).
-        '''
+        """
 
         self.state.check('actions', 'install', 'ok')
         if not self.data['create']:

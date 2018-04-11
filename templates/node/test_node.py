@@ -100,9 +100,9 @@ class TestNode(TestCase):
         instance.delete()
 
     def test_config(self):
-        '''
+        """
         Test fetching config from vdc, account, and ovc services
-        '''
+        """
         instance = self.type(name='test', data=self.valid_data)
         vdc_name = 'test_vdc'
         account_name = 'test_account'
@@ -276,9 +276,9 @@ class TestNode(TestCase):
             instance.state.check('actions', 'install', 'ok')
 
     def test_start(self):
-        '''
+        """
         Test start action
-        '''
+        """
         instance = self.type(name='test', data=self.valid_data)  
 
         with pytest.raises(StateCheckError):
@@ -293,9 +293,9 @@ class TestNode(TestCase):
 
 
     def test_stop(self):
-        '''
+        """
         Test stop action
-        '''
+        """
         instance = self.type(name='test', data=self.valid_data)  
 
         with pytest.raises(StateCheckError):
@@ -309,9 +309,9 @@ class TestNode(TestCase):
         instance.machine.stop.assert_called_once_with()
 
     def test_restart(self):
-        '''
+        """
         Test restart action
-        '''
+        """
         instance = self.type(name='test', data=self.valid_data)
 
         with pytest.raises(StateCheckError):
@@ -325,9 +325,9 @@ class TestNode(TestCase):
         instance.machine.restart.assert_called_once_with()
 
     def test_pause(self):
-        '''
+        """
         Test pause action
-        '''
+        """
         instance = self.type(name='test', data=self.valid_data)  
 
         with pytest.raises(StateCheckError):
@@ -341,9 +341,9 @@ class TestNode(TestCase):
         instance.machine.pause.assert_called_once_with()
 
     def test_resume(self):
-        '''
+        """
         Test resume action
-        '''
+        """
         instance = self.type(name='test', data=self.valid_data)  
 
         with pytest.raises(StateCheckError):
@@ -357,9 +357,9 @@ class TestNode(TestCase):
         instance.machine.resume.assert_called_once_with()
 
     def test_reset(self):
-        '''
+        """
         Test reset action
-        '''
+        """
         instance = self.type(name='test', data=self.valid_data)  
 
         with pytest.raises(StateCheckError):
@@ -373,9 +373,9 @@ class TestNode(TestCase):
         instance.machine.reset.assert_called_once_with()
 
     def test_snapshot(self):
-        '''
+        """
         Test snapshot action
-        '''
+        """
         instance = self.type(name='test', data=self.valid_data)  
 
         with pytest.raises(StateCheckError):
@@ -389,9 +389,9 @@ class TestNode(TestCase):
         instance.machine.snapshot_create.assert_called_once_with()  
 
     def test_clone(self):
-        '''
+        """
         Test clone action
-        '''
+        """
         instance = self.type(name='test', data=self.valid_data)  
         clone_name = 'test_clone'
 
@@ -411,9 +411,9 @@ class TestNode(TestCase):
         instance.machine.clone.assert_called_once_with(clone_name)
 
     def test_snapshot_rollback(self):
-        '''
+        """
         Test snapshot_rollback action
-        '''
+        """
         instance = self.type(name='test', data=self.valid_data)  
         snapshot_epoch = 'test_epoch'
 
@@ -434,9 +434,9 @@ class TestNode(TestCase):
         instance.machine.snapshot_rollback.assert_called_once_with(snapshot_epoch)            
 
     def test_snapshot_delete(self):
-        '''
+        """
         Test snapshot delete action
-        '''
+        """
         instance = self.type(name='test', data=self.valid_data)  
         snapshot_epoch = 'test_epoch'
 
@@ -458,9 +458,9 @@ class TestNode(TestCase):
 
     @mock.patch.object(j.clients, '_openvcloud')
     def test_disk_add(self, ovc):
-        '''
+        """
         Test add disk
-        '''
+        """
         instance = self.type(name='test', data=self.valid_data)
 
         # test call without arguments
@@ -484,9 +484,9 @@ class TestNode(TestCase):
 
     @mock.patch.object(j.clients, '_openvcloud')
     def test_disk_attach(self, ovc):
-        '''
+        """
         Test attach disk
-        '''
+        """
         instance = self.type(name='test', data=self.valid_data)
         
         # test call without arguments
@@ -515,9 +515,9 @@ class TestNode(TestCase):
 
     @mock.patch.object(j.clients, '_openvcloud')
     def test_disk_detach(self, ovc):
-        '''
+        """
         Test detach disk
-        '''
+        """
         instance = self.type(name='test', data=self.valid_data)
         # test call without arguments
         with pytest.raises(TypeError,

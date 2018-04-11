@@ -17,9 +17,9 @@ class Account(TemplateBase):
         self._ovc_instance = None
 
     def validate(self):
-        '''
+        """
         Validate service data received during creation
-        '''
+        """
         for key in ['name', 'openvcloud']:
             if not self.data[key]:
                 raise ValueError('"%s" is required' % key)
@@ -30,9 +30,9 @@ class Account(TemplateBase):
             raise RuntimeError('found %s openvcloud connections with name "%s", requires exactly 1' % (len(ovcs), self.data['openvcloud']))
 
     def _get_proxy(self, template_uid, service_name):
-        '''
+        """
         Get proxy object of the service of type @template_uid with name @service_name
-        '''
+        """
 
         matches = self.api.services.find(template_uid=template_uid, name=service_name)
         if len(matches) != 1:
@@ -41,9 +41,7 @@ class Account(TemplateBase):
 
     @property
     def ovc(self):
-        '''
-        Get ovc client
-        '''
+        """ Get ovc client """
         if not self._ovc_instance:
             self._ovc_proxy = self._get_proxy(self.OVC_TEMPLATE, self.data['openvcloud'])
             task = self._ovc_proxy.schedule_action('get_name')
@@ -60,17 +58,15 @@ class Account(TemplateBase):
         return self._account
 
     def get_name(self):
-        '''
+        """
         Returns the OVC account name.
         Raises StateCheckError when install was not successfully run before.
-        '''
+        """
         self.state.check('actions', 'install', 'ok')
         return self.data['name']
 
     def get_users(self, refresh=True):
-        '''
-        Fetch authorized vdc users
-        '''
+        """ Fetch authorized vdc users """
         if refresh:
             self.account.refresh()
         users = []
@@ -80,9 +76,7 @@ class Account(TemplateBase):
         return users
 
     def get_openvcloud(self):
-        '''
-        Return name of ovc instance
-        '''
+        """ Return name of ovc instance """
         self.state.check('actions', 'install', 'ok')
         if not self._ovc_instance:
             self.ovc
@@ -90,10 +84,7 @@ class Account(TemplateBase):
         return self._ovc_instance
 
     def install(self):
-        '''
-        Install account
-        '''
-        
+        """ Install account """
         try:
             self.state.check('actions', 'install', 'ok')
         except StateCheckError:
@@ -135,10 +126,10 @@ class Account(TemplateBase):
         self.state.delete('actions', 'install')
 
     def _fetch_user_name(self, service_name):
-        '''
+        """
         Get vdcuser name. Succeed only if vdcuser service is installed.
         :param service_name: name of the vdc service 
-        '''
+        """
 
         find = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=service_name)
         if len(find) != 1:
@@ -150,11 +141,11 @@ class Account(TemplateBase):
         return task.result
 
     def user_authorize(self, vdcuser, accesstype='R'):
-        '''
+        """
         Add/Update user access to an account
         :param vdcuser: reference to the vdc user service
         :param accesstype: accesstype that will be set for the user
-        '''
+        """
         self.state.check('actions', 'install', 'ok')
 
         if not self.data['create']:
@@ -188,10 +179,10 @@ class Account(TemplateBase):
                 raise RuntimeError('failed to add user "%s"' % name)
 
     def user_unauthorize(self, vdcuser):
-        '''
+        """
         Delete user access
         :param vdcuser: service name
-        '''
+        """
 
         self.state.check('actions', 'install', 'ok')
 
@@ -215,14 +206,14 @@ class Account(TemplateBase):
 
     def update(self, maxMemoryCapacity=None, maxVDiskCapacity=None,
                maxNumPublicIP=None, maxCPUCapacity=None):
-        '''
+        """
         Update account flags
 
         :param maxMemoryCapacity: The limit on the memory capacity that can be used by the account
         :param maxVDiskCapacity: The limit on the disk capacity that can be used by the account.
         :param maxNumPublicIP: The limit on the number of public IPs that can be used by the account.
         :param maxCPUCapacity: The limit on the CPUs that can be used by the account.
-        '''
+        """
 
         self.state.check('actions', 'install', 'ok')
 
@@ -233,8 +224,8 @@ class Account(TemplateBase):
         kwargs = locals()
 
         self.state.check('actions', 'install', 'ok')
-        cl = self.ovc
-        account = cl.account_get(name=self.data['name'], create=False)
+
+        account = self.ovc.account_get(name=self.data['name'], create=False)
 
         for key in ['maxMemoryCapacity', 'maxVDiskCapacity',
                     'maxNumPublicIP', 'maxCPUCapacity']:

@@ -109,9 +109,9 @@ class TestVDC(TestCase):
 
     @mock.patch.object(j.clients, '_openvcloud')
     def test_uninstall_success(self, ovc):
-        '''
+        """
         Test uninstall vdc
-        '''
+        """
 
         data = {
             'account': 'test-account',
@@ -127,9 +127,9 @@ class TestVDC(TestCase):
 
     @mock.patch.object(j.clients, '_openvcloud')
     def test_uninstall_fail_read_only_account(self, ovc):
-        '''
+        """
         Test uninstall vdc. Test error in read-only cloudspace
-        '''
+        """
         
         data_read_only = {
             'account': 'test-account',
@@ -142,9 +142,9 @@ class TestVDC(TestCase):
 
     @mock.patch.object(j.clients, '_openvcloud')
     def test_uninstall_fail_no_account(self, ovc):
-        '''
+        """
         Test uninstall vdc if no ovc service was found
-        '''
+        """
 
         data = {
             'account': 'test-account',
@@ -249,9 +249,9 @@ class TestVDC(TestCase):
                     instance.user_authorize(vdcuser, accesstype)
 
     def test_user_update_access_right_success(self):
-        '''
+        """
         Test updating access right of an authorized user
-        '''
+        """
         instance = self.type('test', None)
         instance.state.set('actions', 'install', 'ok')
 
@@ -274,9 +274,9 @@ class TestVDC(TestCase):
                                 [{'name': username, 'accesstype': 'W'}])
 
     def test_user_update_access_right_fail(self):
-        '''
+        """
         Test updating access right of an authorized user
-        '''
+        """
         instance = self.type('test', None)
         instance.state.set('actions', 'install', 'ok')
 
@@ -297,9 +297,9 @@ class TestVDC(TestCase):
 
 
     def test_user_unauthorize(self):
-        '''
+        """
         Test deleting a user
-        '''
+        """
         data = {
             'name': 'vdc_name',
             'account': 'test-account',
@@ -337,9 +337,9 @@ class TestVDC(TestCase):
                     instance.user_unauthorize(vdcuser)
 
     def test_update(self):
-        '''
+        """
         Test updating vdc limits
-        '''
+        """
         instance = self.type('test', None, {})
 
         with self.assertRaises(StateCheckError):
