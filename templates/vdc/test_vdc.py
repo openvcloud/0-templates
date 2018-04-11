@@ -108,21 +108,11 @@ class TestVDC(TestCase):
             space.save.assert_called_once_with()
 
     @mock.patch.object(j.clients, '_openvcloud')
-    def test_uninstall(self, ovc):
+    def test_uninstall_success(self, ovc):
         '''
         Test uninstall vdc
         '''
-        # test error in read-only cloudspace
-        data_read_only = {
-            'account': 'test-account',
-            'create': False,
-            }
-        instance = self.type('test', None, data_read_only)
-        with pytest.raises(RuntimeError,
-                           message='"%s" is readonly cloudspace' % instance.name):
-            instance.uninstall()
 
-        # test success
         data = {
             'account': 'test-account',
             }        
@@ -132,41 +122,73 @@ class TestVDC(TestCase):
             api.services.find.return_value = [MagicMock(schedule_action=MagicMock())]
             instance.uninstall()
             instance.space.delete.assert_called_once_with()
-
-        # test error if no ovc service was found
-        instance = self.type('test', None, data)
-        #instance.space.delete.reset_mock()
-        with patch.object(instance, 'api') as api:
-            api.services.find.return_value = []
-            with pytest.raises(ValueError,
-                               message='found 0 accounts with name "%s", required exactly one' % data['account']):
-                instance.uninstall()      
         with pytest.raises(StateCheckError):
             instance.state.check('actions', 'install', 'ok')
 
-    def test_user_authorize(self):
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_uninstall_fail_read_only_account(self, ovc):
         '''
-        Test authorizing a new user
+        Test uninstall vdc. Test error in read-only cloudspace
         '''
-        instance = self.type('test', None)
         
-        # user to add
-        vdcuser, accesstype, username = 'userTest', 'R', 'user@itsyouonline'
-        users = [{'userGroupId': username, 'right': 'R'}]
-        with pytest.raises(StateCheckError):
-            # fails if not installed
-            instance.user_authorize(vdcuser, accesstype)
+        data_read_only = {
+            'account': 'test-account',
+            'create': False,
+            }
+        instance = self.type('test', None, data_read_only)
+        with pytest.raises(RuntimeError,
+                           message='"%s" is readonly cloudspace' % instance.name):
+            instance.uninstall()
 
-        instance.state.set('actions', 'install', 'ok')
-        with pytest.raises(ValueError,
-                           message='no vdcuser service found with name "%s"' % vdcuser):
-            # fails if no vdcuser service is running for this user
-            instance.user_authorize(vdcuser, accesstype)
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_uninstall_fail_no_account(self, ovc):
+        '''
+        Test uninstall vdc if no ovc service was found
+        '''
+
+        data = {
+            'account': 'test-account',
+            }        
+
+        instance = self.type('test', None, data)
+
 
         with patch.object(instance, 'api') as api:
-            api.services.find.return_value = [MagicMock(schedule_action=MagicMock(
-                return_value=MagicMock(result=username)))]
-            with patch('js9.j.clients.openvcloud.get', return_value=self.ovc_mock) as ovc:               
+            api.services.find.return_value = []
+            with pytest.raises(RuntimeError,
+                               message='found 0 services with name "%s", required exactly one' % data['account']):
+                instance.uninstall()      
+
+    def test_state_check(self):
+        """
+        Test state check
+        """
+        instance = self.type('test', None)
+        with pytest.raises(StateCheckError):
+            # fails if not installed
+            instance.state.check('actions', 'install', 'ok')
+        
+        # success
+        instance.state.set('actions', 'install', 'ok')
+        instance.state.check('actions', 'install', 'ok')
+
+
+    def test_user_authorize_success(self):
+        """
+        Test authorizing a new user
+        """
+
+        instance = self.type('test', None)
+        instance.state.set('actions', 'install', 'ok')
+
+        # user to add
+        vdcuser, accesstype, username = 'test_user', 'R', 'user@itsyouonline'
+
+        with patch.object(instance, 'api') as api:
+            api.services.find.side_effect = [[MagicMock()], [MagicMock()],
+                                              [MagicMock(schedule_action=MagicMock(
+                                                         return_value=MagicMock(result=username)))]]
+            with patch('js9.j.clients.openvcloud.get', return_value=self.ovc_mock) as ovc:
                 
                 # test success
                 ovc.return_value.account_get.return_value.space_get.return_value.authorize_user.return_value=True
@@ -181,6 +203,44 @@ class TestVDC(TestCase):
                     [self.initial_user, {'name': username, 'accesstype': accesstype}]
                     )
 
+    def test_user_authorize_fail_no_vdcuser_service(self):
+        """
+        Test authorizing a new user
+        """
+
+        instance = self.type('test', None)
+        instance.state.set('actions', 'install', 'ok')
+        
+        # user to add
+        vdcuser, accesstype, username = 'test_user', 'R', 'user@itsyouonline'
+        users = [{'userGroupId': username, 'right': 'R'}]
+
+        with patch.object(instance, 'api') as api:
+            api.services.find.side_effect = [[MagicMock()],[MagicMock()], []]
+            with patch('js9.j.clients.openvcloud.get', return_value=self.ovc_mock) as ovc:
+
+                with pytest.raises(RuntimeError,
+                                   message='found 0 services with name "%s", required exactly one' % vdcuser):
+
+                    # fails if no vdcuser service is running for this user
+                    instance.user_authorize(vdcuser, accesstype)
+
+    def test_user_authorize_fail_adding_user(self):
+        """
+        Test authorizing a new user
+        """
+
+        instance = self.type('test', None)
+        instance.state.set('actions', 'install', 'ok')
+
+        # user to add
+        vdcuser, accesstype, username = 'test_user', 'R', 'user@itsyouonline'
+
+        with patch.object(instance, 'api') as api:
+            api.services.find.side_effect = [[MagicMock()], [MagicMock()], 
+                                             [MagicMock(schedule_action=MagicMock(
+                                                        return_value=MagicMock(result=username)))]]
+            with patch('js9.j.clients.openvcloud.get', return_value=self.ovc_mock) as ovc:
                 # test fail
                 ovc.return_value.account_get.return_value.space_get.return_value.authorize_user.return_value=False
                 vdcuser, accesstype = 'userTest2', 'R'
@@ -188,35 +248,53 @@ class TestVDC(TestCase):
                                    message='failed to add user "%s"' % username):
                     instance.user_authorize(vdcuser, accesstype)
 
-    def test_user_update_access_right(self):
+    def test_user_update_access_right_success(self):
         '''
         Test updating access right of an authorized user
         '''
         instance = self.type('test', None)
         instance.state.set('actions', 'install', 'ok')
 
-        vdcuser, accesstype, username = 'userTest', 'R', 'initial_user@itsyouonline'
+        # user to update
+        vdcuser = 'test_user'
+        username = self.initial_user['name']
+        accesstype = 'W'
         #users = [{'userGroupId': username, 'right': accesstype}]
         with patch.object(instance, 'api') as api:
-            api.services.find.return_value = [MagicMock(schedule_action=MagicMock(
-                                                        return_value=MagicMock(result=username)))]
+            api.services.find.side_effect = [[MagicMock()], [MagicMock()], 
+                                             [MagicMock(schedule_action=MagicMock(
+                                                        return_value=MagicMock(result=username)))]]
             with patch('js9.j.clients.openvcloud.get', return_value=self.ovc_mock) as ovc:
-                # new accesstype update
-                vdcuser = 'userTest'
-                accesstype = 'W'
 
                 # test success
                 ovc.return_value.account_get.return_value.space_get.return_value.update_access.return_value=True
                 instance.user_authorize(vdcuser, accesstype)
-                instance.space.update_access.assert_called_once_with(username=self.initial_user['name'], right=accesstype)
+                instance.space.update_access.assert_called_once_with(username=username, right=accesstype)
                 self.assertEqual(instance.data['users'],
                                 [{'name': username, 'accesstype': 'W'}])
 
-                # test fail
+    def test_user_update_access_right_fail(self):
+        '''
+        Test updating access right of an authorized user
+        '''
+        instance = self.type('test', None)
+        instance.state.set('actions', 'install', 'ok')
+
+        # user to update
+        vdcuser = 'test_user'
+        username = self.initial_user['name']
+        accesstype = 'W'
+        #users = [{'userGroupId': username, 'right': accesstype}]
+        with patch.object(instance, 'api') as api:
+            api.services.find.side_effect = [[MagicMock()], [MagicMock()], 
+                                             [MagicMock(schedule_action=MagicMock(
+                                                        return_value=MagicMock(result=username)))]]
+            with patch('js9.j.clients.openvcloud.get', return_value=self.ovc_mock) as ovc:
                 ovc.return_value.account_get.return_value.space_get.return_value.update_access.return_value=False
                 with pytest.raises(RuntimeError,
                                    message='failed to update accesstype of user "test1"'):
                     instance.user_authorize(vdcuser, accesstype)
+
 
     def test_user_unauthorize(self):
         '''

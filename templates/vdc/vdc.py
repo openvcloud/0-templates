@@ -35,7 +35,6 @@ class Vdc(TemplateBase):
         '''
         Get proxy object of the service with name @service_name
         '''
-
         matches = self.api.services.find(template_uid=template_uid, name=service_name)
         if len(matches) != 1:
             raise RuntimeError('found %d services with name "%s", required exactly one' % (len(matches), service_name))
@@ -72,7 +71,6 @@ class Vdc(TemplateBase):
         """
         if self._account is not None:
             return self._account
-        ovc = self.ovc
 
         proxy = self._get_proxy(self.ACCOUNT_TEMPLATE, self.data['account'])
 
@@ -81,7 +79,7 @@ class Vdc(TemplateBase):
         task.wait()
         account_name = task.result
 
-        self._account = ovc.account_get(account_name, create=False)
+        self._account = self.ovc.account_get(account_name, create=False)
         return self._account
 
     def get_account(self):
@@ -95,8 +93,7 @@ class Vdc(TemplateBase):
         if self._space:
             return self._space
 
-        acc = self.account
-        self._space = acc.space_get(name=self.data['name'], create=False)
+        self._space = self.account.space_get(name=self.data['name'], create=False)
         return self._space
 
     def get_users(self, refresh=True):
@@ -285,11 +282,7 @@ class Vdc(TemplateBase):
         :param service_name: name of the vdc service 
         '''
 
-        find = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=service_name)
-        if len(find) != 1:
-            raise ValueError('found %s vdcuser services with name "%s", requires exactly 1' % (len(find), service_name))
-
-        vdcuser = find[0]
+        vdcuser = self._get_proxy(self.VDCUSER_TEMPLATE, service_name)
         task = vdcuser.schedule_action('get_name')
         task.wait()
         return task.result

@@ -213,7 +213,7 @@ services:
 actions:
     - template: github.com/openvcloud/0-templates/vdcuser/0.0.1
       service: space
-      actions: ['user_add']
+      actions: ['user_authorize']
       args:
           vdcuser: admin
           accesstype: R
@@ -223,7 +223,7 @@ actions:
 actions:
     - template: github.com/openvcloud/0-templates/vdcuser/0.0.1
       service: space
-      actions: ['user_delete']
+      actions: ['user_unauthorize']
       args:
         username: admin
 ```
