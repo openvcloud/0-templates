@@ -83,6 +83,10 @@ class Account(TemplateBase):
         '''
         Return name of ovc instance
         '''
+        self.state.check('actions', 'install', 'ok')
+        if not self._ovc_instance:
+            self.ovc
+
         return self._ovc_instance
 
     def install(self):

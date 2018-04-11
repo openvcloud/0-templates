@@ -33,31 +33,24 @@ struct Schema {
 	# Memory in MB
     memSize @10 :Int64;
 
-	# List of port forwards. **Filled in automatically, don't specify it in the blueprint**
-	ports @11 :List(PortForward);
-
-	struct PortForward{
-		source @0 :Text;
-		destination @1 :Text;
-	}
 	# ID of the VM. **Filled in automatically, don't specify it in the blueprint**
-	machineId @12 :Int64 = 0;
+	machineId @11 :Int64 = 0;
 
 	# Public ip of the VM. **Filled in automatically, don't specify it in the blueprint**
-	ipPublic @13 :Text;
+	ipPublic @12 :Text;
 
 	# Private ip of the VM. **Filled in automatically, don't specify it in the blueprint**
-	ipPrivate @14 :Text;
+	ipPrivate @13 :Text;
 
 	# Credentials to create ssh connection to the VM. **Filled in automatically, don't specify it in the blueprint**
-	sshLogin @15 :Text;
-	sshPassword @16 :Text;
+	sshLogin @14 :Text;
+	sshPassword @15 :Text;
 
 	# List of disk instance services to be attached to the VM. **Filled in automatically, don't specify it in the blueprint**
-	disks @17 :List(Text);
+	disks @16 :List(Text);
 
 	# Filesystem of data disk. **Filled in automatically, don't specify it in the blueprint**
-	dataDiskFilesystem @18 :FilesystemType;
+	dataDiskFilesystem @17 :FilesystemType;
 	enum FilesystemType{
 		xfs @0;
 		ext2 @1;
@@ -67,5 +60,5 @@ struct Schema {
 	}
 
 	# Mount point of data disk. **Filled in automatically, don't specify it in the blueprint**
-	dataDiskMountpoint @19 :Text = "/var";
+	dataDiskMountpoint @18 :Text = "/var";
 }

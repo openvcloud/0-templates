@@ -103,7 +103,6 @@ class Disk(TemplateBase):
             pass
 
         self.data['location'] = self.space.model['location']
-
         if self.data['diskId']:
             # if disk is given in data, check if disk exist
             disks = [disk['id'] for disk in self.account.disks]
@@ -159,6 +158,7 @@ class Disk(TemplateBase):
         '''
         returns an object with names of vdc, account, and ovc
         '''
+
         if self._config is not None:
             return self._config
 
@@ -166,11 +166,12 @@ class Disk(TemplateBase):
         # traverse the tree up words so we have all info we need to return, connection and
         # account
 
-        vdc = self._get_proxy(self.VDC_TEMPLATE, self.data['vdc'])
-        task = vdc.schedule_action('get_name')
+        vdc_proxy = self._get_proxy(self.VDC_TEMPLATE, self.data['vdc'])
+        task = vdc_proxy.schedule_action('get_name')
+        task.wait()
         config['vdc'] = task.result
 
-        task = vdc.schedule_action('get_account')
+        task = vdc_proxy.schedule_action('get_account')
         task.wait()
         account_service_name = task.result
 
@@ -212,16 +213,16 @@ class Disk(TemplateBase):
 
     @property
     def space(self):
-        if self._space:
-            return self._space
-            
-        account = self.config['account']
-        vdc = self.config['vdc']
+        '''
+        Return vdc client
+        '''
+        if not self._space:
+            self._space = self.ovc.space_get(
+                accountName=self.config['account'],
+                spaceName=self.config['vdc']
+            )
 
-        return self.ovc.space_get(
-            accountName=account,
-            spaceName=vdc
-        )
+        return self._space
 
     @property
     def account(self):

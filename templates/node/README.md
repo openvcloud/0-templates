@@ -16,7 +16,6 @@ The template is responsible for managing a virtual machine (VM) on the OpenvClou
 - `dataDiskMountpoint`: data disk mount point. Default to `/var`.
 - `dataDiskFilesystem`: file system of the data disk, supports: `xfs`, `ext2`, `ext3`, `ext4`. **Optional**.
 - `description`: arbitrary description of the VM. **Optional**.
-- `ports`: list of port forwards of the VM. **Filled in automatically, don't specify it in the blueprint**.
 - `vCpus`: number of CPUs in the VM. **Filled in automatically, don't specify it in the blueprint**.
 - `memSize`: memory size in the VM **Filled in automatically, don't specify it in the blueprint**.
 - `machineId`: unique identifier of the VM. **Filled in automatically, don't specify it in the blueprint**.
@@ -39,8 +38,6 @@ The template is responsible for managing a virtual machine (VM) on the OpenvClou
 - `snapshot`: create a snapshot of the VM.
 - `snapshot_delete`: delete a snapshot of the VM.
 - `list_snapshots`: return a list of snapshots of the VM.
-- `portforward_create`: create a port forward on the VM.
-- `portforward_delete`: delete a port forward on the VM.
 - `disk_add`: create a new disk on the VM.
 - `disk_attach`: attach disk to the VM.
 - `disk_detach`: detach disk from the VM.
@@ -101,8 +98,6 @@ node.schedule_action('restart')
 node.schedule_action('clone')
 node.schedule_action('snapshot')
 node.schedule_action('snapshot_delete', {'snapshot_epoch': 1522839792})
-node.schedule_action('portforward_create', {'ports':[{'source':22, 'destination':22}]})
-node.schedule_action('portforward_delete', {'ports':[{'source':22, 'destination':22}]})
 node.schedule_action('disk_add', {'name': 'testDisk', 'size': 10})
 node.schedule_action('disk_attach', {'disk_service_name': 'Disk0000'})
 node.schedule_action('disk_detach', {'disk_service_name': 'Disk0000'})
@@ -211,28 +206,6 @@ actions:
       actions: ['snapshot_rollback']
       args:
         snapshot_epoch: <epoch>
-```
-
-``` yaml
-actions:
-    - template: github.com/openvcloud/0-templates/node/0.0.1
-      service: mynode
-      actions: ['portforward_create']
-      args:
-        ports:
-            - source: <public port>
-              destination: <local port>
-```
-
-``` yaml
-actions:
-    - template: github.com/openvcloud/0-templates/node/0.0.1
-      service: mynode
-      actions: ['portforward_delete']
-      args:
-        ports:
-            - source: <public port>
-              destination: <local port>
 ```
 
 ``` yaml

@@ -41,14 +41,16 @@ class Node(TemplateBase):
         '''
         Return VM name
         '''
-        self.state.check('action', 'install', 'ok')
+        
+        self.state.check('actions', 'install', 'ok')
         return self.data['name']
 
     def get_id(self):
         '''
         Return VM id
         '''
-        self.state.check('action', 'install', 'ok')        
+
+        self.state.check('actions', 'install', 'ok') 
         return self.data['machineId']
 
     def _get_proxy(self, template_uid, service_name):
@@ -152,7 +154,6 @@ class Node(TemplateBase):
             return
         except StateCheckError:
             pass
-
         # get new vm
         machine = self._machine_create()
 
@@ -266,7 +267,6 @@ class Node(TemplateBase):
                                        copy=True, append_fstab=True, fs_type=fs_type)
 
         machine.restart()
-
         prefab = self._get_prefab()
         prefab.executor.sshclient.connect()
 
@@ -309,38 +309,6 @@ class Node(TemplateBase):
         self._machine = None
 
         self.state.delete('actions', 'install')
-
-    def portforward_create(self, ports):
-        """ Add portforwards """
-
-        self.state.check('actions', 'install', 'ok')
-
-        # get vdc service
-        self.vdc.schedule_action(
-            'portforward_create',
-            {
-                'node_service': self.name,
-                'port_forwards': ports,
-                'protocol': 'tcp'
-            }
-        )
-
-    def portforward_delete(self, ports):
-        """ Delete portforwards """
-        
-        self.state.check('actions', 'install', 'ok')
-
-        if self.data['managedPrivate']:
-            return
-
-        self.vdc.schedule_action(
-            'portforward_delete',
-            {
-                'node_service': self.name,
-                'port_forwards': ports,
-                'protocol': 'tcp'
-            }
-        )
 
     def start(self):
         """ Start the VM """

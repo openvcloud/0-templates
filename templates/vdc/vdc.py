@@ -56,14 +56,11 @@ class Vdc(TemplateBase):
         if self._ovc is not None:
             return self._ovc
 
-        matches = self.api.services.find(template_uid=self.ACCOUNT_TEMPLATE, name=self.data['account'])
-        if len(matches) != 1:
-            raise ValueError('found %s accounts with name "%s", required exactly one' % (len(matches), self.data['account']))
-
-        instance = matches[0]
+        proxy = self._get_proxy(self.ACCOUNT_TEMPLATE, self.data['account'])
         # get connection
-        task = instance.schedule_action('get_openvcloud')
+        task = proxy.schedule_action('get_openvcloud')
         task.wait()
+
         self._ovc = j.clients.openvcloud.get(task.result)
 
         return self._ovc
@@ -77,7 +74,7 @@ class Vdc(TemplateBase):
             return self._account
         ovc = self.ovc
 
-        proxy =self._get_proxy(self.ACCOUNT_TEMPLATE, self.data['account']) 
+        proxy = self._get_proxy(self.ACCOUNT_TEMPLATE, self.data['account'])
 
         # get actual account name
         task = proxy.schedule_action('get_name')
