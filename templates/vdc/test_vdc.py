@@ -365,3 +365,73 @@ class TestVDC(TestCase):
                 'maxNumPublicIP': 3,
                 'maxCPUCapacity': 4
             })
+
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_portforward_create(self, ovc):
+        '''
+        Test creating portforward
+        '''
+
+        instance = self.type(name='test', None)
+        ports = {'source':22, 'destination':22}
+        machine_id = 1234
+        space_id = 100
+
+        # test call without arguments
+        with pytest.raises(TypeError,
+                           message="portforward_create() missing 1 required positional argument: 'ports'"):
+            instance.portforward_create()
+        
+        # success
+        instance.state.set('actions', 'install', 'ok')
+        with patch.object(instance, 'api') as api:
+            api.services.find.return_value = [MagicMock(schedule_action=MagicMock(
+                schedule_action=MagicMock(return_value=MagicMock(result=machine_id))))]
+            instance._machine = self.machine_mock
+
+            instance.portforward_create(ports)
+            ovc.api.cloudapi.portforwarding.create.assert_called_with(
+                cloudspaceId=space_id,
+                protocol='tcp',
+                localPort=port['destination'],
+                publicPort=port['source'],
+                publicIp=space.ipaddr_pub,
+                machineId=machine_id,            
+
+                'portforward_create', 
+                {'machineId': machineId, 
+                'port_forwards': ports, 
+                'protocol': 'tcp'}
+            )
+
+
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_portforward_delete(self, ovc):
+        '''
+        Test deleting portforward
+        '''
+        instance = self.type(name='test', data=self.valid_data)
+        ports = {'source':22, 'destination':22}
+        
+        # test call without arguments
+        with pytest.raises(TypeError,
+                           message="portforward_create() missing 1 required positional argument: 'ports'"):
+            instance.portforward_delete()
+
+        with pytest.raises(StateCheckError):
+            # fails if not installed
+            instance.portforward_delete(ports)
+        
+        # success
+        instance.state.set('actions', 'install', 'ok')
+        with patch.object(instance, 'api') as api:
+            api.services.find.return_value = [MagicMock(schedule_action=MagicMock())]
+            instance._machine = self.machine_mock
+            test_machine_id = 1
+            instance.portforward_delete(ports)
+            instance.vdc.schedule_action.assert_called_with(
+                'portforward_delete', 
+                {'machineId': test_machine_id,
+                'port_forwards': ports, 
+                'protocol': 'tcp'}
+            )
