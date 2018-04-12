@@ -4,8 +4,6 @@ import os
 from unittest import TestCase
 from unittest import mock
 from unittest.mock import MagicMock, patch
-import pytest
-
 from zerorobot import config, template_collection
 from zerorobot.template.state import StateCheckError
 
@@ -21,9 +19,11 @@ class TestDisk(TestCase):
         self.location = 'be-gen-demo'
         self.disk_id = '1111'
         self.location_gid = 123
+        self.account_name = 'test_account'
         # define properties of space mock
         account_mock = MagicMock(disks=[{'id':self.disk_id}],
-                                 disk_create=MagicMock(return_value=self.disk_id))
+                                 disk_create=MagicMock(return_value=self.disk_id),
+                                 model={'name': self.account_name})
         space_mock = MagicMock(model={'acl': [], 'location':self.location},
                                account=account_mock)
         self.ovc_mock = MagicMock(space_get=MagicMock(return_value=space_mock),
@@ -48,8 +48,7 @@ class TestDisk(TestCase):
         # test fail when data is empty
         invalid_data = {}
         instance = self.type(name=name, data=invalid_data)
-        with pytest.raises(RuntimeError,
-                          message='vdc name should be given'):
+        with self.assertRaisesRegex(RuntimeError, 'vdc name should be given'):
             instance.validate()
 
         # test fail when fault disk type
@@ -58,8 +57,7 @@ class TestDisk(TestCase):
             'type': 'A'
             }
         instance = self.type(name=name, data=invalid_data)
-        with pytest.raises(RuntimeError,
-                          message="diskovc's type must be data (D) or boot (B) only"):
+        with self.assertRaisesRegex(ValueError, "disk type must be data D or boot B only"):
             instance.validate()
         
         # test fail when limits a given incorrectly
@@ -69,8 +67,8 @@ class TestDisk(TestCase):
             'readIopsSec': 1
             }
         instance = self.type(name=name, data=invalid_data)
-        with pytest.raises(RuntimeError,
-                          message="total and read/write of iops_sec cannot be set at the same time"):
+        with self.assertRaisesRegex(RuntimeError, 
+                                    "total and read/write of iops_sec cannot be set at the same time"):
             instance.validate()
         
         invalid_data = {
@@ -79,8 +77,8 @@ class TestDisk(TestCase):
             'writeIopsSec': 1
             }
         instance = self.type(name=name, data=invalid_data)
-        with pytest.raises(RuntimeError,
-                          message="total and read/write of iops_sec cannot be set at the same time"):
+        with self.assertRaisesRegex(RuntimeError,
+                                    "total and read/write of iops_sec cannot be set at the same time"):
             instance.validate()
 
         invalid_data = {
@@ -89,8 +87,8 @@ class TestDisk(TestCase):
             'readBytesSec': 1
             }
         instance = self.type(name=name, data=invalid_data)
-        with pytest.raises(RuntimeError,
-                          message="total and read/write of bytes_sec cannot be set at the same time"):
+        with self.assertRaisesRegex(RuntimeError,
+                                    "total and read/write of bytes_sec cannot be set at the same time"):
             instance.validate()
 
         invalid_data = {
@@ -99,8 +97,8 @@ class TestDisk(TestCase):
             'writeBytesSec': 1
             }
         instance = self.type(name=name, data=invalid_data)
-        with pytest.raises(RuntimeError,
-                          message="total and read/write of bytes_sec cannot be set at the same time"):
+        with self.assertRaisesRegex(RuntimeError,
+                                    "total and read/write of bytes_sec cannot be set at the same time"):
             instance.validate()
 
         invalid_data = {
@@ -109,8 +107,8 @@ class TestDisk(TestCase):
             'readBytesSecMax': 1
             }
         instance = self.type(name=name, data=invalid_data)
-        with pytest.raises(RuntimeError,
-                          message="total and read/write of bytes_sec_max cannot be set at the same time"):
+        with self.assertRaisesRegex(RuntimeError,
+                                    "total and read/write of bytes_sec_max cannot be set at the same time"):
             instance.validate()
 
         invalid_data = {
@@ -119,8 +117,8 @@ class TestDisk(TestCase):
             'writeBytesSecMax': 1
             }
         instance = self.type(name=name, data=invalid_data)
-        with pytest.raises(RuntimeError,
-                          message="total and read/write of bytes_sec_max cannot be set at the same time"):
+        with self.assertRaisesRegex(RuntimeError,
+                                    "total and read/write of bytes_sec_max cannot be set at the same time"):
             instance.validate()
 
         invalid_data = {
@@ -129,8 +127,8 @@ class TestDisk(TestCase):
             'readIopsSecMax': 1
             }
         instance = self.type(name=name, data=invalid_data)
-        with pytest.raises(RuntimeError,
-                          message="total and read/write of iops_sec_max cannot be set at the same time"):
+        with self.assertRaisesRegex(RuntimeError,
+                                    "total and read/write of iops_sec_max cannot be set at the same time"):
             instance.validate()
 
         invalid_data = {
@@ -139,8 +137,8 @@ class TestDisk(TestCase):
             'writeIopsSecMax': 1
             }
         instance = self.type(name=name, data=invalid_data)
-        with pytest.raises(RuntimeError,
-                          message="total and read/write of iops_sec_max cannot be set at the same time"):
+        with self.assertRaisesRegex(RuntimeError,
+                                    "total and read/write of iops_sec_max cannot be set at the same time"):
             instance.validate()
         
         # test success
@@ -236,7 +234,6 @@ class TestDisk(TestCase):
 
         vdc_name = 'vdc_name'
         account_service = 'account_service'
-        account_name = 'account_name'
         ovc_name = 'ovc_name'
 
         # mock finding services
@@ -244,7 +241,7 @@ class TestDisk(TestCase):
             result_mock = mock.PropertyMock()
             result_mock.side_effect = [
                 vdc_name, account_service,
-                account_name, ovc_name
+                self.account_name , ovc_name
                 ]
             task_mock = MagicMock()
             type(task_mock).result = result_mock 
@@ -255,8 +252,9 @@ class TestDisk(TestCase):
             ovc.get.return_value = self.ovc_mock
             ovc.get.return_value.space_get.return_value.account.disks = []
             api.services.find.side_effect = find
-            with pytest.raises(ValueError,
-                               message='Data Disk with Id = "%s" was not found' % self.disk_id):
+            with self.assertRaisesRegex(ValueError,
+                                        'Disk with id %s does not exist on account "%s"' % 
+                                        (disk_id, self.account_name )):
                 instance.install()
 
     def test_config_success(self):
@@ -289,8 +287,8 @@ class TestDisk(TestCase):
         with patch.object(instance, 'api') as api:
             api.services.find.return_value = []
             # test when more than 1 vdc service is found
-            with pytest.raises(RuntimeError,
-                               message='found 2 vdcs with name "%s", required exactly one' % self.valid_data['vdc']):
+            with self.assertRaisesRegex(RuntimeError,
+                                        'found 0 services with name "%s", required exactly one' % self.valid_data['vdc']):
                 instance.config
 
     def test_config_fail_find_more_than_one_vdc(self):
@@ -301,8 +299,8 @@ class TestDisk(TestCase):
         with patch.object(instance, 'api') as api:
             api.services.find.return_value = [None,None]
             # test when more than 1 vdc service is found
-            with pytest.raises(RuntimeError,
-                               message='found 2 vdcs with name "%s", required exactly one' % self.valid_data['vdc']):
+            with self.assertRaisesRegex(RuntimeError,
+                                        'found 2 services with name "%s", required exactly one' % self.valid_data['vdc']):
                 instance.config
 
     def test_config_fail_find_no_account(self):
@@ -314,17 +312,14 @@ class TestDisk(TestCase):
         account_name = 'test_account'
         with patch.object(instance, 'api') as api:
             # test when no account service is found
-            task_mock = MagicMock(result=vdc_name)
-            mock_find_vdc = MagicMock(schedule_action=MagicMock(return_value=task_mock))            
+            result_mock = mock.PropertyMock()
+            result_mock.side_effect = [vdc_name, account_name]
+            task_mock = MagicMock()
+            type(task_mock).result = result_mock
+            mock_find_vdc = MagicMock(schedule_action=MagicMock(return_value=task_mock))       
             api.services.find.side_effect = [ [mock_find_vdc], []]
-            with pytest.raises(RuntimeError,
-                               message='found 0 accounts with name "%s", required exactly one' % account_name):
-                instance.config
-
-            # test when more than 1 account service is found
-            api.services.find.side_effect = [ [mock_find_vdc], [None, None]]
-            with pytest.raises(RuntimeError,
-                               message='found 2 accounts with name "%s", required exactly one' % account_name):
+            with self.assertRaisesRegex(RuntimeError,
+                                        'found 0 services with name "%s", required exactly one' % account_name):
                 instance.config
 
     def test_config_fail_find_more_than_one_account(self):
@@ -335,11 +330,113 @@ class TestDisk(TestCase):
         vdc_name = 'test_vdc'
         account_name = 'test_account'
         with patch.object(instance, 'api') as api:
-            task_mock = MagicMock(result=vdc_name)
-            mock_find_vdc = MagicMock(schedule_action=MagicMock(return_value=task_mock))            
-
+            # test when no account service is found
+            result_mock = mock.PropertyMock()
+            result_mock.side_effect = [vdc_name, account_name]
+            task_mock = MagicMock()
+            type(task_mock).result = result_mock
+            mock_find_vdc = MagicMock(schedule_action=MagicMock(return_value=task_mock))       
             # test when more than 1 account service is found
             api.services.find.side_effect = [ [mock_find_vdc], [None, None]]
-            with pytest.raises(RuntimeError,
-                               message='found 2 accounts with name "%s", required exactly one' % account_name):
+            with self.assertRaisesRegex(RuntimeError,
+                                        'found 2 services with name "%s", required exactly one' % account_name):
                 instance.config
+
+    def test_uninstall_fail_boot_disk(self):
+        data = {
+            'type': 'B',
+        }
+        instance = self.type(name='test', data=data)
+        with self.assertRaisesRegex(RuntimeError, "can't delete boot disk"):
+            instance.uninstall()
+
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_uninstall_success(self, ovc):
+        disk_id = self.disk_id
+        data = {
+            'deviceName': 'TestDisk',
+            'description': 'some extra info',
+            'size': 2,
+            'type': 'D',
+            'diskId': disk_id
+        }
+
+        instance = self.type(name='test', data=data)
+        def find(template_uid, name):
+            result_mock = int
+            task_mock = MagicMock()
+            type(task_mock).result = result_mock
+            proxy = MagicMock(return_value=MagicMock(schedule_action=task_mock))
+            
+            return [proxy]
+        with patch.object(instance, 'api') as api:
+            ovc.get.return_value = self.ovc_mock
+            ovc.get.return_value.space_get.return_value.account.disks = [{'id': disk_id}]
+            api.services.find.side_effect = find
+            instance.uninstall()
+
+        instance.account.disk_delete.assert_called_once_with(disk_id)
+        with self.assertRaises(StateCheckError):
+            instance.state.check('actions', 'install', 'ok')
+
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_uninstall_nonexistent_disk(self, ovc):
+        disk_id = 5555
+        existent_disks = [{'id': 1111}]
+        data = {
+            'deviceName': 'TestDisk',
+            'description': 'some extra info',
+            'size': 2,
+            'type': 'D',
+            'diskId': disk_id
+        }
+
+        instance = self.type(name='test', data=data)
+        def find(template_uid, name):
+            result_mock = int
+            task_mock = MagicMock()
+            type(task_mock).result = result_mock
+            proxy = MagicMock(return_value=MagicMock(schedule_action=task_mock))
+            
+            return [proxy]
+        with patch.object(instance, 'api') as api:
+            ovc.get.return_value = self.ovc_mock
+            ovc.get.return_value.space_get.return_value.account.disks = existent_disks
+            api.services.find.side_effect = find
+            instance.uninstall()
+
+        instance.account.disk_delete.assert_not_called()
+
+        with self.assertRaises(StateCheckError):
+            instance.state.check('actions', 'install', 'ok')
+
+    def test_update_fail_statecheckerror(self):
+        instance = self.type(name='test', data=None)
+        with self.assertRaises(StateCheckError):
+            instance.update()
+
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_update_success(self, ovc):
+        data = {
+            'deviceName': 'TestDisk',
+            'description': 'some extra info',
+            'size': 2,
+            'type': 'D',
+            'diskId': self.disk_id
+        }
+        # update arg
+        maxIops = 5
+
+        instance = self.type(name='test', data=data)
+        instance.state.set('actions', 'install', 'ok')
+
+        with patch.object(instance, 'api') as api:
+            api.services.find.return_value = [MagicMock()]
+            ovc.get.return_value = self.ovc_mock
+
+            instance.update(maxIops=maxIops)
+
+        # instance.ovc.api.cloudapi.disks.limitIO.assert_called_once_with(
+        #     diskId=data['diskId'], 
+        #     iops=maxIops
+        # )
