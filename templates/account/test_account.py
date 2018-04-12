@@ -22,19 +22,6 @@ class TestAccount(TestCase):
         acc_mock =  MagicMock(model={'acl': []})
         self.ovc_mock = MagicMock(account_get=MagicMock(return_value=acc_mock))      
 
-    def test_state_check(self):
-        """
-        Test state check
-        """
-        instance = self.type('test', None)
-        with pytest.raises(StateCheckError):
-            # fails if not installed
-            instance.state.check('actions', 'install', 'ok')
-        
-        # success
-        instance.state.set('actions', 'install', 'ok')
-        instance.state.check('actions', 'install', 'ok')
-
     def test_validate_openvcloud(self):
         data = {
             'openvcloud': 'connection',
@@ -60,7 +47,9 @@ class TestAccount(TestCase):
         # Next, we test when NO connection is given
         api.reset_mock()
 
+    def test_validate_openvcloud_fail_no_connection(self):
         data = {}
+        name = 'test'
         instance = self.type(name, None, data)
 
         def find(template_uid, name):
@@ -76,11 +65,11 @@ class TestAccount(TestCase):
             with self.assertRaises(ValueError):
                 instance.validate()
 
-        api.services.find.assert_not_called()
+            api.services.find.assert_not_called()
 
+    def test_validate_openvcloud_fail_find_more_than_one_object(self):
         # Finally, if the search returned more than one object
-        api.reset_mock()
-
+        name = 'test'
         data = {
             'openvcloud': 'connection',
             'name': 'test_account',
