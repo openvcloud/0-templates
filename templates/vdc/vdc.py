@@ -213,63 +213,62 @@ class Vdc(TemplateBase):
         space.disable('The space should be disabled.')
         self.data['disabled'] = True
 
-    def portforward_create(self, node_service, port_forwards=[], protocol='tcp'):
+    def portforward_create(self, node_service, ports, protocol='tcp'):
         """
         Create port forwards
-        @node_service denotes name of the service managing the vm
+
+        :param node_service: name of the service managing the vm
+        :param ports: list of portforwards given in form {'source': str, 'destination': str}
         """
         self.state.check('actions', 'install', 'ok')
-
-        ovc = self.ovc
-        space = self.space
 
         proxy = self._get_proxy(self.NODE_TEMPLATE, node_service)
         task = proxy.schedule_action('get_id')
         task.wait()
-        machineId = task.result
+        machine_id = task.result
 
         # add portforwards
-        for port in port_forwards:
-            ovc.api.cloudapi.portforwarding.create(
-                cloudspaceId=space.id,
+        for port in ports:
+            self.ovc.api.cloudapi.portforwarding.create(
+                cloudspaceId=self.space.id,
                 protocol=protocol,
                 localPort=port['destination'],
                 publicPort=port['source'],
-                publicIp=space.ipaddr_pub,
-                machineId=machineId,
+                publicIp=self.space.ipaddr_pub,
+                machineId=machine_id,
                 )
 
-    def portforward_delete(self, node_service, port_forwards=[], protocol='tcp'):
+    def portforward_delete(self, node_service, ports, protocol='tcp'):
         """
         Delete port forwards
-        @node_service denotes name of the service managing the vm
+
+        :param node_service: name of the service managing the vm
+        :param ports: list of portforwards given in form {'source': str, 'destination': str}
+        
         """
         self.state.check('actions', 'install', 'ok')
-
-        ovc = self.ovc
-        space = self.space
 
         proxy = self._get_proxy(self.NODE_TEMPLATE, node_service)
         task = proxy.schedule_action('get_id')
         task.wait()
-        machineId = task.result
+        machine_id = task.result
 
         existent_ports = [(port['publicPort'], port['localPort'], port['id'])
-                            for port in ovc.api.cloudapi.portforwarding.list(
-                                            cloudspaceId=space.id, machineId=machineId,
+                            for port in self.ovc.api.cloudapi.portforwarding.list(
+                                            cloudspaceId=self.space.id, machineId=machine_id,
                                                 )]
         # remove portfrowards
         for publicPort, localPort, id in existent_ports:
-            for port in port_forwards:
+            for port in ports:
                 if str(port['source']) == publicPort and str(port['destination']) == localPort:
-                    ovc.api.cloudapi.portforwarding.delete(
+                    self.ovc.api.cloudapi.portforwarding.delete(
                         id=id,
-                        cloudspaceId=space.id,
+                        cloudspaceId=self.space.id,
                         protocol=protocol,
                         localPort=port['destination'],
                         publicPort=port['source'],
-                        publicIp=space.ipaddr_pub,
-                        machineId=machineId,
+                        publicIp=self.space.ipaddr_pub,
+                        machineId=machine_id,
                     )
 
     def _fetch_user_name(self, service_name):

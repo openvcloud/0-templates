@@ -23,10 +23,23 @@ class TestVDC(TestCase):
             'acl': [{
                 'userGroupId': self.initial_user['name'], 
                 'right': self.initial_user['accesstype']}
-                ]}
+                ]},
             )
         acc_mock = MagicMock(space_get=MagicMock(return_value=space_mock))
         self.ovc_mock = MagicMock(account_get=MagicMock(return_value=acc_mock))        
+
+    def test_state_check(self):
+        """
+        Test state check
+        """
+        instance = self.type('test', None)
+        with pytest.raises(StateCheckError):
+            # fails if not installed
+            instance.state.check('actions', 'install', 'ok')
+        
+        # success
+        instance.state.set('actions', 'install', 'ok')
+        instance.state.check('actions', 'install', 'ok')  
 
     def test_validate(self):
         # test fail if name is missing        
@@ -73,7 +86,6 @@ class TestVDC(TestCase):
             proxy = MagicMock(schedule_action=MagicMock(return_value=task_mock))
             return [proxy]
 
-        # we will do it this way
         with mock.patch.object(instance, '_account') as account:
             space = account.space_get.return_value
             space.model = {
@@ -159,20 +171,6 @@ class TestVDC(TestCase):
                                message='found 0 services with name "%s", required exactly one' % data['account']):
                 instance.uninstall()      
 
-    def test_state_check(self):
-        """
-        Test state check
-        """
-        instance = self.type('test', None)
-        with pytest.raises(StateCheckError):
-            # fails if not installed
-            instance.state.check('actions', 'install', 'ok')
-        
-        # success
-        instance.state.set('actions', 'install', 'ok')
-        instance.state.check('actions', 'install', 'ok')
-
-
     def test_user_authorize_success(self):
         """
         Test authorizing a new user
@@ -241,7 +239,6 @@ class TestVDC(TestCase):
                                              [MagicMock(schedule_action=MagicMock(
                                                         return_value=MagicMock(result=username)))]]
             with patch('js9.j.clients.openvcloud.get', return_value=self.ovc_mock) as ovc:
-                # test fail
                 ovc.return_value.account_get.return_value.space_get.return_value.authorize_user.return_value=False
                 vdcuser, accesstype = 'userTest2', 'R'
                 with pytest.raises(RuntimeError,
@@ -265,8 +262,6 @@ class TestVDC(TestCase):
                                              [MagicMock(schedule_action=MagicMock(
                                                         return_value=MagicMock(result=username)))]]
             with patch('js9.j.clients.openvcloud.get', return_value=self.ovc_mock) as ovc:
-
-                # test success
                 ovc.return_value.account_get.return_value.space_get.return_value.update_access.return_value=True
                 instance.user_authorize(vdcuser, accesstype)
                 instance.space.update_access.assert_called_once_with(username=username, right=accesstype)
@@ -295,8 +290,7 @@ class TestVDC(TestCase):
                                    message='failed to update accesstype of user "test1"'):
                     instance.user_authorize(vdcuser, accesstype)
 
-
-    def test_user_unauthorize(self):
+    def test_user_unauthorize_success(self):
         """
         Test deleting a user
         """
@@ -322,16 +316,40 @@ class TestVDC(TestCase):
         with patch.object(instance, 'api') as api:
             api.services.find.side_effect = find
             with patch('js9.j.clients.openvcloud.get', return_value=self.ovc_mock) as ovc:
-                # test success
                 ovc.return_value.account_get.return_value.space_get.return_value.unauthorize_user.return_value=True
                 ovc.return_value.account_get.return_value.space_get.return_value.model = {'acl': users}
-
                 instance.user_unauthorize(vdcuser)
                 instance.space.unauthorize_user.assert_called_once_with(username=username)
                 self.assertEqual(instance.data['users'], [])
 
-                # test fail
+    def test_user_unauthorize_fail(self):
+        """
+        Test deleting a user
+        """
+        data = {
+            'name': 'vdc_name',
+            'account': 'test-account',
+        }
+        
+        instance = self.type('test', None, data)
+        instance.state.set('actions', 'install', 'ok')
+        
+        # user to delete
+        username = 'user@provider'
+        vdcuser = 'service_name'
+        users = [{'userGroupId': username, 'right': 'R'}]
+
+        # mock finding services
+        def find(template_uid, name):
+            task_mock = MagicMock(result=username)
+            proxy = MagicMock(schedule_action=MagicMock(return_value=task_mock))
+            return [proxy]
+
+        with patch.object(instance, 'api') as api:
+            api.services.find.side_effect = find
+            with patch('js9.j.clients.openvcloud.get', return_value=self.ovc_mock) as ovc:
                 ovc.return_value.account_get.return_value.space_get.return_value.unauthorize_user.return_value=False
+                ovc.return_value.account_get.return_value.space_get.return_value.model = {'acl': users}
                 with pytest.raises(RuntimeError,
                                    message='failed to remove user "%s"' % username):
                     instance.user_unauthorize(vdcuser)
@@ -341,10 +359,6 @@ class TestVDC(TestCase):
         Test updating vdc limits
         """
         instance = self.type('test', None, {})
-
-        with self.assertRaises(StateCheckError):
-            instance.update()
-
         instance.state.set('actions', 'install', 'ok')
 
         with mock.patch.object(instance, '_account') as account:
@@ -367,71 +381,91 @@ class TestVDC(TestCase):
             })
 
     @mock.patch.object(j.clients, '_openvcloud')
-    def test_portforward_create(self, ovc):
-        '''
-        Test creating portforward
-        '''
+    def test_portforward_create_require_arguments(self, ovc):
+        """ Test call without arguments """
+        instance = self.type('test', None, None)
+        with pytest.raises(TypeError,
+                           message="portforward_create() missing 2 required positional arguments: 'node_service' and 'ports'"):
+            instance.portforward_create()
 
-        instance = self.type(name='test', None)
-        ports = {'source':22, 'destination':22}
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_portforward_create(self, ovc):
+        """
+        Test creating portforward
+        """
+        data = {
+            'account': 'test_account'
+        }
+
+        instance = self.type('test', None, None)
+        port = {'source':22, 'destination':22}
         machine_id = 1234
         space_id = 100
+        ipaddr_pub = '10.00.00.00'
 
-        # test call without arguments
-        with pytest.raises(TypeError,
-                           message="portforward_create() missing 1 required positional argument: 'ports'"):
-            instance.portforward_create()
-        
-        # success
+        def find(template_uid, name):
+            task_mock = MagicMock(result=machine_id)
+            proxy = MagicMock(schedule_action=MagicMock(return_value=task_mock))
+            return [proxy]
+
+        space_mock = MagicMock(ipaddr_pub=ipaddr_pub, id=space_id)
+
         instance.state.set('actions', 'install', 'ok')
         with patch.object(instance, 'api') as api:
-            api.services.find.return_value = [MagicMock(schedule_action=MagicMock(
-                schedule_action=MagicMock(return_value=MagicMock(result=machine_id))))]
-            instance._machine = self.machine_mock
+            api.services.find.side_effect = find
 
-            instance.portforward_create(ports)
-            ovc.api.cloudapi.portforwarding.create.assert_called_with(
+            instance._space = space_mock
+            instance.portforward_create(node_service='test_node', ports=[port])
+            instance.ovc.api.cloudapi.portforwarding.create.assert_called_with(
                 cloudspaceId=space_id,
                 protocol='tcp',
                 localPort=port['destination'],
                 publicPort=port['source'],
-                publicIp=space.ipaddr_pub,
-                machineId=machine_id,            
-
-                'portforward_create', 
-                {'machineId': machineId, 
-                'port_forwards': ports, 
-                'protocol': 'tcp'}
+                publicIp=ipaddr_pub,
+                machineId=machine_id,
             )
-
 
     @mock.patch.object(j.clients, '_openvcloud')
     def test_portforward_delete(self, ovc):
-        '''
+        """
         Test deleting portforward
-        '''
-        instance = self.type(name='test', data=self.valid_data)
-        ports = {'source':22, 'destination':22}
-        
-        # test call without arguments
-        with pytest.raises(TypeError,
-                           message="portforward_create() missing 1 required positional argument: 'ports'"):
-            instance.portforward_delete()
+        """
+        data = {
+            'account': 'test_account'
+        }
 
-        with pytest.raises(StateCheckError):
-            # fails if not installed
-            instance.portforward_delete(ports)
-        
-        # success
+        instance = self.type('test', None, None)
         instance.state.set('actions', 'install', 'ok')
+
+        port = {'source' : '22', 'destination' : '2200'}
+        port_id = 111
+        machine_id = 1234
+        space_id = 100
+        ipaddr_pub = '10.00.00.00'
+
+        def find(template_uid, name):
+            task_mock = MagicMock(result=machine_id)
+            proxy = MagicMock(schedule_action=MagicMock(return_value=task_mock))
+            return [proxy]
+
+        space_mock = MagicMock(ipaddr_pub=ipaddr_pub, id=space_id)
+        list_of_ports = [{
+            'publicPort': port['source'],
+            'localPort': port['destination'],
+            'id': port_id
+            }]
+
         with patch.object(instance, 'api') as api:
-            api.services.find.return_value = [MagicMock(schedule_action=MagicMock())]
-            instance._machine = self.machine_mock
-            test_machine_id = 1
-            instance.portforward_delete(ports)
-            instance.vdc.schedule_action.assert_called_with(
-                'portforward_delete', 
-                {'machineId': test_machine_id,
-                'port_forwards': ports, 
-                'protocol': 'tcp'}
+            api.services.find.side_effect = find
+            instance.ovc.api.cloudapi.portforwarding.list = MagicMock(return_value=list_of_ports)
+            instance._space = space_mock
+            instance.portforward_delete(node_service='test_node', ports=[port])
+            instance.ovc.api.cloudapi.portforwarding.delete.assert_called_with(
+                id=port_id,
+                cloudspaceId=space_id,
+                protocol='tcp',
+                localPort=port['destination'],
+                publicPort=port['source'],
+                publicIp=ipaddr_pub,
+                machineId=machine_id,
             )

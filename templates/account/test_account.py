@@ -160,7 +160,25 @@ class TestAccount(TestCase):
         account.save.assert_called_once_with()
 
     @mock.patch.object(j.clients, '_openvcloud')
-    def test_uninstall(self, ovc):
+    def test_uninstall_success(self, ovc):
+        '''
+        Test uninstall account
+        '''
+
+        data = {
+            'openvcloud': 'connection',
+            'name': 'test_account',
+            }
+
+        account = ovc.get.return_value.account_get.return_value
+        instance = self.type('test', None, data)
+        with mock.patch.object(instance, 'api') as api:
+            api.services.find.return_value = [MagicMock()]        
+            instance.uninstall()
+        account.delete.assert_called_once_with()     
+
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_uninstall_fail(self, ovc):
         '''
         Test uninstall account
         '''
@@ -175,19 +193,7 @@ class TestAccount(TestCase):
         with pytest.raises(RuntimeError,
                            message='"%s" is readonly cloudspace' % instance.name):
             instance.uninstall()
-
-        # test success
-        data = {
-            'openvcloud': 'connection',
-            'name': 'test_account',
-            }
-
-        account = ovc.get.return_value.account_get.return_value
-        instance = self.type('test', None, data)
-        with mock.patch.object(instance, 'api') as api:
-            api.services.find.return_value = [MagicMock()]        
-            instance.uninstall()
-        account.delete.assert_called_once_with()     
+   
 
     @mock.patch.object(j.clients, '_openvcloud')
     def test_update(self, openvcloud):
