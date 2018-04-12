@@ -28,19 +28,6 @@ class TestVDC(TestCase):
         acc_mock = MagicMock(space_get=MagicMock(return_value=space_mock))
         self.ovc_mock = MagicMock(account_get=MagicMock(return_value=acc_mock))        
 
-    def test_state_check(self):
-        """
-        Test state check
-        """
-        instance = self.type('test', None)
-        with pytest.raises(StateCheckError):
-            # fails if not installed
-            instance.state.check('actions', 'install', 'ok')
-        
-        # success
-        instance.state.set('actions', 'install', 'ok')
-        instance.state.check('actions', 'install', 'ok')  
-
     def test_validate(self):
         # test fail if name is missing        
         name = 'test'
