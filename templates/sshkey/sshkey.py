@@ -82,5 +82,5 @@ class Sshkey(TemplateBase):
         '''
         Return key name
         '''
-
+        self.state.check('actions', 'install', 'ok')
         return self.data['name']

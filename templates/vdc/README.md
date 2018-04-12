@@ -183,7 +183,7 @@ actions:
       actions: ['portforward_create']
       args:
         node_service: mynode
-        port_forwards:
+        ports:
           - destination: <local port>
             source: <public port>
 ```
@@ -195,7 +195,7 @@ actions:
       actions: ['portforward_delete']
       args:
         node_service: mynode
-        port_forwards:
+        ports:
           - destination: <local port>
             source: <public port>
 ```

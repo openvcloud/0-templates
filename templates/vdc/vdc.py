@@ -42,7 +42,7 @@ class Vdc(TemplateBase):
 
     def get_name(self):
         """ Return vdc name """
-
+        self.state.check('actions', 'install', 'ok')
         return self.data['name']
 
     @property
