@@ -309,6 +309,7 @@ class vmactions(OVC_BaseTest):
         self.assertEqual(vm2_c["vcpus"], vm1["vcpus"])
         self.assertEqual(vm2_c["sizeid"], vm1["sizeid"])
 
+    @unittest.skip("https://github.com/0-complexity/openvcloud/issues/1518")
     def test005_snapshot_of_machine(self):
         """ ZRT-OVC-018
         *Test case for testing create and delete snapshot of machine .*
@@ -346,7 +347,7 @@ class vmactions(OVC_BaseTest):
         time.sleep(2)
         self.assertFalse(self.get_snapshots_list(self.cs1_name, self.vm1_name))
 
-    @unittest.skip("Not tested due to environment problems.")
+    @unittest.skip("https://github.com/0-complexity/openvcloud/issues/1518")
     def test006_rollback_of_machine(self):
         """ ZRT-OVC-019
         *Test case for testing snapshot rollback of machine .*
