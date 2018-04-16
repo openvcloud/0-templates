@@ -78,9 +78,8 @@ class accounts(OVC_BaseTest):
                                     'name': self.acc1_name,
                                     'maxMemoryCapacity': CU_M,
                                     'maxCPUCapacity': CU_C, 'maxVDiskCapacity': CU_D,
-                                    'maxNumPublicIP': CU_I,
-                                    'users': OrderedDict([('name', self.vdcuser),
-                                                          ('accesstype', 'CXDRAU')])}
+                                    'maxNumPublicIP': CU_I
+                                    }
 
         self.acc2 = self.random_string()
         account2_name = self.random_string()

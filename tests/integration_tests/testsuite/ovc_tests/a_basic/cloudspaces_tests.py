@@ -118,7 +118,6 @@ class BasicTests(OVC_BaseTest):
         CU_I = randint(2, 1000) * factor
         CU_M = randint(2, 1000) * factor
         CU_NP = randint(2, 1000) * factor
-        import ipdb; ipdb.set_trace()
         self.cloudspaces[self.cs1] = {'name': self.cs1_name, 'account': self.acc1, 'maxMemoryCapacity': CU_M,
                                       'maxCPUCapacity': CU_C, 'maxVDiskCapacity': CU_D,
                                       'maxNumPublicIP': CU_I, 'maxNetworkPeerTransfer': CU_NP
