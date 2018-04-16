@@ -135,7 +135,7 @@ class TestVDC(TestCase):
 
         # test error if no ovc service was found
         instance = self.type('test', None, data)
-        #instance.space.delete.reset_mock()
+
         with patch.object(instance, 'api') as api:
             api.services.find.return_value = []
             with pytest.raises(ValueError,

@@ -9,6 +9,7 @@ class Account(TemplateBase):
     template_name = "account"
 
     OVC_TEMPLATE = 'github.com/openvcloud/0-templates/openvcloud/0.0.1'
+    VDC_TEMPLATE = 'github.com/openvcloud/0-templates/vdc/0.0.1'
     VDCUSER_TEMPLATE = 'github.com/openvcloud/0-templates/vdcuser/0.0.1'
 
     def __init__(self, name, guid=None, data=None):
@@ -125,8 +126,17 @@ class Account(TemplateBase):
         if not self.data['create']:
             raise RuntimeError('readonly account')
 
-        acc = self.ovc.account_get(self.data['name'], create=False)
-        acc.delete()
+        if self.data['name'] in [acc.model['name'] for acc in self.ovc.accounts]:
+            acc = self.ovc.account_get(self.data['name'], create=False)
+            acc.delete()
+
+        # unintall vdc services linked to this account
+        vdcs = self.api.services.find(template_uid=self.VDC_TEMPLATE)
+        for vdc in vdcs:
+            task = vdc.schedule_action('get_account')
+            task.wait()
+            if task.result == self.name:
+                vdc.schedule_action('uninstall')
 
         self.state.delete('actions', 'install')
 

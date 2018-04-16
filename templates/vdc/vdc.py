@@ -11,6 +11,8 @@ class Vdc(TemplateBase):
 
     ACCOUNT_TEMPLATE = 'github.com/openvcloud/0-templates/account/0.0.1'
     VDCUSER_TEMPLATE = 'github.com/openvcloud/0-templates/vdcuser/0.0.1'
+    NODE_TEMPLATE = 'github.com/openvcloud/0-templates/node/0.0.1'
+    DISK_TEMPLATE = 'github.com/openvcloud/0-templates/disk/0.0.1'
 
     def __init__(self, name, guid=None, data=None):
         super().__init__(name=name, guid=guid, data=data)
@@ -181,6 +183,22 @@ class Vdc(TemplateBase):
             raise RuntimeError('readonly cloudspace')
 
         self.space.delete()
+        
+        # uninstall vm's on the vdc
+        nodes = self.api.services.find(template_uid=self.NODE_TEMPLATE)
+        for node in nodes:
+            task = node.schedule_action('get_space')
+            task.wait()
+            if task.result == self.name:
+                node.schedule_action('uninstall')
+
+        # uninstall disks on the vdc
+        disks = self.api.services.find(template_uid=self.DISK_TEMPLATE)
+        for disk in disks:
+            task = disk.schedule_action('get_space')
+            task.wait()
+            if task.result == self.name:
+                disk.schedule_action('uninstall')
 
         self.state.delete('actions', 'install')
 
