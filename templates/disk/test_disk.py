@@ -35,10 +35,10 @@ class TestDisk(TestCase):
                                     ],
                                 )
 
-    def test_validate_success_1(self):
-        '''
+    def test_validate_success_name(self):
+        """
         Test validate method with valid data for creation of new disk
-        '''
+        """
         valid_data = {
             'name' : 'test_disk',
             'vdc' : 'test_vdc'
@@ -49,10 +49,10 @@ class TestDisk(TestCase):
         assert instance.data['name'] == valid_data['name']
         assert instance.data['vdc'] == valid_data['vdc']
 
-    def test_validate_success_2(self):
-        '''
+    def test_validate_success_disk_id(self):
+        """
         Test validate method with valid data for link to existent disk
-        '''        
+        """        
         valid_data = {
             'diskId' : 1111,
             'vdc' : 'test_vdc'
@@ -63,41 +63,31 @@ class TestDisk(TestCase):
         assert instance.data['diskId'] == valid_data['diskId']
         assert instance.data['vdc'] == valid_data['vdc']
 
-    def test_validate_fail_1(self):
-        '''
-        Test validate method with invalid data
-        '''
-
-        invalid_data = {}
-        instance = self.type(name='test', data=invalid_data)
-        with self.assertRaisesRegex(ValueError, 'vdc name should be given'):
-            instance.validate()
-
-    def test_validate_fail_1(self):
+    def test_validate_fail_empty_data(self):
         """
         Test validate method with invalid data
         """
+
         invalid_data = {}
         instance = self.type(name='test', data=invalid_data)
         with self.assertRaisesRegex(ValueError, 'vdc service name is required'):
             instance.validate()
 
-
-    def test_validate_fail_2(self):
-        '''
+    def test_validate_fail_missing_name(self):
+        """
         Test validate method with invalid data
-        '''
+        """
         invalid_data = {
             'vdc' : 'test_vdc'
         }
         instance = self.type(name='test', data=invalid_data)
-        with self.assertRaisesRegex(ValueError, 'to create a new disk, name is required'):
+        with self.assertRaisesRegex(ValueError, 'provide name to create a new device'):
             instance.validate()
 
-    def test_validate_fail_2(self):
-        '''
+    def test_validate_fail_disk_type(self):
+        """
         Test validate method with invalid data: fault disk type
-        '''
+        """
         invalid_data = {
             'name' : 'test_disk',
             'vdc' : 'test_vdc',
@@ -107,10 +97,10 @@ class TestDisk(TestCase):
         with self.assertRaisesRegex(ValueError, "disk type must be data D or boot B only"):
             instance.validate()
 
-    def test_validate_fail_3(self):
-        '''
+    def test_validate_fail_iops_limits(self):
+        """
         Test validate method with invalid data: limits a given incorrectly
-        '''        
+        """        
         invalid_data = {
             'name' : 'test_name',
             'vdc' : 'test_vdc',
@@ -122,10 +112,10 @@ class TestDisk(TestCase):
                                     "total and read/write of iops_sec cannot be set at the same time"):
             instance.validate()
 
-    def test_validate_fail_4(self):
-        '''
+    def test_validate_fail_iops_limits(self):
+        """
         Test validate method with invalid data: limits a given incorrectly
-        '''              
+        """              
         invalid_data = {
             'name' : 'test_name',
             'vdc' : 'test_vdc',
@@ -137,10 +127,10 @@ class TestDisk(TestCase):
                                     "total and read/write of iops_sec cannot be set at the same time"):
             instance.validate()
 
-    def test_validate_fail_5(self):
-        '''
+    def test_validate_fail_limit_bytes_sec(self):
+        """
         Test validate method with invalid data: limits a given incorrectly
-        ''' 
+        """ 
         invalid_data = {
             'name' : 'test_name',
             'vdc' : 'test_vdc',
@@ -152,25 +142,10 @@ class TestDisk(TestCase):
                                     "total and read/write of bytes_sec cannot be set at the same time"):
             instance.validate()
 
-    def test_validate_fail_6(self):
-        '''
+    def test_validate_fail_bytes_sec_max_limits_read(self):
+        """
         Test validate method with invalid data: limits a given incorrectly
-        ''' 
-        invalid_data = {
-            'name' : 'test_name',
-            'vdc' : 'test_vdc',
-            'totalBytesSec': 1,
-            'writeBytesSec': 1
-            }
-        instance = self.type(name='test', data=invalid_data)
-        with self.assertRaisesRegex(RuntimeError,
-                                    "total and read/write of bytes_sec cannot be set at the same time"):
-            instance.validate()
-
-    def test_validate_fail_7(self):
-        '''
-        Test validate method with invalid data: limits a given incorrectly
-        ''' 
+        """ 
         invalid_data = {
             'name' : 'test_name',
             'vdc' : 'test_vdc',
@@ -182,10 +157,10 @@ class TestDisk(TestCase):
                                     "total and read/write of bytes_sec_max cannot be set at the same time"):
             instance.validate()
 
-    def test_validate_fail_8(self):
-        '''
+    def test_validate_fail_bytes_sec_max_limits_write(self):
+        """
         Test validate method with invalid data: limits a given incorrectly
-        ''' 
+        """
         invalid_data = {
             'name' : 'test_name',
             'vdc' : 'test_vdc',
@@ -197,10 +172,10 @@ class TestDisk(TestCase):
                                     "total and read/write of bytes_sec_max cannot be set at the same time"):
             instance.validate()
 
-    def test_validate_fail_9(self):
-        '''
+    def test_validate_fail_iops_sec_max_limits_read(self):
+        """
         Test validate method with invalid data: limits a given incorrectly
-        ''' 
+        """ 
         invalid_data = {
             'name' : 'test_name',
             'vdc' : 'test_vdc',
@@ -212,10 +187,10 @@ class TestDisk(TestCase):
                                     "total and read/write of iops_sec_max cannot be set at the same time"):
             instance.validate()
 
-    def test_validate_fail_10(self):
-        '''
+    def test_validate_fail_iops_sec_max_limits_write(self):
+        """
         Test validate method with invalid data: limits a given incorrectly
-        ''' 
+        """ 
         invalid_data = {
             'name' : 'test_name',
             'vdc' : 'test_vdc',
@@ -340,9 +315,9 @@ class TestDisk(TestCase):
                 instance.install()
 
     def test_config_success(self):
-        '''
+        """
         Test fetching config from vdc, account, and ovc services
-        '''
+        """
         instance = self.type(name='test', data=self.valid_data)
         vdc_name = 'test_vdc'
         account_name = 'test_account'
@@ -362,9 +337,9 @@ class TestDisk(TestCase):
             self.assertEqual(instance.config['ovc'], ovc_name)
 
     def test_config_fail_find_no_vdc(self):
-        '''
+        """
         Test fetching config from vdc, account, and ovc services
-        '''
+        """
         instance = self.type(name='test', data=self.valid_data)
         with patch.object(instance, 'api') as api:
             api.services.find.return_value = []
@@ -374,9 +349,9 @@ class TestDisk(TestCase):
                 instance.config
 
     def test_config_fail_find_more_than_one_vdc(self):
-        '''
+        """
         Test fetching config from vdc, account, and ovc services
-        '''
+        """
         instance = self.type(name='test', data=self.valid_data)
         with patch.object(instance, 'api') as api:
             api.services.find.return_value = [None,None]
@@ -386,9 +361,9 @@ class TestDisk(TestCase):
                 instance.config
 
     def test_config_fail_find_no_account(self):
-        '''
+        """
         Test fetching config from vdc, account, and ovc services
-        '''
+        """
         instance = self.type(name='test', data=self.valid_data)
         vdc_name = 'test_vdc'
         account_name = 'test_account'
@@ -405,9 +380,9 @@ class TestDisk(TestCase):
                 instance.config
 
     def test_config_fail_find_more_than_one_account(self):
-        '''
+        """
         Test fetching config from vdc, account, and ovc services
-        '''
+        """
         instance = self.type(name='test', data=self.valid_data)
         vdc_name = 'test_vdc'
         account_name = 'test_account'

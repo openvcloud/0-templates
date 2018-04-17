@@ -169,7 +169,7 @@ class TestNode(TestCase):
                 instance.config
 
     @mock.patch.object(j.clients, '_openvcloud')
-    def test_install_success_0(self, ovc):
+    def test_install_when_already_installed(self, ovc):
         """
         Test successfull install VM action
         """
@@ -180,7 +180,7 @@ class TestNode(TestCase):
         ovc.get.return_value.space_get.return_value.machine_create.assert_not_called()
 
     @mock.patch.object(j.clients, '_openvcloud')
-    def test_install_success_1(self, ovc):
+    def test_install_existent_machine(self, ovc):
         """
         Test successfull install VM action
         """
@@ -200,7 +200,7 @@ class TestNode(TestCase):
                                [boot_disk], [boot_disk, data_disk]]
             machine_mock = MagicMock()
             type(machine_mock).disks=disks
-            #machine_mock.disks=disks
+
             # set device mounted
             machine_mock.prefab.core.run.return_value = (None, '/dev/vdb on /var type ext4 ', None)
             space_mock = MagicMock(machine_get=MagicMock(return_value=machine_mock),
@@ -245,7 +245,7 @@ class TestNode(TestCase):
             )
 
     @mock.patch.object(j.clients, '_openvcloud')
-    def test_install_success_2(self, ovc):
+    def test_install_and_mount_device(self, ovc):
         """
         Test successfull install VM action
         """
@@ -307,9 +307,10 @@ class TestNode(TestCase):
             instance.state.check('actions', 'install', 'ok')
 
     @mock.patch.object(j.clients, '_openvcloud')
-    def test_install_fail_1(self, ovc):
+    def test_install_fail_wrong_data_disk_size(self, ovc):
         """
-        Test failing install VM action
+        Test failing install VM action.
+        Data disk size is not correct.
         """
         name = 'test'
         key_name = 'keyName'
@@ -319,7 +320,6 @@ class TestNode(TestCase):
         ovc_name = 'ovc_name'
 
         # set up ovc mock
-        # define machine mock properties
         def get_ovc_client(instance):
             boot_disk = {'id':int, 'type':'B', 'sizeMax':10}
             data_disk = {'id':int, 'type':'D', 'sizeMax':11}
@@ -343,7 +343,6 @@ class TestNode(TestCase):
             proxy = MagicMock(schedule_action=MagicMock(return_value=task_mock))
             return [proxy]
 
-        # test fail when data disk size is not correct
         instance = self.type(name=name, data=self.valid_data)
         with patch.object(instance, 'api') as api:
             # setup mocks
@@ -357,9 +356,10 @@ class TestNode(TestCase):
                 instance.install()
 
     @mock.patch.object(j.clients, '_openvcloud')
-    def test_install_fail_2(self, ovc):
+    def test_install_fail_wrong_boot_disk_size(self, ovc):
         """
-        Test failing install VM action
+        Test failing install VM action.
+        Boot disk size is not correct
         """
         name = 'test'
         key_name = 'keyName'
@@ -391,7 +391,6 @@ class TestNode(TestCase):
             proxy = MagicMock(schedule_action=MagicMock(return_value=task_mock))
             return [proxy]
 
-        # test fail when boot disk size is not correct
         instance = self.type(name=name, data=self.valid_data)
         with patch.object(instance, 'api') as api:
             api.services.find.return_value = [MagicMock(schedule_action=MagicMock())]
