@@ -1,4 +1,4 @@
-# template: account
+# template: github.com/openvcloud/0-templates/account/0.0.1
 
 ## Description
 
@@ -33,8 +33,8 @@ For information about the different access rights, check docs at [openvcloud](ht
 
 - `install`: creates an account or gets an existent account.
 - `uninstall`: delete an account. All VDCs (Virtual Data Centers) related to this account will be destroyed and uninstall should not be called on those VDC services when uninstalling an account.
-- `user_add`: adds a user to the account or updates access rights. In order to add a user, corresponding [`vdcuser`](#vdc-user) service should be installed.
-- `user_delete`: deletes a user from the account.
+- `user_authorize`: adds a user to the account or updates access rights. In order to add a user, corresponding [`vdcuser`](#vdc-user) service should be installed.
+- `user_unauthorize`: deletes a user from the account.
 - `update`: updates the account attributes:
 
   - `maxMemoryCapacity`
@@ -119,7 +119,7 @@ services:
         email: admin@greenitglobe.com
 actions:
     - service: account-service
-      actions: ['user_add']
+      actions: ['user_authorize']
       args:
           user:
             vdcuser: admin
@@ -129,7 +129,7 @@ actions:
 ```yaml
 actions:
     - service: account-service
-      actions: ['user_delete']
+      actions: ['user_unauthorize']
       args:
         vdcuser: admin
 ```

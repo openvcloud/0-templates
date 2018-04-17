@@ -38,6 +38,10 @@ struct Schema {
 	# consumption data will be saved here as series of bytes which represents a zip file. Example of writing the data:
 	consumptionData @11 :Data;
 
+	# if set to false, the account will not get created if does not exist, and the
+	# user settings, or account flags, will not get updates. It's useful if the
+	# account is managed by another robot.
+	create @12 :Bool = true;
 
 	struct VDCUser {
 		# User name to authorize
@@ -47,8 +51,4 @@ struct Schema {
 		accesstype @1 :Text;
 	}
 
-	# if set to false, the account will not get created if does not exist, and the
-	# user settings, or account flags, will not get updates. It's useful if the
-	# account is managed by another robot.
-	create @12 :Bool = true;
 }

@@ -24,9 +24,9 @@ class Node(TemplateBase):
         self._machine = None
 
     def validate(self):
-        '''
+        """
         Validate service data received during creation
-        '''
+        """
 
         if not self.data['name']:
             raise ValueError('VM name is required')
@@ -38,16 +38,23 @@ class Node(TemplateBase):
             raise ValueError('sshKey service name is required')
 
     def get_name(self):
-        '''
-        Return name of the VM
-        '''
+        """ Return VM name """
 
+        self.state.check('actions', 'install', 'ok')
         return self.data['name']
 
+    def get_id(self):
+        """ Return VM id """
+
+        self.state.check('actions', 'install', 'ok') 
+        return self.data['machineId']
+
     def _get_proxy(self, template_uid, service_name):
-        '''
-        Get proxy object of the service with name @service_name
-        '''
+        """
+        Get proxy object of the service 
+
+        :param service_name: name of the service
+        """
 
         matches = self.api.services.find(template_uid=template_uid, name=service_name)
         if len(matches) != 1:
@@ -56,9 +63,9 @@ class Node(TemplateBase):
 
     @property
     def config(self):
-        '''
+        """
         returns an object with names of vdc, account, and ovc
-        '''
+        """
         if self._config is not None:
             return self._config
 
@@ -78,7 +85,6 @@ class Node(TemplateBase):
         task = vdc.schedule_action('get_account')
         task.wait()
         account_service = task.result
-
 
         # get account name
         account = self._get_proxy(self.ACCOUNT_TEMPLATE, account_service)
@@ -108,14 +114,14 @@ class Node(TemplateBase):
 
     @property
     def vdc(self):
-        '''
-        vdc service instance
-        '''
+        """ Vdc service instance """
         self.config
         return self._vdc
 
     @property
     def space(self):
+        """ Return space object """
+
         account = self.config['account']
         vdc = self.config['vdc']
 
@@ -126,9 +132,7 @@ class Node(TemplateBase):
 
     @property
     def machine(self):
-        '''
-        Return VM object
-        '''
+        """ Return VM object """
 
         if not self._machine:
             if self.data['name'] in self.space.machines:
@@ -137,15 +141,13 @@ class Node(TemplateBase):
         return self._machine
 
     def install(self):
-        '''
-        Install VM
-        '''
+        """ Install VM """
+
         try:
             self.state.check('actions', 'install', 'ok')
             return
         except StateCheckError:
             pass
-
         # get new vm
         machine = self._machine_create()
 
@@ -184,6 +186,7 @@ class Node(TemplateBase):
         )
 
         return self._machine
+
 
     def _configure_disks(self):
         """
@@ -259,7 +262,6 @@ class Node(TemplateBase):
                                        copy=True, append_fstab=True, fs_type=fs_type)
 
         machine.restart()
-
         prefab = self._get_prefab()
         prefab.executor.sshclient.connect()
 
@@ -282,9 +284,7 @@ class Node(TemplateBase):
         return self.data['disks']
 
     def _get_prefab(self):
-        '''
-        Get prefab
-        '''
+        """ Get prefab """
 
         if self.data.get('managedPrivate', False) is False:
             return self.machine.prefab
@@ -292,9 +292,9 @@ class Node(TemplateBase):
         return self.machine.prefab_private  
 
     def uninstall(self):
-        ''' 
+        """ 
         Uninstall VM
-        '''
+        """
 
         if self.machine:
             self.machine.delete()
@@ -302,38 +302,6 @@ class Node(TemplateBase):
         self._machine = None
 
         self.state.delete('actions', 'install')
-
-    def portforward_create(self, ports):
-        """ Add portforwards """
-
-        self.state.check('actions', 'install', 'ok')
-
-        # get vdc service
-        self.vdc.schedule_action(
-            'portforward_create',
-            {
-                'machineId': self.machine.id,
-                'port_forwards': ports,
-                'protocol': 'tcp'
-            }
-        )
-
-    def portforward_delete(self, ports):
-        """ Delete portforwards """
-        
-        self.state.check('actions', 'install', 'ok')
-
-        if self.data['managedPrivate']:
-            return
-
-        self.vdc.schedule_action(
-            'portforward_delete',
-            {
-                'machineId': self.machine.id,
-                'port_forwards': ports,
-                'protocol': 'tcp'
-            }
-        )
 
     def start(self):
         """ Start the VM """
@@ -373,7 +341,7 @@ class Node(TemplateBase):
 
     def snapshot(self):
         """
-        Action that creates a snapshot of the machine
+        Create a snapshot of the VM
         """
         self.state.check('actions', 'install', 'ok')
         self.machine.snapshot_create()
@@ -391,7 +359,7 @@ class Node(TemplateBase):
 
     def snapshot_delete(self, snapshot_epoch):
         """
-        Action that deletes a snapshot of the machine
+        Action that deletes a snapshot of the VM
         """
         self.state.check('actions', 'install', 'ok')
         if not snapshot_epoch:
@@ -407,21 +375,21 @@ class Node(TemplateBase):
         return self.machine.snapshots
 
     def clone(self, clone_name):
-        """
-        Action that creates a clone of a machine.
-        """
-        self.state.check('actions', 'install', 'ok')
+        """ Create a clone of the VM """
 
+        self.state.check('actions', 'install', 'ok')
         if not clone_name:
             raise RuntimeError('"clone_name" should be given')
 
         self.machine.clone(clone_name)
 
     def disk_attach(self, disk_service_name):
-        '''
-        Attach disk to the machine
-        @disk_service_name is the name of the disk service
-        '''        
+        """
+        Attach disk to the VM
+
+        :param disk_service_name: name of the disk service
+        """
+
         self.state.check('actions', 'install', 'ok')
 
         matches = self.api.services.find(template_uid=self.DISK_TEMPLATE, name=disk_service_name)
@@ -441,10 +409,12 @@ class Node(TemplateBase):
         self.data['disks'].append(disk_service_name)
 
     def disk_detach(self, disk_service_name):
-        '''
+        """
         Detach disk from the machine
-        @disk_service_name is the name of the disk service
-        '''
+
+        :param disk_service_name: name of the disk service
+        """
+
         self.state.check('actions', 'install', 'ok')
 
         if disk_service_name not in self.data['disks']:
@@ -470,9 +440,9 @@ class Node(TemplateBase):
         self.data['disks'].remove(disk_service_name)
 
     def disk_add(self, name, description='Data disk', size=10, type='D'):
-        '''
+        """
         Create new disk at the VM
-        '''        
+        """        
         self.state.check('actions', 'install', 'ok')
 
         disk_id = self.machine.disk_add(name=name, description=description, 
@@ -485,9 +455,10 @@ class Node(TemplateBase):
         self._create_disk_service(disk)
 
     def disk_delete(self, disk_service_name):
-        '''
+        """
         Delete disk at the machine
-        '''        
+        """
+        
         self.state.check('actions', 'install', 'ok')
 
         # find service in the list of services

@@ -13,7 +13,6 @@ from zerorobot.template_uid import TemplateUID
 from zerorobot.template.state import StateCheckError
 
 
-
 class TestNode(TestCase):
 
     def setUp(self):
@@ -29,29 +28,34 @@ class TestNode(TestCase):
             'sshKey': 'keyName'
             }
 
-        # define machine mock properties
-        boot_disk = {'id':int, 'type':'B', 'sizeMax':10}
-        data_disk = {'id':int, 'type':'D', 'sizeMax':10}
-        data_disk_wrong_size = {'id':int, 'type':'D', 'sizeMax':11}
-        boot_disk_wrong_size = {'id':int, 'type':'B', 'sizeMax':11}
-        disks = mock.PropertyMock()
-        disks.side_effect=[[boot_disk, data_disk], [boot_disk, data_disk],
-                           [boot_disk], [boot_disk, data_disk],
-                           [boot_disk_wrong_size, data_disk], 
-                           [boot_disk, data_disk_wrong_size]]
-        self.machine_mock = MagicMock(prefab=MagicMock(return_value=None),
-                                 id=1)
-        type(self.machine_mock).disks=disks
-
-        space_mock = MagicMock(machine_get=MagicMock(return_value=self.machine_mock),
-                                machines={'nodeName':MagicMock(delete=MagicMock())})
-
-        self.ovc_mock=MagicMock(space_get=MagicMock(return_value=space_mock))
-
     def tearDown(self):
         patch.stopall()
 
-    def test_validate(self):
+    def test_validate_success(self):
+        """
+        Test successfull validation
+        """
+        name = 'test'
+        instance = self.type(name=name, guid=None, data=self.valid_data)
+
+        @mock.patch.object(instance, 'api')
+        def validate(instance, api):
+            api.services.find.return_value = [None]
+            instance.validate()
+        
+        data ={
+            'vdc': 'vdcName',
+            'sshKey': 'keyName',
+            'name': 'nodeName',
+        }
+
+        instance = self.type(name=name, guid=None, data=data)
+        try:
+            instance.validate()
+        except ValueError as err:
+            pytest.fail("Validate should be successfull!\nGot error: %s" % err)
+
+    def test_validate_fail(self):
         """
         Test validate method
         """
@@ -100,13 +104,35 @@ class TestNode(TestCase):
         instance.delete()
 
     def test_config(self):
-        '''
+        """
         Test fetching config from vdc, account, and ovc services
-        '''
+        """
         instance = self.type(name='test', data=self.valid_data)
         vdc_name = 'test_vdc'
         account_name = 'test_account'
-        ovc_name = 'test_ovc'
+        ovc_name = 'test_ovc' 
+
+        with patch.object(instance, 'api') as api:
+            result = mock.PropertyMock()
+            result.side_effect = [account_name, ovc_name]
+            task_mock = MagicMock()
+            type(task_mock).result = result
+            mock_find_acc = MagicMock(schedule_action=MagicMock(return_value=task_mock))
+            task_mock = MagicMock(result=vdc_name)
+            mock_find_vdc = MagicMock(schedule_action=MagicMock(return_value=task_mock))
+
+            api.services.find.side_effect = [[mock_find_vdc],[mock_find_acc]]
+            instance.config
+            self.assertEqual(instance.config['ovc'], ovc_name)
+            self.assertEqual(instance.config['account'], account_name)
+
+    def test_config_invalid_vdc(self):
+        """
+        Test getting config from a vdc service
+        """
+        instance = self.type(name='test', data=self.valid_data)
+        vdc_name = 'test_vdc'
+
         with patch.object(instance, 'api') as api:
             api.services.find.side_effect = [[], [None,None]]
             # test when no vdc service is found
@@ -119,6 +145,15 @@ class TestNode(TestCase):
                                message='found 2 vdcs with name "%s", required exactly one' % self.valid_data['vdc']):
                 instance.config
 
+    def test_config_invalid_account(self):
+        """
+        Test getting config from a account service
+        """
+        instance = self.type(name='test', data=self.valid_data)
+        vdc_name = 'test_vdc'
+        account_name = 'test_account'
+
+        with patch.object(instance, 'api') as api:
             # test when no account service is found
             task_mock = MagicMock(result=vdc_name)
             mock_find_vdc = MagicMock(schedule_action=MagicMock(return_value=task_mock))            
@@ -133,40 +168,46 @@ class TestNode(TestCase):
                                message='found 2 accounts with name "%s", required exactly one' % account_name):
                 instance.config
 
-            # test success
-
-            result = mock.PropertyMock()
-            result.side_effect = [account_name, ovc_name]
-            task_mock = MagicMock()
-            type(task_mock).result = result
-
-            mock_find_acc = MagicMock(schedule_action=MagicMock(return_value=task_mock))
-            api.services.find.side_effect = [[mock_find_vdc],[mock_find_acc]]
-            instance.config
-            self.assertEqual(instance.config['ovc'], ovc_name)
-            self.assertEqual(instance.config['account'], account_name)
-
     @mock.patch.object(j.clients, '_openvcloud')
-    def test_install(self, ovc):
+    def test_install_when_already_installed(self, ovc):
         """
-        Test install VM
+        Test successfull install VM action
         """
         # if installed, do nothing
-        name = 'test'
-        instance = self.type(name=name, data=self.valid_data)
+        instance = self.type(name='test', data=self.valid_data)
         instance.state.set('actions', 'install', 'ok')
         instance.install()
         ovc.get.return_value.space_get.return_value.machine_create.assert_not_called()
 
-        # test installing vm
-        instance.state.delete('actions', 'install')
-
-        # set names
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_install_existent_machine(self, ovc):
+        """
+        Test successfull install VM action
+        """
+        instance = self.type(name='test', data=self.valid_data)
         key_name = 'keyName'
         account_service = 'account_service'
         account_name = 'account_name'
         sshkey_name = 'sshkey_name'
         ovc_name = 'ovc_name'
+
+        # mock ovc client
+        def get_ovc_client(instance):
+            boot_disk = {'id':int, 'type':'B', 'sizeMax':10}
+            data_disk = {'id':int, 'type':'D', 'sizeMax':10}
+            disks = mock.PropertyMock()
+            disks.side_effect=[[boot_disk, data_disk], [boot_disk, data_disk],
+                               [boot_disk], [boot_disk, data_disk]]
+            machine_mock = MagicMock()
+            type(machine_mock).disks=disks
+
+            # set device mounted
+            machine_mock.prefab.core.run.return_value = (None, '/dev/vdb on /var type ext4 ', None)
+            space_mock = MagicMock(machine_get=MagicMock(return_value=machine_mock),
+                                   machines={'nodeName':MagicMock(delete=MagicMock())})
+
+            ovc_mock=MagicMock(space_get=MagicMock(return_value=space_mock)) 
+            return ovc_mock           
 
         # mock finding services
         def find(template_uid, name):     
@@ -182,21 +223,17 @@ class TestNode(TestCase):
 
         with patch.object(instance, 'api') as api:
             api.services.find.side_effect = find
-
-            ovc.get.return_value = self.ovc_mock
-
+            ovc.get.side_effect = get_ovc_client
+            ovc_mock = ovc.get("instance")
             # test when device is mounted
-            ovc.get.return_value.space_get.return_value.\
+            ovc_mock.space_get.return_value.\
                                  machine_get.return_value. \
                                  prefab.core.run.return_value = (None, '/dev/vdb on /var type ext4 ', None)
 
             instance.install()
-            ovc.get.return_value.space_get.return_value. \
-                                 machine_get.return_value.\
-                                 prefab.system.filesystem.create.assert_not_called()            
 
             # check call to get/create machine
-            ovc.get.return_value.space_get.return_value.machine_get.assert_called_once_with(
+            instance.space.machine_get.assert_called_once_with(
                 create=True,
                 name=instance.get_name(),
                 sshkeyname=self.valid_data['sshKey'],
@@ -207,19 +244,59 @@ class TestNode(TestCase):
                 image='Ubuntu 16.04'
             )
 
-            # test when device is not mounted and disk is not present
-            ovc.get.return_value.space_get.return_value.\
-                                 machine_get.return_value. \
-                                 prefab.core.run.return_value = (None, 'test when not mounted', None)
-            instance.state.delete('actions', 'install')
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_install_and_mount_device(self, ovc):
+        """
+        Test successfull install VM action
+        """
+        name = 'test'
+        instance = self.type(name=name, data=self.valid_data)
 
+        key_name = 'keyName'
+        account_service = 'account_service'
+        account_name = 'account_name'
+        sshkey_name = 'sshkey_name'
+        ovc_name = 'ovc_name'
+
+        # mock ovc client
+        def get_ovc_client(instance):
+            boot_disk = {'id':int, 'type':'B', 'sizeMax':10}
+            data_disk = {'id':int, 'type':'D', 'sizeMax':10}
+            disks = mock.PropertyMock()
+            disks.side_effect=[[boot_disk], [boot_disk, data_disk]]
+            machine_mock = MagicMock()
+            type(machine_mock).disks=disks
+            # set device mounted
+            machine_mock.prefab.core.run.return_value = (None, '', None)
+            space_mock = MagicMock(machine_get=MagicMock(return_value=machine_mock),
+                                   machines={'nodeName':MagicMock(delete=MagicMock())})
+
+            ovc_mock=MagicMock(space_get=MagicMock(return_value=space_mock)) 
+            return ovc_mock           
+
+        # mock finding services
+        def find(template_uid, name):     
+            result_mock = mock.PropertyMock()
+            result_mock.side_effect = [
+                key_name, account_service, account_name,
+                sshkey_name, ovc_name
+                ]
+            task_mock = MagicMock()
+            type(task_mock).result = result_mock 
+            proxy = MagicMock(schedule_action=MagicMock(return_value=task_mock))
+            return [proxy]
+
+        with patch.object(instance, 'api') as api:
+            # test when device is not mounted and disk is not present
+            api.services.find.side_effect = find
+            ovc.get.return_value = get_ovc_client('instance')
+            ovc_mock = ovc.get()
+            # check call to create a filesystem
             instance.install()
             # check call to add disk
             instance.machine.disk_add.assert_called_once_with(
                 name='Disk nr 1', description='Machine disk of type D',
                 size=10, type='D')
-
-            # check call to create a filesystem
             ovc.get.return_value.space_get.return_value. \
                                  machine_get.return_value.\
                                  prefab.system.filesystem.create.assert_called_once_with(
@@ -229,23 +306,95 @@ class TestNode(TestCase):
             # state install must be ok 
             instance.state.check('actions', 'install', 'ok')
 
-            del instance
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_install_fail_wrong_data_disk_size(self, ovc):
+        """
+        Test failing install VM action.
+        Data disk size is not correct.
+        """
+        name = 'test'
+        key_name = 'keyName'
+        account_service = 'account_service'
+        account_name = 'account_name'
+        sshkey_name = 'sshkey_name'
+        ovc_name = 'ovc_name'
 
-        # test fail when data disk size is not correct
+        # set up ovc mock
+        def get_ovc_client(instance):
+            boot_disk = {'id':int, 'type':'B', 'sizeMax':10}
+            data_disk = {'id':int, 'type':'D', 'sizeMax':11}
+            disks = [boot_disk, data_disk]
+            machine_mock = MagicMock(prefab=MagicMock(return_value=None), id=1)
+            machine_mock.disks=disks
+            machine_mock.prefab.core.run.return_value = (None, '/dev/vdb on /var type ext4 ', None)
+            space_mock = MagicMock(machine_get=MagicMock(return_value=machine_mock))
+            ovc_mock = MagicMock(space_get=MagicMock(return_value=space_mock))
+            return ovc_mock
+
+        # mock finding services
+        def find(template_uid, name):     
+            result_mock = mock.PropertyMock()
+            result_mock.side_effect = [
+                key_name, account_service, account_name,
+                sshkey_name, ovc_name
+                ]
+            task_mock = MagicMock()
+            type(task_mock).result = result_mock 
+            proxy = MagicMock(schedule_action=MagicMock(return_value=task_mock))
+            return [proxy]
+
         instance = self.type(name=name, data=self.valid_data)
         with patch.object(instance, 'api') as api:
+            # setup mocks
+            api.services.find.side_effect = find
+            ovc.get.side_effect = get_ovc_client
             api.services.find.return_value = [MagicMock(schedule_action=MagicMock())]
             
             # boot disk has wrong size 
-            with pytest.raises(RuntimeError,
-                              message='Datadisk is expected to have size 10, has size 11'):
+            with self.assertRaisesRegex(RuntimeError,
+                                        'Datadisk is expected to have size 10, has size 11'):
                 instance.install()
 
-        # test fail when boot disk size is not correct
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_install_fail_wrong_boot_disk_size(self, ovc):
+        """
+        Test failing install VM action.
+        Boot disk size is not correct
+        """
+        name = 'test'
+        key_name = 'keyName'
+        account_service = 'account_service'
+        account_name = 'account_name'
+        sshkey_name = 'sshkey_name'
+        ovc_name = 'ovc_name'
+
+        # set up ovc mock
+        def get_ovc_client(instance):
+            boot_disk = {'id':int, 'type':'B', 'sizeMax':11}
+            disks = [boot_disk] #, data_disk]
+            machine_mock = MagicMock(prefab=MagicMock(return_value=None), id=1)
+            machine_mock.disks=disks
+            machine_mock.prefab.core.run.return_value = (None, '/dev/vdb on /var type ext4 ', None)
+            space_mock = MagicMock(machine_get=MagicMock(return_value=machine_mock))
+            ovc_mock = MagicMock(space_get=MagicMock(return_value=space_mock))
+            return ovc_mock
+
+        # mock finding services
+        def find(template_uid, name):     
+            result_mock = mock.PropertyMock()
+            result_mock.side_effect = [
+                key_name, account_service, account_name,
+                sshkey_name, ovc_name
+                ]
+            task_mock = MagicMock()
+            type(task_mock).result = result_mock 
+            proxy = MagicMock(schedule_action=MagicMock(return_value=task_mock))
+            return [proxy]
+
         instance = self.type(name=name, data=self.valid_data)
         with patch.object(instance, 'api') as api:
             api.services.find.return_value = [MagicMock(schedule_action=MagicMock())]
-            
+            ovc.get.side_effect = get_ovc_client
             # boot disk has wrong size 
             with pytest.raises(RuntimeError,
                               message='Bootdisk is expected to have size 10, has size 11'):
@@ -254,323 +403,333 @@ class TestNode(TestCase):
     @mock.patch.object(j.clients, '_openvcloud')
     def test_uninstall(self, ovc):
         """
-        Test uninstall VM
+        Test uninstall VM action
         """
-        
         instance = self.type(name='test', data=self.valid_data)
 
-        # test success
+        def get_ovc_client(instance):
+            space_mock = MagicMock(machines={'nodeName' : MagicMock(delete=MagicMock())})
+            ovc_mock=MagicMock(space_get=MagicMock(return_value=space_mock))
+            return ovc_mock
+
         with patch.object(instance, 'api') as api:
             api.services.find.return_value = [MagicMock(schedule_action=MagicMock())]
+            ovc.get.return_value = get_ovc_client('instance')
 
-            # test uninstall
-            ovc.get.return_value = self.ovc_mock
             instance.uninstall()
+
             ovc.get.return_value.space_get.return_value. \
                                  machine_get.return_value.\
                                  delete.assert_called_once_with()
 
         # state install must be unset
         with pytest.raises(StateCheckError,
-                           message='check for state actions:install:ok failed'):
+                           message='actions:install:ok should be unset'):
             instance.state.check('actions', 'install', 'ok')
 
-    def test_start(self):
-        '''
-        Test start action
-        '''
-        instance = self.type(name='test', data=self.valid_data)  
+    def test_start_success(self):
+        """
+        Test successfull start action
+        """
+        instance = self.type(name='test', data=self.valid_data)
 
-        with pytest.raises(StateCheckError):
-            # fails if not installed
-            instance.start()
-        
-        # test success
         instance.state.set('actions', 'install', 'ok')
         instance._machine = MagicMock()
         instance.start()
         instance.machine.start.assert_called_once_with()
 
+    def test_start_fail(self):
+        """
+        Test failing start action
+        """
+        instance = self.type(name='test', data=self.valid_data)
 
-    def test_stop(self):
-        '''
-        Test stop action
-        '''
-        instance = self.type(name='test', data=self.valid_data)  
-
+        # fails if not installed
         with pytest.raises(StateCheckError):
-            # fails if not installed
-            instance.stop()
-        
-        # test success
+            instance.start()
+
+    def test_stop_success(self):
+        """
+        Test successfull stop action
+        """
+        instance = self.type(name='test', data=self.valid_data)
+
         instance.state.set('actions', 'install', 'ok')
         instance._machine = MagicMock()
         instance.stop()
         instance.machine.stop.assert_called_once_with()
 
-    def test_restart(self):
-        '''
-        Test restart action
-        '''
+    def test_stop_fail(self):
+        """
+        Test failing stop action
+        """
         instance = self.type(name='test', data=self.valid_data)
 
+        # fails if not installed
         with pytest.raises(StateCheckError):
-            # fails if not installed
-            instance.restart()
-        
-        # test success
+            instance.stop()
+
+    def test_restart_success(self):
+        """
+        Test successfull restart action
+        """
+        instance = self.type(name='test', data=self.valid_data)
+
         instance.state.set('actions', 'install', 'ok')
         instance._machine = MagicMock()
         instance.restart()
         instance.machine.restart.assert_called_once_with()
 
-    def test_pause(self):
-        '''
-        Test pause action
-        '''
-        instance = self.type(name='test', data=self.valid_data)  
+    def test_restart_fail(self):
+        """
+        Test failing restart action
+        """
+        instance = self.type(name='test', data=self.valid_data)
 
+        # fails if not installed
         with pytest.raises(StateCheckError):
-            # fails if not installed
-            instance.pause()
-        
-        # test success
+            instance.restart()
+
+    def test_pause_success(self):
+        """
+        Test successfull pause action
+        """
+        instance = self.type(name='test', data=self.valid_data)
+
         instance.state.set('actions', 'install', 'ok')
         instance._machine = MagicMock()
         instance.pause()
         instance.machine.pause.assert_called_once_with()
 
-    def test_resume(self):
-        '''
-        Test resume action
-        '''
-        instance = self.type(name='test', data=self.valid_data)  
+    def test_pause_fail(self):
+        """
+        Test failing pause action
+        """
+        instance = self.type(name='test', data=self.valid_data)
 
+        # fails if not installed
         with pytest.raises(StateCheckError):
-            # fails if not installed
-            instance.resume()
+            instance.pause()
+
+    def test_resume_success(self):
+        """
+        Test successfull resume action
+        """
+        instance = self.type(name='test', data=self.valid_data)
         
-        # test success
         instance.state.set('actions', 'install', 'ok')
         instance._machine = MagicMock()
         instance.resume()
         instance.machine.resume.assert_called_once_with()
+    
+    def test_resume_fail(self):
+        """
+        Test failing resume action
+        """
+        instance = self.type(name='test', data=self.valid_data)
 
-    def test_reset(self):
-        '''
-        Test reset action
-        '''
-        instance = self.type(name='test', data=self.valid_data)  
-
+        # fails if not installed
         with pytest.raises(StateCheckError):
-            # fails if not installed
-            instance.reset()
-        
-        # test success
+            instance.resume()
+
+    def test_reset_success(self):
+        """
+        Test successfull reset action
+        """
+        instance = self.type(name='test', data=self.valid_data)
+
         instance.state.set('actions', 'install', 'ok')
         instance._machine = MagicMock()
         instance.reset()
         instance.machine.reset.assert_called_once_with()
 
-    def test_snapshot(self):
-        '''
-        Test snapshot action
-        '''
-        instance = self.type(name='test', data=self.valid_data)  
+    def test_reset_fail(self):
+        """
+        Test failing reset action
+        """
+        instance = self.type(name='test', data=self.valid_data)
 
+        # fails if not installed
         with pytest.raises(StateCheckError):
-            # fails if not installed
-            instance.snapshot()
-        
-        # test success
+            instance.reset()
+
+    def test_snapshot_success(self):
+        """
+        Test successfull snapshot action
+        """
+        instance = self.type(name='test', data=self.valid_data)
+
         instance.state.set('actions', 'install', 'ok')
         instance._machine = MagicMock()
         instance.snapshot()
-        instance.machine.snapshot_create.assert_called_once_with()  
+        instance.machine.snapshot_create.assert_called_once_with()
 
-    def test_clone(self):
-        '''
-        Test clone action
-        '''
-        instance = self.type(name='test', data=self.valid_data)  
+    def test_snapshot_fail(self):
+        """
+        Test failing snapshot action
+        """
+        instance = self.type(name='test', data=self.valid_data)
+
+        # fails if not installed
+        with pytest.raises(StateCheckError):
+            instance.snapshot()
+
+    def test_clone_success(self):
+        """
+        Test successfull clone action
+        """
+        instance = self.type(name='test', data=self.valid_data)
         clone_name = 'test_clone'
+
+        instance.state.set('actions', 'install', 'ok')
+        instance._machine = MagicMock()
+        instance.clone(clone_name)
+        instance.machine.clone.assert_called_once_with(clone_name)
+
+    def test_clone_fail(self):
+        """
+        Test failing clone action
+        """
+        instance = self.type(name='test', data=self.valid_data)
+        clone_name = 'test_clone'
+
+        # fails if not installed
+        with pytest.raises(StateCheckError):
+            instance.clone(clone_name)
+
+        instance.state.set('actions', 'install', 'ok')
 
         # test call without arguments
         with pytest.raises(TypeError,
                            message="clone() missing 1 required positional argument: 'clone_name'"):
             instance.clone()
 
-        with pytest.raises(StateCheckError):
-            # fails if not installed
-            instance.snapshot()
-        
-        # test success
+    def test_snapshot_rollback_success(self):
+        """
+        Test successfull snapshot_rollback action
+        """
+        instance = self.type(name='test', data=self.valid_data)
+        snapshot_epoch = 'test_epoch'
+
         instance.state.set('actions', 'install', 'ok')
         instance._machine = MagicMock()
-        instance.clone(clone_name)
-        instance.machine.clone.assert_called_once_with(clone_name)
+        instance.snapshot_rollback(snapshot_epoch)
+        instance.machine.snapshot_rollback.assert_called_once_with(snapshot_epoch)
 
-    def test_snapshot_rollback(self):
-        '''
-        Test snapshot_rollback action
-        '''
-        instance = self.type(name='test', data=self.valid_data)  
+    def test_snapshot_rollback_fail(self):
+        """
+        Test failing snapshot_rollback action
+        """
+        instance = self.type(name='test', data=self.valid_data)
         snapshot_epoch = 'test_epoch'
+
+        # fails if not installed
+        with pytest.raises(StateCheckError):
+            instance.snapshot_rollback(snapshot_epoch)
+
+        instance.state.set('actions', 'install', 'ok')
 
         # test call without arguments
         with pytest.raises(TypeError,
                            message="snapshot_rollback() missing 1 required positional argument: 'snapshot_epoch'"):
             instance.snapshot_rollback()
 
+    def test_snapshot_delete_success(self):
+        """
+        Test successfull snapshot delete action
+        """
+        instance = self.type(name='test', data=self.valid_data)
+        snapshot_epoch = 'test_epoch'
 
-        with pytest.raises(StateCheckError):
-            # fails if not installed
-            instance.snapshot()
-        
-        # test success
         instance.state.set('actions', 'install', 'ok')
         instance._machine = MagicMock()
-        instance.snapshot_rollback(snapshot_epoch)
-        instance.machine.snapshot_rollback.assert_called_once_with(snapshot_epoch)            
+        instance.snapshot_delete(snapshot_epoch)
+        instance.machine.snapshot_delete.assert_called_once_with(snapshot_epoch) 
 
-    def test_snapshot_delete(self):
-        '''
-        Test snapshot delete action
-        '''
-        instance = self.type(name='test', data=self.valid_data)  
+    def test_snapshot_delete_fail(self):
+        """
+        Test failing snapshot delete action
+        """
+        instance = self.type(name='test', data=self.valid_data)
         snapshot_epoch = 'test_epoch'
+
+        # fails if not installed
+        with pytest.raises(StateCheckError):
+            instance.snapshot_delete(snapshot_epoch)
+
+        instance.state.set('actions', 'install', 'ok')
 
         # test call without arguments
         with pytest.raises(TypeError,
                            message="snapshot_delete() missing 1 required positional argument: 'snapshot_epoch'"):
             instance.snapshot_delete()
 
-
-        with pytest.raises(StateCheckError):
-            # fails if not installed
-            instance.snapshot()
-        
-        # test success
-        instance.state.set('actions', 'install', 'ok')
-        instance._machine = MagicMock()
-        instance.snapshot_delete(snapshot_epoch)
-        instance.machine.snapshot_delete.assert_called_once_with(snapshot_epoch) 
-
     @mock.patch.object(j.clients, '_openvcloud')
-    def test_portforward_create(self, ovc):
-        '''
-        Test creating portforward
-        '''
+    def test_disk_add_success(self, ovc):
+        """
+        Test successfull add disk action
+        """
         instance = self.type(name='test', data=self.valid_data)
-        ports = {'source':22, 'destination':22}
-        
-        # test call without arguments
-        with pytest.raises(TypeError,
-                           message="portforward_create() missing 1 required positional argument: 'ports'"):
-            instance.portforward_create()
-        
 
-        with pytest.raises(StateCheckError):
-            # fails if not installed
-            instance.portforward_create(ports)
-        
-        # success
         instance.state.set('actions', 'install', 'ok')
         with patch.object(instance, 'api') as api:
             api.services.find.return_value = [MagicMock(schedule_action=MagicMock())]
-            instance._machine = self.machine_mock
-            test_machine_id = 1
-            instance.machine.id = test_machine_id
-
-            instance.portforward_create(ports)
-            instance.vdc.schedule_action.assert_called_with(
-                'portforward_create', 
-                {'machineId': test_machine_id, 
-                'port_forwards': ports, 
-                'protocol': 'tcp'}
-            )
-
-    @mock.patch.object(j.clients, '_openvcloud')
-    def test_portforward_delete(self, ovc):
-        '''
-        Test deleting portforward
-        '''
-        instance = self.type(name='test', data=self.valid_data)
-        ports = {'source':22, 'destination':22}
-        
-        # test call without arguments
-        with pytest.raises(TypeError,
-                           message="portforward_create() missing 1 required positional argument: 'ports'"):
-            instance.portforward_delete()
-
-        with pytest.raises(StateCheckError):
-            # fails if not installed
-            instance.portforward_delete(ports)
-        
-        # success
-        instance.state.set('actions', 'install', 'ok')
-        with patch.object(instance, 'api') as api:
-            api.services.find.return_value = [MagicMock(schedule_action=MagicMock())]
-            instance._machine = self.machine_mock
-            test_machine_id = 1
-            instance.portforward_delete(ports)
-            instance.vdc.schedule_action.assert_called_with(
-                'portforward_delete', 
-                {'machineId': test_machine_id,
-                'port_forwards': ports, 
-                'protocol': 'tcp'}
-            )
-
-    @mock.patch.object(j.clients, '_openvcloud')
-    def test_disk_add(self, ovc):
-        '''
-        Test add disk
-        '''
-        instance = self.type(name='test', data=self.valid_data)
-
-        # test call without arguments
-        with pytest.raises(TypeError,
-                           message="disk_add() missing 1 required positional argument: 'name'"):
-            instance.disk_add()
-
-        with pytest.raises(StateCheckError):
-            # fails if not installed
-            instance.disk_add(name='test')
-        
-        # success
-        instance.state.set('actions', 'install', 'ok')
-        with patch.object(instance, 'api') as api:
-            api.services.find.return_value = [MagicMock(schedule_action=MagicMock())]
-            instance._machine = self.machine_mock
+            instance._machine = MagicMock()
             instance.disk_add(name='test')
             instance.machine.disk_add.assert_called_with(
                 name='test', description='Data disk', size=10, type='D'
             )
 
     @mock.patch.object(j.clients, '_openvcloud')
-    def test_disk_attach(self, ovc):
-        '''
-        Test attach disk
-        '''
+    def test_disk_add_fail(self, ovc):
+        """
+        Test failing add disk action
+        """
         instance = self.type(name='test', data=self.valid_data)
-        
+
+        # fails if not installed
+        with pytest.raises(StateCheckError):
+            instance.disk_add(name='test')
+
+        instance.state.set('actions', 'install', 'ok')
+
         # test call without arguments
         with pytest.raises(TypeError,
-                           message="disk_attach() missing 1 required positional argument: 'disk_service_name'"):
-            instance.portforward_delete()
+                           message="disk_add() missing 1 required positional argument: 'name'"):
+            instance.disk_add()
 
-        with pytest.raises(StateCheckError):
-            # fails if not installed
-            instance.disk_attach(disk_service_name=str)
-        
-        # success
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_disk_attach_success(self, ovc):
+        """
+        Test successfull attach disk action
+        """
+        instance = self.type(name='test', data=self.valid_data)
+
         instance.state.set('actions', 'install', 'ok')
         disk_id = 1
         with patch.object(instance, 'api') as api:
             api.services.find.return_value = [MagicMock(schedule_action=MagicMock(return_value=MagicMock(result=disk_id)))]
-            instance._machine = self.machine_mock
+            instance._machine = MagicMock()
             instance.disk_attach(disk_service_name='test')
             instance.machine.disk_attach.assert_called_with(disk_id)
+
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_disk_attach_fail(self, ovc):
+        """
+        Test failing attach disk action
+        """
+        instance = self.type(name='test', data=self.valid_data)
+
+        # fails if not installed
+        with pytest.raises(StateCheckError):
+            instance.disk_attach(disk_service_name=str)
+
+        instance.state.set('actions', 'install', 'ok')
+
+        # test call without arguments
+        with pytest.raises(TypeError,
+                           message="disk_attach() missing 1 required positional argument: 'disk_service_name'"):
+            instance.disk_attach()
 
         # fail if disk service is not running
         with patch.object(instance, 'api') as api:
@@ -579,46 +738,55 @@ class TestNode(TestCase):
                 instance.disk_attach(disk_service_name='test')
 
     @mock.patch.object(j.clients, '_openvcloud')
-    def test_disk_detach(self, ovc):
-        '''
-        Test detach disk
-        '''
+    def test_disk_detach_success(self, ovc):
+        """
+        Test successfull detach disk action
+        """
         instance = self.type(name='test', data=self.valid_data)
-        # test call without arguments
-        with pytest.raises(TypeError,
-                           message="disk_detach() missing 1 required positional argument: 'disk_service_name'"):
-            instance.portforward_delete()
 
-        with pytest.raises(StateCheckError):
-            # fails if not installed
-            instance.disk_detach(disk_service_name=str)
-        
-        # success
         instance.state.set('actions', 'install', 'ok')
         disk_id = 1
         disk_type = 'D'
         disk_service_name = 'test_disk'
         instance.data['disks'] = [disk_service_name]
 
-        # set up service mock
         actions_mock = mock.PropertyMock()
-        actions_mock.side_effect = [disk_type, disk_id, disk_type] 
+        actions_mock.side_effect = [disk_type, disk_id, disk_type]
         service_mock = MagicMock(
             name=disk_service_name, 
             schedule_action=MagicMock(
                 )
             )
         type(service_mock.schedule_action.return_value).result = actions_mock
+
         with patch.object(instance, 'api') as api:
             api.services.find.return_value = [service_mock]
-            instance._machine = self.machine_mock
-
+            instance._machine = MagicMock()
             instance.disk_detach(disk_service_name=disk_service_name)
             instance.machine.disk_detach.assert_called_with(disk_id)
 
-        # fail if disk service is not running
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_disk_detach_fail(self, ovc):
+        """
+        Test failing detach disk action
+        """
+        instance = self.type(name='test', data=self.valid_data)
+
+        # fails if not installed
+        with pytest.raises(StateCheckError):
+            instance.disk_detach(disk_service_name=str)
+
+        instance.state.set('actions', 'install', 'ok')
+
+        # test call without arguments
+        with pytest.raises(TypeError,
+                           message="disk_detach() missing 1 required positional argument: 'disk_service_name'"):
+            instance.disk_detach()
+
+        # fails if disk service is not running
+        disk_service_name = 'test_disk'
         instance.data['disks'] = [disk_service_name]
         with patch.object(instance, 'api') as api:
             api.services.find.return_value = []
             with pytest.raises(RuntimeError):
-                instance.disk_detach(disk_service_name=disk_service_name)                 
+                instance.disk_detach(disk_service_name=disk_service_name)

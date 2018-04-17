@@ -1,18 +1,18 @@
 @0xc9e87efb1212af77;
 struct Schema {
+	# name of the disk
+	name @0 :Text;
+
 	# Size of the disk in GB
-	size @0 :Int64 = 1;
+	size @1 :Int64 = 1;
 
 	# Type of the disk (B=Boot; D=Data)
-	type @1 :Text = "D";
+	type @2 :Text = "D";
 
 	# description of disk
-	description @2 :Text = "disk";
+	description @3 :Text = "Disk info";
 
-	# name of the disk
-	deviceName @3 :Text;
-
-	# id of the disk
+	# id of the disk 
 	diskId @4: Int64;
 
 	# Virtual Data Center id

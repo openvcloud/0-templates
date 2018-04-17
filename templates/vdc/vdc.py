@@ -11,6 +11,7 @@ class Vdc(TemplateBase):
 
     ACCOUNT_TEMPLATE = 'github.com/openvcloud/0-templates/account/0.0.1'
     VDCUSER_TEMPLATE = 'github.com/openvcloud/0-templates/vdcuser/0.0.1'
+    NODE_TEMPLATE = 'github.com/openvcloud/0-templates/node/0.0.1'
 
     def __init__(self, name, guid=None, data=None):
         super().__init__(name=name, guid=guid, data=data)
@@ -20,9 +21,9 @@ class Vdc(TemplateBase):
         self._space = None
 
     def validate(self):
-        '''
+        """
         Validate service data received during creation
-        '''
+        """
         
         if not self.data['name']:
             raise ValueError('vdc name is required')
@@ -31,20 +32,17 @@ class Vdc(TemplateBase):
             raise ValueError('account service name is required')
 
     def _get_proxy(self, template_uid, service_name):
-        '''
+        """
         Get proxy object of the service with name @service_name
-        '''
-
+        """
         matches = self.api.services.find(template_uid=template_uid, name=service_name)
         if len(matches) != 1:
             raise RuntimeError('found %d services with name "%s", required exactly one' % (len(matches), service_name))
         return matches[0]
 
     def get_name(self):
-        '''
-        Return vdc name
-        '''
-
+        """ Return vdc name """
+        self.state.check('actions', 'install', 'ok')
         return self.data['name']
 
     @property
@@ -55,56 +53,52 @@ class Vdc(TemplateBase):
         if self._ovc is not None:
             return self._ovc
 
-        matches = self.api.services.find(template_uid=self.ACCOUNT_TEMPLATE, name=self.data['account'])
-        if len(matches) != 1:
-            raise ValueError('found %s accounts with name "%s", required exactly one' % (len(matches), self.data['account']))
-
-        instance = matches[0]
+        proxy = self._get_proxy(self.ACCOUNT_TEMPLATE, self.data['account'])
         # get connection
-        task = instance.schedule_action('get_openvcloud')
+        task = proxy.schedule_action('get_openvcloud')
         task.wait()
+
         self._ovc = j.clients.openvcloud.get(task.result)
 
         return self._ovc
 
     @property
     def account(self):
-        """
-        An account getter
-        """
+        """ An account getter """
+
         if self._account is not None:
             return self._account
-        ovc = self.ovc
 
-        proxy =self._get_proxy(self.ACCOUNT_TEMPLATE, self.data['account']) 
+        proxy = self._get_proxy(self.ACCOUNT_TEMPLATE, self.data['account'])
 
         # get actual account name
         task = proxy.schedule_action('get_name')
         task.wait()
         account_name = task.result
 
-        self._account = ovc.account_get(account_name, create=False)
+        self._account = self.ovc.account_get(account_name, create=False)
         return self._account
 
     def get_account(self):
+        """ Return account service name """
+
+        self.state.check('actions', 'install', 'ok')
         return self.data['account']
 
     @property
     def space(self):
-        """
-        A space getter
-        """
+        """ A space getter """
+
         if self._space:
             return self._space
 
-        acc = self.account
-        self._space = acc.space_get(name=self.data['name'], create=False)
+        self._space = self.account.space_get(name=self.data['name'], create=False)
         return self._space
 
     def get_users(self, refresh=True):
-        '''
+        """
         Fetch authorized vdc users
-        '''
+        """
         if refresh:
             self.space.refresh()
         users = []
@@ -114,9 +108,9 @@ class Vdc(TemplateBase):
         return self.data['users']
 
     def install(self):
-        '''
+        """
         Install vdc. Will be created if doesn't exist
-        '''
+        """
 
         try:
             self.state.check('actions', 'install', 'ok')
@@ -174,9 +168,9 @@ class Vdc(TemplateBase):
         self.state.set('actions', 'install', 'ok')
 
     def uninstall(self):
-        '''
+        """
         Delete VDC
-        '''
+        """
         if not self.data['create']:
             raise RuntimeError('readonly cloudspace')
 
@@ -185,9 +179,8 @@ class Vdc(TemplateBase):
         self.state.delete('actions', 'install')
 
     def enable(self):
-        '''
-        Enable VDC
-        '''        
+        """ Enable VDC """
+
         self.state.check('actions', 'install', 'ok')
 
         if not self.data['create']:
@@ -204,9 +197,7 @@ class Vdc(TemplateBase):
         self.data['disabled'] = False
 
     def disable(self):
-        '''
-        Disable VDC
-        '''
+        """ Disable VDC """
 
         self.state.check('actions', 'install', 'ok')
         if not self.data['create']:
@@ -222,73 +213,81 @@ class Vdc(TemplateBase):
         space.disable('The space should be disabled.')
         self.data['disabled'] = True
 
-    def portforward_create(self, machineId, port_forwards=[], protocol='tcp'):
+    def portforward_create(self, node_service, ports, protocol='tcp'):
         """
         Create port forwards
+
+        :param node_service: name of the service managing the vm
+        :param ports: list of portforwards given in form {'source': str, 'destination': str}
         """
         self.state.check('actions', 'install', 'ok')
 
-        ovc = self.ovc
-        space = self.space
+        proxy = self._get_proxy(self.NODE_TEMPLATE, node_service)
+        task = proxy.schedule_action('get_id')
+        task.wait()
+        machine_id = task.result
 
         # add portforwards
-        for port in port_forwards:
-            ovc.api.cloudapi.portforwarding.create(
-                cloudspaceId=space.id,
+        for port in ports:
+            self.ovc.api.cloudapi.portforwarding.create(
+                cloudspaceId=self.space.id,
                 protocol=protocol,
                 localPort=port['destination'],
                 publicPort=port['source'],
-                publicIp=space.ipaddr_pub,
-                machineId=machineId,
+                publicIp=self.space.ipaddr_pub,
+                machineId=machine_id,
                 )
 
-    def portforward_delete(self, machineId, port_forwards=[], protocol='tcp'):
+    def portforward_delete(self, node_service, ports, protocol='tcp'):
         """
         Delete port forwards
+
+        :param node_service: name of the service managing the vm
+        :param ports: list of portforwards given in form {'source': str, 'destination': str}
+        
         """
         self.state.check('actions', 'install', 'ok')
 
-        ovc = self.ovc
-        space = self.space
+        proxy = self._get_proxy(self.NODE_TEMPLATE, node_service)
+        task = proxy.schedule_action('get_id')
+        task.wait()
+        machine_id = task.result
+
         existent_ports = [(port['publicPort'], port['localPort'], port['id'])
-                            for port in ovc.api.cloudapi.portforwarding.list(
-                                            cloudspaceId=space.id, machineId=machineId,
+                            for port in self.ovc.api.cloudapi.portforwarding.list(
+                                            cloudspaceId=self.space.id, machineId=machine_id,
                                                 )]
         # remove portfrowards
         for publicPort, localPort, id in existent_ports:
-            for port in port_forwards:
+            for port in ports:
                 if str(port['source']) == publicPort and str(port['destination']) == localPort:
-                    ovc.api.cloudapi.portforwarding.delete(
+                    self.ovc.api.cloudapi.portforwarding.delete(
                         id=id,
-                        cloudspaceId=space.id,
+                        cloudspaceId=self.space.id,
                         protocol=protocol,
                         localPort=port['destination'],
                         publicPort=port['source'],
-                        publicIp=space.ipaddr_pub,
-                        machineId=machineId,
+                        publicIp=self.space.ipaddr_pub,
+                        machineId=machine_id,
                     )
 
     def _fetch_user_name(self, service_name):
-        '''
+        """
         Get vdcuser name. Succeed only if vdcuser service is installed.
         :param service_name: name of the vdc service 
-        '''
+        """
 
-        find = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=service_name)
-        if len(find) != 1:
-            raise ValueError('found %s vdcuser services with name "%s", requires exactly 1' % (len(find), service_name))
-
-        vdcuser = find[0]
+        vdcuser = self._get_proxy(self.VDCUSER_TEMPLATE, service_name)
         task = vdcuser.schedule_action('get_name')
         task.wait()
         return task.result
 
     def user_authorize(self, vdcuser, accesstype='R'):
-        '''
+        """
         Add/Update user access to a space
         :param vdcuser: reference to the vdc user service
         :param accesstype: accesstype that will be set for the user
-        '''
+        """
         self.state.check('actions', 'install', 'ok')
 
         if not self.data['create']:
@@ -326,10 +325,10 @@ class Vdc(TemplateBase):
                 raise RuntimeError('failed to add user "%s"' % name)
 
     def user_unauthorize(self, vdcuser):
-        '''
+        """
         Delete user access
         :param vdcuser: service name
-        '''
+        """
 
         self.state.check('actions', 'install', 'ok')
 
@@ -353,7 +352,7 @@ class Vdc(TemplateBase):
 
     def update(self, maxMemoryCapacity=None, maxVDiskCapacity=None, maxNumPublicIP=None,
                maxCPUCapacity=None, maxNetworkPeerTransfer=None):
-        '''
+        """
         Update account flags
 
         :param maxMemoryCapacity: The limit on the memory capacity that can be used by the account
@@ -361,7 +360,7 @@ class Vdc(TemplateBase):
         :param maxNumPublicIP: The limit on the number of public IPs that can be used by the account.
         :param maxVDiskCapacity: The limit on the disk capacity that can be used by the account.
         :param maxNetworkPeerTransfer: Cloudspace limits, max sent/received network transfer peering(GB).
-        '''
+        """
 
         self.state.check('actions', 'install', 'ok')
         if not self.data['create']:

@@ -1,4 +1,4 @@
-# template: vdc
+# template: github.com/openvcloud/0-templates/vdc/0.0.1
 
 ## Description
 
@@ -30,8 +30,8 @@ For information about the different access rights check docs at [openvcloud](htt
 - `uninstall`: delete a VDC.
 - `enable`: enable VDC.
 - `disable`: disable VDC.
-- `portforward_create`: create a portforward. Expected to be called from [`node` service](../node).
-- `portforward_delete`: delete a portforward. Expected to be called from [`node` service](../node).
+- `portforward_create`: create a port forward.
+- `portforward_delete`: delete a port forward.
 - `update`: update limits of the VDC.
 - `user_authorize`: authorize a new user on the VDC, or update access rights of the existent user.
 - `user_unauthorize`: unauthorize user.
@@ -48,7 +48,7 @@ ovc = robot.services.create(
     template_uid="github.com/openvcloud/0-templates/openvcloud/0.0.1",
     service_name="ovc_service",
     data={'name': 'ovc_instance',
-          'location':'be-gen-demo', 
+          'location':'be-gen-demo',
           'address': 'ovc.demo.greenitglobe.com',
           'token': '<iyo jwt token>'}
 )
@@ -75,8 +75,6 @@ vdc.schedule_action('update', {'maxMemoryCapacity': 5,
                                'maxNumPublicIP': 1,
                                'externalNetworkID': -1,
                                'maxNetworkPeerTransfer': 10})
-vdc.schedule_action('portforward_create', {'machineId': 2345, 'ports':[{'source':22, 'destination':22}]})
-vdc.schedule_action('portforward_delete', {'machineId': 2345, 'ports':[{'source':22, 'destination':22}]})
 
 # examples to manage users
 # first create a service for vdcuser admin
@@ -95,6 +93,24 @@ vdc.schedule_action('user_authorize', {'vdcuser': 'admin', 'accesstype': 'W'})
 vdc.schedule_action('user_unauthorize', {'vdcuser': 'admin', 'accesstype': 'W'})
 
 vdc.schedule_action('uninstall')
+
+# example creating/deleting port forwards
+# managing port forwards is always linked to a specific VM, therefore vm service should be running
+sshkey = robot.services.create(
+    template_uid="github.com/openvcloud/0-templates/sshkey/0.0.1",
+    service_name="key-service",
+    data={'name': 'id_rsa', 'dir':'/root/.ssh/', 'passphrase': 'testpassphrase'}
+)
+sshkey.schedule_action('install')
+node = robot.services.create(template_uid="github.com/openvcloud/0-templates/node/0.0.1",
+    service_name="mynode",
+    data={'sshKey':'key-service', 'vdc':'vdc-service'}
+)
+node.schedule_action('install')
+
+vdc.schedule_action('portforward_create', {'node_service': 'mynode', 'ports':[{'source':22, 'destination':22}]})
+vdc.schedule_action('portforward_delete', {'node_service': 'mynode', 'ports':[{'source':22, 'destination':22}]})
+
 ```
 
 ## Usage examples via the 0-robot CLI
@@ -139,38 +155,47 @@ actions:
 
 ```yaml
 actions:
-    - temlate: github.com/openvcloud/0-templates/vdcuser/0.0.1
+    - template: github.com/openvcloud/0-templates/vdcuser/0.0.1
       service: space
       actions: ['disable']
 ```
 
 ```yaml
 actions:
-    - temlate: github.com/openvcloud/0-templates/vdcuser/0.0.1
+    - template: github.com/openvcloud/0-templates/vdcuser/0.0.1
       service: space
       actions: ['enable']
 ```
 
 ```yaml
+services:
+    - github.com/openvcloud/0-templates/sshkey/0.0.1__key-service:
+        name: id_rsa
+        dir: '/root/.ssh/'
+        passphrase: <passphrase>
+    - github.com/openvcloud/0-templates/node/0.0.1__mynode:
+        name: vm_name
+        sshKey: key-service
+        vdc: vdc-service
 actions:
-    - temlate: github.com/openvcloud/0-templates/vdcuser/0.0.1
+    - template: github.com/openvcloud/0-templates/vdcuser/0.0.1
       service: space
       actions: ['portforward_create']
       args:
-        machineId: 2342
-        port_forwards:
+        node_service: mynode
+        ports:
           - destination: <local port>
             source: <public port>
 ```
 
 ```yaml
 actions:
-    - temlate: github.com/openvcloud/0-templates/vdcuser/0.0.1
+    - template: github.com/openvcloud/0-templates/vdcuser/0.0.1
       service: space
       actions: ['portforward_delete']
       args:
-        machineId: 2342
-        port_forwards:
+        node_service: mynode
+        ports:
           - destination: <local port>
             source: <public port>
 ```
@@ -186,9 +211,9 @@ services:
         provider: itsyouonline
         email: admin@greenitglobe.com
 actions:
-    - temlate: github.com/openvcloud/0-templates/vdcuser/0.0.1
+    - template: github.com/openvcloud/0-templates/vdcuser/0.0.1
       service: space
-      actions: ['user_add']
+      actions: ['user_authorize']
       args:
           vdcuser: admin
           accesstype: R
@@ -196,9 +221,9 @@ actions:
 
 ```yaml
 actions:
-    - temlate: github.com/openvcloud/0-templates/vdcuser/0.0.1
+    - template: github.com/openvcloud/0-templates/vdcuser/0.0.1
       service: space
-      actions: ['user_delete']
+      actions: ['user_unauthorize']
       args:
         username: admin
 ```
