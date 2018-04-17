@@ -270,7 +270,7 @@ class TestNode(TestCase):
             instance.state.check('actions', 'install', 'ok')
 
     @mock.patch.object(j.clients, '_openvcloud')
-    def test_install_fail(self, ovc):
+    def test_install_fail_1(self, ovc):
         """
         Test failing install VM action
         """
@@ -280,6 +280,19 @@ class TestNode(TestCase):
         account_name = 'account_name'
         sshkey_name = 'sshkey_name'
         ovc_name = 'ovc_name'
+
+        # set up ovc mock
+        # define machine mock properties
+        def get_ovc_client(instance):
+            boot_disk = {'id':int, 'type':'B', 'sizeMax':10}
+            data_disk = {'id':int, 'type':'D', 'sizeMax':11}
+            disks = [boot_disk, data_disk]
+            machine_mock = MagicMock(prefab=MagicMock(return_value=None), id=1)
+            machine_mock.disks=disks
+            machine_mock.prefab.core.run.return_value = (None, '/dev/vdb on /var type ext4 ', None)
+            space_mock = MagicMock(machine_get=MagicMock(return_value=machine_mock))
+            ovc_mock = MagicMock(space_get=MagicMock(return_value=space_mock))
+            return ovc_mock
 
         # mock finding services
         def find(template_uid, name):     
@@ -298,23 +311,56 @@ class TestNode(TestCase):
         with patch.object(instance, 'api') as api:
             # setup mocks
             api.services.find.side_effect = find
-            ovc.get.return_value = self.ovc_mock
-            ovc.get.return_value.space_get.return_value.\
-                                 machine_get.return_value. \
-                                 prefab.core.run.return_value = (None, '/dev/vdb on /var type ext4 ', None)
-
+            ovc.get.side_effect = get_ovc_client
             api.services.find.return_value = [MagicMock(schedule_action=MagicMock())]
             
             # boot disk has wrong size 
-            with pytest.raises(RuntimeError,
-                              message='Datadisk is expected to have size 10, has size 11'):
+            with self.assertRaisesRegex(RuntimeError,
+                                        'Datadisk is expected to have size 10, has size 11'):
                 instance.install()
+
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_install_fail_2(self, ovc):
+        """
+        Test failing install VM action
+        """
+        name = 'test'
+        key_name = 'keyName'
+        account_service = 'account_service'
+        account_name = 'account_name'
+        sshkey_name = 'sshkey_name'
+        ovc_name = 'ovc_name'
+
+        # set up ovc mock
+        # define machine mock properties
+        def get_ovc_client(instance):
+            boot_disk = {'id':int, 'type':'B', 'sizeMax':11}
+            #data_disk = {'id':int, 'type':'D', 'sizeMax':11}
+            disks = [boot_disk] #, data_disk]
+            machine_mock = MagicMock(prefab=MagicMock(return_value=None), id=1)
+            machine_mock.disks=disks
+            machine_mock.prefab.core.run.return_value = (None, '/dev/vdb on /var type ext4 ', None)
+            space_mock = MagicMock(machine_get=MagicMock(return_value=machine_mock))
+            ovc_mock = MagicMock(space_get=MagicMock(return_value=space_mock))
+            return ovc_mock
+
+        # mock finding services
+        def find(template_uid, name):     
+            result_mock = mock.PropertyMock()
+            result_mock.side_effect = [
+                key_name, account_service, account_name,
+                sshkey_name, ovc_name
+                ]
+            task_mock = MagicMock()
+            type(task_mock).result = result_mock 
+            proxy = MagicMock(schedule_action=MagicMock(return_value=task_mock))
+            return [proxy]
 
         # test fail when boot disk size is not correct
         instance = self.type(name=name, data=self.valid_data)
         with patch.object(instance, 'api') as api:
             api.services.find.return_value = [MagicMock(schedule_action=MagicMock())]
-            
+            ovc.get.side_effect = get_ovc_client
             # boot disk has wrong size 
             with pytest.raises(RuntimeError,
                               message='Bootdisk is expected to have size 10, has size 11'):
