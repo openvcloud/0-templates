@@ -28,25 +28,6 @@ class TestNode(TestCase):
             'sshKey': 'keyName'
             }
 
-        # define machine mock properties
-        boot_disk = {'id':int, 'type':'B', 'sizeMax':10}
-        data_disk = {'id':int, 'type':'D', 'sizeMax':10}
-        data_disk_wrong_size = {'id':int, 'type':'D', 'sizeMax':11}
-        boot_disk_wrong_size = {'id':int, 'type':'B', 'sizeMax':11}
-        disks = mock.PropertyMock()
-        disks.side_effect=[[boot_disk, data_disk], [boot_disk, data_disk],
-                           [boot_disk], [boot_disk, data_disk],
-                           [boot_disk_wrong_size, data_disk], 
-                           [boot_disk, data_disk_wrong_size]]
-        self.machine_mock = MagicMock(prefab=MagicMock(return_value=None),
-                                 id=1)
-        type(self.machine_mock).disks=disks
-
-        space_mock = MagicMock(machine_get=MagicMock(return_value=self.machine_mock),
-                                machines={'nodeName':MagicMock(delete=MagicMock())})
-
-        self.ovc_mock=MagicMock(space_get=MagicMock(return_value=space_mock))
-
     def tearDown(self):
         patch.stopall()
 
@@ -188,25 +169,45 @@ class TestNode(TestCase):
                 instance.config
 
     @mock.patch.object(j.clients, '_openvcloud')
-    def test_install_success(self, ovc):
+    def test_install_success_0(self, ovc):
         """
         Test successfull install VM action
         """
         # if installed, do nothing
-        name = 'test'
-        instance = self.type(name=name, data=self.valid_data)
+        instance = self.type(name='test', data=self.valid_data)
         instance.state.set('actions', 'install', 'ok')
         instance.install()
         ovc.get.return_value.space_get.return_value.machine_create.assert_not_called()
 
-        # test installing vm
-        instance.state.delete('actions', 'install')
-
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_install_success_1(self, ovc):
+        """
+        Test successfull install VM action
+        """
+        instance = self.type(name='test', data=self.valid_data)
         key_name = 'keyName'
         account_service = 'account_service'
         account_name = 'account_name'
         sshkey_name = 'sshkey_name'
         ovc_name = 'ovc_name'
+
+        # mock ovc client
+        def get_ovc_client(instance):
+            boot_disk = {'id':int, 'type':'B', 'sizeMax':10}
+            data_disk = {'id':int, 'type':'D', 'sizeMax':10}
+            disks = mock.PropertyMock()
+            disks.side_effect=[[boot_disk, data_disk], [boot_disk, data_disk],
+                               [boot_disk], [boot_disk, data_disk]]
+            machine_mock = MagicMock()
+            type(machine_mock).disks=disks
+            #machine_mock.disks=disks
+            # set device mounted
+            machine_mock.prefab.core.run.return_value = (None, '/dev/vdb on /var type ext4 ', None)
+            space_mock = MagicMock(machine_get=MagicMock(return_value=machine_mock),
+                                   machines={'nodeName':MagicMock(delete=MagicMock())})
+
+            ovc_mock=MagicMock(space_get=MagicMock(return_value=space_mock)) 
+            return ovc_mock           
 
         # mock finding services
         def find(template_uid, name):     
@@ -222,21 +223,17 @@ class TestNode(TestCase):
 
         with patch.object(instance, 'api') as api:
             api.services.find.side_effect = find
-
-            ovc.get.return_value = self.ovc_mock
-
+            ovc.get.side_effect = get_ovc_client
+            ovc_mock = ovc.get("instance")
             # test when device is mounted
-            ovc.get.return_value.space_get.return_value.\
+            ovc_mock.space_get.return_value.\
                                  machine_get.return_value. \
                                  prefab.core.run.return_value = (None, '/dev/vdb on /var type ext4 ', None)
 
             instance.install()
-            ovc.get.return_value.space_get.return_value. \
-                                 machine_get.return_value.\
-                                 prefab.system.filesystem.create.assert_not_called()
 
             # check call to get/create machine
-            ovc.get.return_value.space_get.return_value.machine_get.assert_called_once_with(
+            instance.space.machine_get.assert_called_once_with(
                 create=True,
                 name=instance.get_name(),
                 sshkeyname=self.valid_data['sshKey'],
@@ -247,19 +244,59 @@ class TestNode(TestCase):
                 image='Ubuntu 16.04'
             )
 
-            # test when device is not mounted and disk is not present
-            ovc.get.return_value.space_get.return_value.\
-                                 machine_get.return_value. \
-                                 prefab.core.run.return_value = (None, 'test when not mounted', None)
-            instance.state.delete('actions', 'install')
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_install_success_2(self, ovc):
+        """
+        Test successfull install VM action
+        """
+        name = 'test'
+        instance = self.type(name=name, data=self.valid_data)
 
+        key_name = 'keyName'
+        account_service = 'account_service'
+        account_name = 'account_name'
+        sshkey_name = 'sshkey_name'
+        ovc_name = 'ovc_name'
+
+        # mock ovc client
+        def get_ovc_client(instance):
+            boot_disk = {'id':int, 'type':'B', 'sizeMax':10}
+            data_disk = {'id':int, 'type':'D', 'sizeMax':10}
+            disks = mock.PropertyMock()
+            disks.side_effect=[[boot_disk], [boot_disk, data_disk]]
+            machine_mock = MagicMock()
+            type(machine_mock).disks=disks
+            # set device mounted
+            machine_mock.prefab.core.run.return_value = (None, '', None)
+            space_mock = MagicMock(machine_get=MagicMock(return_value=machine_mock),
+                                   machines={'nodeName':MagicMock(delete=MagicMock())})
+
+            ovc_mock=MagicMock(space_get=MagicMock(return_value=space_mock)) 
+            return ovc_mock           
+
+        # mock finding services
+        def find(template_uid, name):     
+            result_mock = mock.PropertyMock()
+            result_mock.side_effect = [
+                key_name, account_service, account_name,
+                sshkey_name, ovc_name
+                ]
+            task_mock = MagicMock()
+            type(task_mock).result = result_mock 
+            proxy = MagicMock(schedule_action=MagicMock(return_value=task_mock))
+            return [proxy]
+
+        with patch.object(instance, 'api') as api:
+            # test when device is not mounted and disk is not present
+            api.services.find.side_effect = find
+            ovc.get.return_value = get_ovc_client('instance')
+            ovc_mock = ovc.get()
+            # check call to create a filesystem
             instance.install()
             # check call to add disk
             instance.machine.disk_add.assert_called_once_with(
                 name='Disk nr 1', description='Machine disk of type D',
                 size=10, type='D')
-
-            # check call to create a filesystem
             ovc.get.return_value.space_get.return_value. \
                                  machine_get.return_value.\
                                  prefab.system.filesystem.create.assert_called_once_with(
@@ -332,10 +369,8 @@ class TestNode(TestCase):
         ovc_name = 'ovc_name'
 
         # set up ovc mock
-        # define machine mock properties
         def get_ovc_client(instance):
             boot_disk = {'id':int, 'type':'B', 'sizeMax':11}
-            #data_disk = {'id':int, 'type':'D', 'sizeMax':11}
             disks = [boot_disk] #, data_disk]
             machine_mock = MagicMock(prefab=MagicMock(return_value=None), id=1)
             machine_mock.disks=disks
@@ -373,9 +408,14 @@ class TestNode(TestCase):
         """
         instance = self.type(name='test', data=self.valid_data)
 
+        def get_ovc_client(instance):
+            space_mock = MagicMock(machines={'nodeName' : MagicMock(delete=MagicMock())})
+            ovc_mock=MagicMock(space_get=MagicMock(return_value=space_mock))
+            return ovc_mock
+
         with patch.object(instance, 'api') as api:
             api.services.find.return_value = [MagicMock(schedule_action=MagicMock())]
-            ovc.get.return_value = self.ovc_mock
+            ovc.get.return_value = get_ovc_client('instance')
 
             instance.uninstall()
 
@@ -635,7 +675,7 @@ class TestNode(TestCase):
         instance.state.set('actions', 'install', 'ok')
         with patch.object(instance, 'api') as api:
             api.services.find.return_value = [MagicMock(schedule_action=MagicMock())]
-            instance._machine = self.machine_mock
+            instance._machine = MagicMock()
             instance.disk_add(name='test')
             instance.machine.disk_add.assert_called_with(
                 name='test', description='Data disk', size=10, type='D'
@@ -670,7 +710,7 @@ class TestNode(TestCase):
         disk_id = 1
         with patch.object(instance, 'api') as api:
             api.services.find.return_value = [MagicMock(schedule_action=MagicMock(return_value=MagicMock(result=disk_id)))]
-            instance._machine = self.machine_mock
+            instance._machine = MagicMock()
             instance.disk_attach(disk_service_name='test')
             instance.machine.disk_attach.assert_called_with(disk_id)
 
@@ -722,8 +762,7 @@ class TestNode(TestCase):
 
         with patch.object(instance, 'api') as api:
             api.services.find.return_value = [service_mock]
-            instance._machine = self.machine_mock
-
+            instance._machine = MagicMock()
             instance.disk_detach(disk_service_name=disk_service_name)
             instance.machine.disk_detach.assert_called_with(disk_id)
 
