@@ -1,4 +1,4 @@
-# template: account
+# template: github.com/openvcloud/0-templates/account/0.0.1
 
 ## Description
 

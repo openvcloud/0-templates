@@ -1,4 +1,4 @@
-# template: vdcuser
+# template: github.com/openvcloud/0-templates/vdcuser/0.0.1
 
 ## Description
 

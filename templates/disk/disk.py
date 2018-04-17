@@ -24,10 +24,10 @@ class Disk(TemplateBase):
         """
 
         if not self.data['vdc']:
-            raise RuntimeError('vdc service name is required')
+            raise ValueError('vdc service name is required')
 
         if not self.data['diskId'] and not self.data['name']:
-            raise RuntimeError('to create a new disk name is required')         
+            raise ValueError('provide name to create a new device')         
 
         # ensure that disk has a valid type
         if self.data['type'].upper() not in ["D", "B"]:

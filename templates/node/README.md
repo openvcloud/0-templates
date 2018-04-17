@@ -1,4 +1,4 @@
-# template: node
+# template: github.com/openvcloud/0-templates/node/0.0.1
 
 ## Description
 

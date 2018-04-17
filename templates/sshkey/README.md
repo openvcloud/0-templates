@@ -1,4 +1,4 @@
-# template: sshkey
+# template: github.com/openvcloud/0-templates/sshkey/0.0.1
 
 ## Description
 

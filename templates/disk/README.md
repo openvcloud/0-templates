@@ -1,10 +1,9 @@
-# template: disk
+# template: github.com/openvcloud/0-templates/disk/0.0.1
 
 ## Description
 
 This template is responsible for managing disks on an openVCloud environment.
 Disk service can be linked with an existing disk, based on disk ID, or create a new disk.
-Disk service is unaware if the disk is attached to a machine.
 
 ## Schema
 
@@ -71,7 +70,7 @@ vdc.schedule_action('install')
 disk = = robot.services.create(
     template_uid="github.com/openvcloud/0-templates/disk/0.0.1",
     service_name="vdc-service",
-    data={'vdc': 'vdc-service'}
+    data={'name': 'test_disk', 'vdc': 'vdc-service'}
 )
 
 disk.schedule_action('install')
@@ -95,6 +94,7 @@ services:
         name: my_space_name
         account: myaccount
     - github.com/openvcloud/0-templates/disk/0.0.1__mydisk:
+        name: test_disk
         vdc: myspace
 
 actions:

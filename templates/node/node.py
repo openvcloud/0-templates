@@ -86,7 +86,6 @@ class Node(TemplateBase):
         task.wait()
         account_service = task.result
 
-
         # get account name
         account = self._get_proxy(self.ACCOUNT_TEMPLATE, account_service)
         task = account.schedule_action('get_name')
@@ -187,6 +186,7 @@ class Node(TemplateBase):
         )
 
         return self._machine
+
 
     def _configure_disks(self):
         """

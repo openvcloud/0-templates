@@ -1,4 +1,4 @@
-# template: openvcloud
+# template: github.com/openvcloud/0-templates/openvcloud/0.0.1
 
 ## Description
 

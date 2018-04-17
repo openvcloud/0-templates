@@ -1,4 +1,4 @@
-# template: vdc
+# template: github.com/openvcloud/0-templates/vdc/0.0.1
 
 ## Description
 

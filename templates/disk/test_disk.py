@@ -15,7 +15,7 @@ class TestDisk(TestCase):
             os.path.dirname(__file__)
         )
 
-        self.valid_data = {'vdc' : 'test_vdc'}
+        self.valid_data = {'vdc' : 'test_vdc', 'name': 'test_disk'}
         self.location = 'be-gen-demo'
         self.disk_id = '1111'
         self.location_gid = 123
@@ -35,114 +35,197 @@ class TestDisk(TestCase):
                                     ],
                                 )
 
-    def test_validate(self):
+    def test_validate_success_1(self):
         '''
-        Test validate method
+        Test validate method with valid data for creation of new disk
         '''
-        name = 'test'
+        valid_data = {
+            'name' : 'test_disk',
+            'vdc' : 'test_vdc'
+        }
 
-        # test success
-        instance = self.type(name=name, data=self.valid_data)
+        instance = self.type(name='test', data=valid_data)
         instance.validate()
+        assert instance.data['name'] == valid_data['name']
+        assert instance.data['vdc'] == valid_data['vdc']
 
-        # test fail when data is empty
+    def test_validate_success_2(self):
+        '''
+        Test validate method with valid data for link to existent disk
+        '''        
+        valid_data = {
+            'diskId' : 1111,
+            'vdc' : 'test_vdc'
+        }
+
+        instance = self.type(name='test', data=valid_data)
+        instance.validate()
+        assert instance.data['diskId'] == valid_data['diskId']
+        assert instance.data['vdc'] == valid_data['vdc']
+
+    def test_validate_fail_1(self):
+        '''
+        Test validate method with invalid data
+        '''
+
         invalid_data = {}
-        instance = self.type(name=name, data=invalid_data)
-        with self.assertRaisesRegex(RuntimeError, 'vdc name should be given'):
+        instance = self.type(name='test', data=invalid_data)
+        with self.assertRaisesRegex(ValueError, 'vdc name should be given'):
             instance.validate()
 
-        # test fail when fault disk type
+    def test_validate_fail_1(self):
+        """
+        Test validate method with invalid data
+        """
+        invalid_data = {}
+        instance = self.type(name='test', data=invalid_data)
+        with self.assertRaisesRegex(ValueError, 'vdc service name is required'):
+            instance.validate()
+
+
+    def test_validate_fail_2(self):
+        '''
+        Test validate method with invalid data
+        '''
         invalid_data = {
+            'vdc' : 'test_vdc'
+        }
+        instance = self.type(name='test', data=invalid_data)
+        with self.assertRaisesRegex(ValueError, 'to create a new disk, name is required'):
+            instance.validate()
+
+    def test_validate_fail_2(self):
+        '''
+        Test validate method with invalid data: fault disk type
+        '''
+        invalid_data = {
+            'name' : 'test_disk',
             'vdc' : 'test_vdc',
             'type': 'A'
             }
-        instance = self.type(name=name, data=invalid_data)
+        instance = self.type(name='test', data=invalid_data)
         with self.assertRaisesRegex(ValueError, "disk type must be data D or boot B only"):
             instance.validate()
-        
-        # test fail when limits a given incorrectly
+
+    def test_validate_fail_3(self):
+        '''
+        Test validate method with invalid data: limits a given incorrectly
+        '''        
         invalid_data = {
+            'name' : 'test_name',
             'vdc' : 'test_vdc',
             'maxIops': 1,
             'readIopsSec': 1
             }
-        instance = self.type(name=name, data=invalid_data)
+        instance = self.type(name='test', data=invalid_data)
         with self.assertRaisesRegex(RuntimeError, 
                                     "total and read/write of iops_sec cannot be set at the same time"):
             instance.validate()
-        
+
+    def test_validate_fail_4(self):
+        '''
+        Test validate method with invalid data: limits a given incorrectly
+        '''              
         invalid_data = {
+            'name' : 'test_name',
             'vdc' : 'test_vdc',
             'totalIopsSec': 1,
             'writeIopsSec': 1
             }
-        instance = self.type(name=name, data=invalid_data)
+        instance = self.type(name='test', data=invalid_data)
         with self.assertRaisesRegex(RuntimeError,
                                     "total and read/write of iops_sec cannot be set at the same time"):
             instance.validate()
 
+    def test_validate_fail_5(self):
+        '''
+        Test validate method with invalid data: limits a given incorrectly
+        ''' 
         invalid_data = {
+            'name' : 'test_name',
             'vdc' : 'test_vdc',
             'totalBytesSec': 1,
             'readBytesSec': 1
             }
-        instance = self.type(name=name, data=invalid_data)
+        instance = self.type(name='test', data=invalid_data)
         with self.assertRaisesRegex(RuntimeError,
                                     "total and read/write of bytes_sec cannot be set at the same time"):
             instance.validate()
 
+    def test_validate_fail_6(self):
+        '''
+        Test validate method with invalid data: limits a given incorrectly
+        ''' 
         invalid_data = {
+            'name' : 'test_name',
             'vdc' : 'test_vdc',
             'totalBytesSec': 1,
             'writeBytesSec': 1
             }
-        instance = self.type(name=name, data=invalid_data)
+        instance = self.type(name='test', data=invalid_data)
         with self.assertRaisesRegex(RuntimeError,
                                     "total and read/write of bytes_sec cannot be set at the same time"):
             instance.validate()
 
+    def test_validate_fail_7(self):
+        '''
+        Test validate method with invalid data: limits a given incorrectly
+        ''' 
         invalid_data = {
+            'name' : 'test_name',
             'vdc' : 'test_vdc',
             'totalBytesSecMax': 1,
             'readBytesSecMax': 1
             }
-        instance = self.type(name=name, data=invalid_data)
+        instance = self.type(name='test', data=invalid_data)
         with self.assertRaisesRegex(RuntimeError,
                                     "total and read/write of bytes_sec_max cannot be set at the same time"):
             instance.validate()
 
+    def test_validate_fail_8(self):
+        '''
+        Test validate method with invalid data: limits a given incorrectly
+        ''' 
         invalid_data = {
+            'name' : 'test_name',
             'vdc' : 'test_vdc',
             'totalBytesSecMax': 1,
             'writeBytesSecMax': 1
             }
-        instance = self.type(name=name, data=invalid_data)
+        instance = self.type(name='test', data=invalid_data)
         with self.assertRaisesRegex(RuntimeError,
                                     "total and read/write of bytes_sec_max cannot be set at the same time"):
             instance.validate()
 
+    def test_validate_fail_9(self):
+        '''
+        Test validate method with invalid data: limits a given incorrectly
+        ''' 
         invalid_data = {
+            'name' : 'test_name',
             'vdc' : 'test_vdc',
             'totalIopsSecMax': 1,
             'readIopsSecMax': 1
             }
-        instance = self.type(name=name, data=invalid_data)
+        instance = self.type(name='test', data=invalid_data)
         with self.assertRaisesRegex(RuntimeError,
                                     "total and read/write of iops_sec_max cannot be set at the same time"):
             instance.validate()
 
+    def test_validate_fail_10(self):
+        '''
+        Test validate method with invalid data: limits a given incorrectly
+        ''' 
         invalid_data = {
+            'name' : 'test_name',
             'vdc' : 'test_vdc',
             'totalIopsSecMax': 1,
             'writeIopsSecMax': 1
             }
-        instance = self.type(name=name, data=invalid_data)
+        instance = self.type(name='test', data=invalid_data)
         with self.assertRaisesRegex(RuntimeError,
                                     "total and read/write of iops_sec_max cannot be set at the same time"):
             instance.validate()
-        
-        # test success
-        instance = self.type(name=name, data=self.valid_data)
 
     @mock.patch.object(j.clients, '_openvcloud')
     def test_install_ok(self, ovc):
@@ -155,7 +238,7 @@ class TestDisk(TestCase):
     @mock.patch.object(j.clients, '_openvcloud')
     def test_install_create_disk_success(self, ovc):
         data = {
-            'deviceName': 'TestDisk',
+            'name': 'TestDisk',
             'description': 'some extra info',
             'size': 2,
             'type': 'D'
@@ -179,13 +262,12 @@ class TestDisk(TestCase):
             proxy = MagicMock(schedule_action=MagicMock(return_value=task_mock))
             return [proxy]
 
-        # test success
         with patch.object(instance, 'api') as api:
             ovc.get.return_value = self.ovc_mock
             api.services.find.side_effect = find
             instance.install()
             instance.account.disk_create.assert_called_once_with(
-                            name=data['deviceName'],
+                            name=data['name'],
                             gid=[self.location_gid],
                             description=data['description'],
                             size=data['size'],
