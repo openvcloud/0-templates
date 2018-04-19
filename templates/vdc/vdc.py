@@ -2,7 +2,7 @@ import time
 from js9 import j
 from zerorobot.template.base import TemplateBase
 from zerorobot.template.state import StateCheckError
-
+from zerorobot.template.decorator import retry
 
 class Vdc(TemplateBase):
 
@@ -107,6 +107,8 @@ class Vdc(TemplateBase):
         self.data['users'] = users
         return self.data['users']
 
+    @retry((BaseException),
+            tries=5, delay=3, backoff=2, logger=None)
     def install(self):
         """
         Install vdc. Will be created if doesn't exist
@@ -118,7 +120,6 @@ class Vdc(TemplateBase):
         except StateCheckError:
             pass
 
-        acc = self.account
         if not self.data['create']:
             space = self.space
             self.get_users(refresh=False)
@@ -131,7 +132,8 @@ class Vdc(TemplateBase):
         externalnetworkId = self.data.get('externalNetworkID', -1)
         if externalnetworkId == -1:
             externalnetworkId = None
-        self._space = acc.space_get(
+
+        self._space = self.account.space_get(
             name=self.data['name'],
             create=True,
             maxMemoryCapacity=self.data.get('maxMemoryCapacity', -1),
@@ -386,4 +388,3 @@ class Vdc(TemplateBase):
 
         if updated:
             space.save()
-

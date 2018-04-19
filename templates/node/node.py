@@ -2,6 +2,7 @@ import re
 from js9 import j
 from zerorobot.template.base import TemplateBase
 from zerorobot.template.state import StateCheckError
+from zerorobot.template.decorator import retry
 
 
 class Node(TemplateBase):
@@ -140,6 +141,8 @@ class Node(TemplateBase):
 
         return self._machine
 
+    @retry((BaseException),
+            tries=5, delay=3, backoff=2, logger=None)
     def install(self):
         """ Install VM """
 

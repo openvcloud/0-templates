@@ -1,6 +1,7 @@
 from js9 import j
 from zerorobot.template.base import TemplateBase
 from zerorobot.template.state import StateCheckError
+from zerorobot.template.decorator import retry
 
 
 class Account(TemplateBase):
@@ -24,26 +25,31 @@ class Account(TemplateBase):
             if not self.data[key]:
                 raise ValueError('"%s" is required' % key)
 
-        ovcs = self.api.services.find(template_uid=self.OVC_TEMPLATE, name=self.data['openvcloud'])
+        ovcs = self.api.services.find(
+            template_uid=self.OVC_TEMPLATE, name=self.data['openvcloud'])
 
         if len(ovcs) != 1:
-            raise RuntimeError('found %s openvcloud connections with name "%s", requires exactly 1' % (len(ovcs), self.data['openvcloud']))
+            raise RuntimeError('found %s openvcloud connections with name "%s", requires exactly 1' % (
+                len(ovcs), self.data['openvcloud']))
 
     def _get_proxy(self, template_uid, service_name):
         """
         Get proxy object of the service of type @template_uid with name @service_name
         """
 
-        matches = self.api.services.find(template_uid=template_uid, name=service_name)
+        matches = self.api.services.find(
+            template_uid=template_uid, name=service_name)
         if len(matches) != 1:
-            raise RuntimeError('found %d services with name "%s", required exactly one' % (len(matches), service_name))
+            raise RuntimeError('found %d services with name "%s", required exactly one' % (
+                len(matches), service_name))
         return matches[0]
 
     @property
     def ovc(self):
         """ Get ovc client """
         if not self._ovc_instance:
-            self._ovc_proxy = self._get_proxy(self.OVC_TEMPLATE, self.data['openvcloud'])
+            self._ovc_proxy = self._get_proxy(
+                self.OVC_TEMPLATE, self.data['openvcloud'])
             task = self._ovc_proxy.schedule_action('get_name')
             task.wait()
             self._ovc_instance = task.result
@@ -53,8 +59,8 @@ class Account(TemplateBase):
     def account(self):
         if not self._account:
             self._account = self.ovc.account_get(
-                                        name=self.data['name'],
-                                        create=False)
+                name=self.data['name'],
+                create=False)
         return self._account
 
     def get_name(self):
@@ -71,7 +77,8 @@ class Account(TemplateBase):
             self.account.refresh()
         users = []
         for user in self.account.model['acl']:
-            users.append({'name' : user['userGroupId'], 'accesstype' : user['right']})
+            users.append({'name': user['userGroupId'],
+                          'accesstype': user['right']})
         self.data['users'] = users
         return users
 
@@ -83,15 +90,20 @@ class Account(TemplateBase):
 
         return self._ovc_instance
 
+    @retry((BaseException),
+            tries=5, delay=3, backoff=2, logger=None)
     def install(self):
-        """ Install account """
+        """ Install account
+            
+            If action was not successfull it will be retried
+        """
         try:
             self.state.check('actions', 'install', 'ok')
         except StateCheckError:
             pass
-
+            
         # Set limits
-        # if account does not exist, it will create it, 
+        # if account does not exist, it will create it,
         # unless 'create' flag is set to False
         self._account = self.ovc.account_get(
             name=self.data['name'],
@@ -131,9 +143,12 @@ class Account(TemplateBase):
         :param service_name: name of the vdc service 
         """
 
-        find = self.api.services.find(template_uid=self.VDCUSER_TEMPLATE, name=service_name)
+        find = self.api.services.find(
+            template_uid=self.VDCUSER_TEMPLATE, name=service_name)
         if len(find) != 1:
-            raise ValueError('found %s vdcuser services with name "%s", requires exactly 1' % (len(find), service_name))
+            raise ValueError(
+                'found %s vdcuser services with name "%s", requires exactly 1' % (
+                len(find), service_name))
 
         vdcuser = find[0]
         task = vdcuser.schedule_action('get_name')
@@ -166,14 +181,15 @@ class Account(TemplateBase):
             if self.account.update_access(username=name, right=accesstype):
                 existent_user['accesstype'] = accesstype
                 break
-            raise RuntimeError('failed to update access type of user "%s"' % name)
+            raise RuntimeError(
+                'failed to update access type of user "%s"' % name)
         else:
             # user not found (looped over all users)
             if self.account.authorize_user(username=name, right=accesstype):
                 new_user = {
-                    "name": name, 
+                    "name": name,
                     "accesstype": accesstype
-                    }
+                }
                 self.data['users'].append(new_user)
             else:
                 raise RuntimeError('failed to add user "%s"' % name)
@@ -190,7 +206,7 @@ class Account(TemplateBase):
             raise RuntimeError('readonly account')
 
         self.state.check('actions', 'install', 'ok')
-        
+
         # fetch user name from the vdcuser service
         username = self._fetch_user_name(vdcuser)
 
