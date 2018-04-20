@@ -45,15 +45,25 @@ class Account(TemplateBase):
                 len(matches), service_name))
         return matches[0]
 
+    def _execute_task(self, proxy, action, args={}):
+        task = proxy.schedule_action(action=action)
+        task.wait()
+        if task.state is not 'ok':
+            raise RuntimeError(
+                    'error occurred when executing action "%s" on service "%s"' %
+                    (action, proxy.name))
+        return task.result
+
     @property
     def ovc(self):
         """ Get ovc client """
         if not self._ovc_instance:
             self._ovc_proxy = self._get_proxy(
                 self.OVC_TEMPLATE, self.data['openvcloud'])
-            task = self._ovc_proxy.schedule_action('get_name')
-            task.wait()
-            self._ovc_instance = task.result
+            ovc_info = self._execute_task(
+                proxy=self._ovc_proxy, action='get_info')
+            self._ovc_instance = ovc_info['name']
+
         return j.clients.openvcloud.get(self._ovc_instance)
 
     @property
@@ -64,15 +74,16 @@ class Account(TemplateBase):
                 create=False)
         return self._account
 
-    def get_name(self):
-        """
-        Returns the OVC account name.
-        Raises StateCheckError when install was not successfully run before.
-        """
+    def get_info(self):
+        """ Get account info """
         self.state.check('actions', 'install', 'ok')
-        return self.data['name']
+        return {
+            'name' : self.data['name'],
+            'openvcloud' : self._ovc_instance,
+            'users' : self._get_users()
+        }
 
-    def get_users(self, refresh=True):
+    def _get_users(self, refresh=True):
         """ Fetch authorized vdc users """
         if refresh:
             self.account.refresh()
@@ -82,14 +93,6 @@ class Account(TemplateBase):
                           'accesstype': user['right']})
         self.data['users'] = users
         return users
-
-    def get_openvcloud(self):
-        """ Return name of ovc instance """
-        self.state.check('actions', 'install', 'ok')
-        if not self._ovc_instance:
-            self.ovc
-
-        return self._ovc_instance
 
     @retry((BaseException),
             tries=5, delay=3, backoff=2, logger=None)
@@ -118,7 +121,7 @@ class Account(TemplateBase):
         self.data['accountID'] = self.account.model['id']
 
         # get user access info
-        self.get_users(refresh=False)
+        self._get_users(refresh=False)
 
         # update capacity in case account already existed
         self.account.model['maxMemoryCapacity'] = self.data['maxMemoryCapacity']
@@ -133,37 +136,12 @@ class Account(TemplateBase):
         if not self.data['create']:
             raise RuntimeError('readonly account')
 
-        if self.data['name'] in [acc.model['name'] for acc in self.ovc.accounts]:
-            acc = self.ovc.account_get(self.data['name'], create=False)
-            acc.delete()
+        # check if account is empty
+        if self.account.spaces:
+            raise RuntimeError('not empty account cannot be deleted')
 
-        # unintall vdc services linked to this account
-        vdcs = self.api.services.find(template_uid=self.VDC_TEMPLATE)
-        for vdc in vdcs:
-            task = vdc.schedule_action('get_account')
-            task.wait()
-            if task.result == self.name:
-                vdc.schedule_action('uninstall')
-
+        self.account.delete()
         self.state.delete('actions', 'install')
-
-    def _fetch_user_name(self, service_name):
-        """
-        Get vdcuser name. Succeed only if vdcuser service is installed.
-        :param service_name: name of the vdc service 
-        """
-
-        find = self.api.services.find(
-            template_uid=self.VDCUSER_TEMPLATE, name=service_name)
-        if len(find) != 1:
-            raise ValueError(
-                'found %s vdcuser services with name "%s", requires exactly 1' % (
-                len(find), service_name))
-
-        vdcuser = find[0]
-        task = vdcuser.schedule_action('get_name')
-        task.wait()
-        return task.result
 
     def user_authorize(self, vdcuser, accesstype='R'):
         """
@@ -177,9 +155,11 @@ class Account(TemplateBase):
             raise RuntimeError('readonly account')
 
         # fetch user name from the vdcuser service
-        name = self._fetch_user_name(vdcuser)
+        vdcuser = self._get_proxy(self.VDCUSER_TEMPLATE, vdcuser)
+        user_info = self._execute_task(proxy=vdcuser, action='get_info')
+        name = user_info['name']  
 
-        users = self.get_users()
+        users = self._get_users()
 
         for existent_user in users:
             if existent_user['name'] != name:
@@ -218,10 +198,12 @@ class Account(TemplateBase):
         self.state.check('actions', 'install', 'ok')
 
         # fetch user name from the vdcuser service
-        username = self._fetch_user_name(vdcuser)
+        vdcuser = self._get_proxy(self.VDCUSER_TEMPLATE, vdcuser)
+        user_info = self._execute_task(proxy=vdcuser, action='get_info')
+        username = user_info['name']
 
         # get user access on the account
-        users = self.get_users()
+        users = self._get_users()
 
         for user in users:
             if username == user['name']:

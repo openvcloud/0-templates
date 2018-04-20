@@ -15,7 +15,7 @@ struct Schema {
 	# id of the disk 
 	diskId @4: Int64;
 
-	# Virtual Data Center id
+	# Virtual Data Center service name
 	vdc @5 :Text;
 
 	# location of the disk

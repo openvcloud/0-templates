@@ -41,25 +41,33 @@ class Vdc(TemplateBase):
             raise RuntimeError('found %d services with name "%s", required exactly one' % (len(matches), service_name))
         return matches[0]
 
-    def get_name(self):
-        """ Return vdc name """
+    def _execute_task(self, proxy, action, args={}):
+        task = proxy.schedule_action(action=action)
+        task.wait()
+        if task.state is not 'ok':
+            raise RuntimeError(
+                    'error occurred when executing action "%s" on service "%s"' %
+                    (action, proxy.name))
+        return task.result
+
+    def get_info(self):
+        """ Return vdc info """
         self.state.check('actions', 'install', 'ok')
-        return self.data['name']
+        return {
+            'name' : self.data['name'],
+            'account' : self.data['account'],
+            'users' : self._get_users(),
+        }
 
     @property
     def ovc(self):
         """
         An ovc connection instance
         """
-        if self._ovc is not None:
-            return self._ovc
-
-        proxy = self._get_proxy(self.ACCOUNT_TEMPLATE, self.data['account'])
-        # get connection
-        task = proxy.schedule_action('get_openvcloud')
-        task.wait()
-
-        self._ovc = j.clients.openvcloud.get(task.result)
+        if not self._ovc:
+            proxy = self._get_proxy(self.ACCOUNT_TEMPLATE, self.data['account'])
+            account_info = self._execute_task(proxy=proxy, action='get_info')
+            self._ovc = j.clients.openvcloud.get(account_info['openvcloud'])
 
         return self._ovc
 
@@ -70,21 +78,13 @@ class Vdc(TemplateBase):
         if self._account is not None:
             return self._account
 
-        proxy = self._get_proxy(self.ACCOUNT_TEMPLATE, self.data['account'])
-
         # get actual account name
-        task = proxy.schedule_action('get_name')
-        task.wait()
-        account_name = task.result
+        proxy = self._get_proxy(self.ACCOUNT_TEMPLATE, self.data['account'])
+        account_info = self._execute_task(proxy=proxy, action='get_info')
+        account_name = account_info['name']
 
         self._account = self.ovc.account_get(account_name, create=False)
         return self._account
-
-    def get_account(self):
-        """ Return account service name """
-
-        self.state.check('actions', 'install', 'ok')
-        return self.data['account']
 
     @property
     def space(self):
@@ -96,7 +96,7 @@ class Vdc(TemplateBase):
         self._space = self.account.space_get(name=self.data['name'], create=False)
         return self._space
 
-    def get_users(self, refresh=True):
+    def _get_users(self, refresh=True):
         """
         Fetch authorized vdc users
         """
@@ -123,7 +123,7 @@ class Vdc(TemplateBase):
 
         if not self.data['create']:
             space = self.space
-            self.get_users(refresh=False)
+            self._get_users(refresh=False)
             self.data['cloudspaceID'] = space.model['id']
             self.state.set('actions', 'install', 'ok')
             return
@@ -148,7 +148,7 @@ class Vdc(TemplateBase):
         # add space ID to data
         self.data['cloudspaceID'] = space.model['id']
         # fetch list of authorized users to self.data['users']
-        self.get_users(refresh=False)
+        self._get_users(refresh=False)
 
         # update capacity incase cloudspace already existed update it
         space.model['maxMemoryCapacity'] = self.data.get('maxMemoryCapacity', -1)
@@ -177,23 +177,11 @@ class Vdc(TemplateBase):
         if not self.data['create']:
             raise RuntimeError('readonly cloudspace')
 
-        self.space.delete()
-        
-        # uninstall vm's on the vdc
-        nodes = self.api.services.find(template_uid=self.NODE_TEMPLATE)
-        for node in nodes:
-            task = node.schedule_action('get_space')
-            task.wait()
-            if task.result == self.name:
-                node.schedule_action('uninstall')
-
-        # uninstall disks on the vdc
-        disks = self.api.services.find(template_uid=self.DISK_TEMPLATE)
-        for disk in disks:
-            task = disk.schedule_action('get_space')
-            task.wait()
-            if task.result == self.name:
-                disk.schedule_action('uninstall')
+        # check if space exists on account
+        for space in self.account.spaces:
+            if space.model['name'] == self.data['name']:
+                self.space.delete()
+                break
 
         self.state.delete('actions', 'install')
 
@@ -242,9 +230,8 @@ class Vdc(TemplateBase):
         self.state.check('actions', 'install', 'ok')
 
         proxy = self._get_proxy(self.NODE_TEMPLATE, node_service)
-        task = proxy.schedule_action('get_id')
-        task.wait()
-        machine_id = task.result
+        node_info = self._execute_task(proxy=proxy, action='get_info')
+        machine_id = node_info['id']
 
         # add portforwards
         for port in ports:
@@ -268,9 +255,8 @@ class Vdc(TemplateBase):
         self.state.check('actions', 'install', 'ok')
 
         proxy = self._get_proxy(self.NODE_TEMPLATE, node_service)
-        task = proxy.schedule_action('get_id')
-        task.wait()
-        machine_id = task.result
+        node_info = self._execute_task(proxy=proxy, action='get_info')
+        machine_id = node_info['id']
 
         existent_ports = [(port['publicPort'], port['localPort'], port['id'])
                             for port in self.ovc.api.cloudapi.portforwarding.list(
@@ -290,17 +276,6 @@ class Vdc(TemplateBase):
                         machineId=machine_id,
                     )
 
-    def _fetch_user_name(self, service_name):
-        """
-        Get vdcuser name. Succeed only if vdcuser service is installed.
-        :param service_name: name of the vdc service 
-        """
-
-        vdcuser = self._get_proxy(self.VDCUSER_TEMPLATE, service_name)
-        task = vdcuser.schedule_action('get_name')
-        task.wait()
-        return task.result
-
     def user_authorize(self, vdcuser, accesstype='R'):
         """
         Add/Update user access to a space
@@ -313,10 +288,12 @@ class Vdc(TemplateBase):
             raise RuntimeError('readonly cloudspace')
         
         # fetch list of authorized users to self.data['users']
-        users = self.get_users()
+        users = self._get_users()
 
         # derive service name from username
-        name = self._fetch_user_name(vdcuser)
+        vdcuser = self._get_proxy(self.VDCUSER_TEMPLATE, vdcuser)
+        user_info = self._execute_task(proxy=vdcuser, action='get_info')
+        name = user_info['name']
 
         for existent_user in users:
             if existent_user['name'] != name:
@@ -357,10 +334,12 @@ class Vdc(TemplateBase):
         self.state.check('actions', 'install', 'ok')
         
         # fetch user name from the vdcuser service
-        username = self._fetch_user_name(vdcuser)
+        vdcuser = self._get_proxy(self.VDCUSER_TEMPLATE, vdcuser)
+        user_info = self._execute_task(proxy=vdcuser, action='get_info')
+        username = user_info['name']
 
         # get user access on the cloudspace
-        users = self.get_users()
+        users = self._get_users()
 
         for user in users:
             if username == user['name']:
