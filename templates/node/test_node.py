@@ -103,28 +103,36 @@ class TestNode(TestCase):
             instance.validate()
         instance.delete()
 
+    @staticmethod
+    def set_up_proxy_mock(result, state='ok', name='service_name'):
+        task = MagicMock(result=result, state=state)
+        proxy = MagicMock(schedule_action=MagicMock(return_value=task))
+        proxy.name = name
+        return proxy
+
     def test_config(self):
         """
         Test fetching config from vdc, account, and ovc services
         """
+
+        acc_info =  {'name': 'test_account',
+                     'openvcloud': 'be-gen'}
+        vdc_info =  {'name': 'test_vdc',
+                     'account': 'test_account'}   
+
+        def find(template_uid, name):
+            if template_uid == self.type.ACCOUNT_TEMPLATE:
+                return [self.set_up_proxy_mock(result=acc_info)]
+            if template_uid == self.type.VDC_TEMPLATE:
+                return [self.set_up_proxy_mock(result=vdc_info)]
+
         instance = self.type(name='test', data=self.valid_data)
-        vdc_name = 'test_vdc'
-        account_name = 'test_account'
-        ovc_name = 'test_ovc' 
 
         with patch.object(instance, 'api') as api:
-            result = mock.PropertyMock()
-            result.side_effect = [account_name, ovc_name]
-            task_mock = MagicMock()
-            type(task_mock).result = result
-            mock_find_acc = MagicMock(schedule_action=MagicMock(return_value=task_mock))
-            task_mock = MagicMock(result=vdc_name)
-            mock_find_vdc = MagicMock(schedule_action=MagicMock(return_value=task_mock))
-
-            api.services.find.side_effect = [[mock_find_vdc],[mock_find_acc]]
+            api.services.find.side_effect = find
             instance.config
-            self.assertEqual(instance.config['ovc'], ovc_name)
-            self.assertEqual(instance.config['account'], account_name)
+            self.assertEqual(instance.config['ovc'], acc_info['openvcloud'])
+            self.assertEqual(instance.config['account'], acc_info['name'])
 
     def test_config_invalid_vdc(self):
         """

@@ -17,19 +17,27 @@ class TestVDC(TestCase):
             "https://github.com/openvcloud/0-templates",
             os.path.dirname(__file__)
         )
-        # define properties of space mock
-        self.initial_user = {'name': 'initial_user@itsyouonline', 'accesstype': 'ACDRUX'}
-        space_mock = MagicMock(model={
-            'acl': [{
-                'userGroupId': self.initial_user['name'], 
-                'right': self.initial_user['accesstype']}
-                ]},
-            )
+        self.acc_info = {'name': 'test_account',
+                         'openvcloud': 'be-gen'}      
+        self.acocunt_service_name = 'test_account_service'
+        self.vdc_name = 'vdc_service_name'
+
+    @staticmethod
+    def set_up_proxy_mock(result, state='ok', name='service_name'):
+        task = MagicMock(result=result, state=state)
+        proxy = MagicMock(schedule_action=MagicMock(return_value=task))
+        proxy.name = name
+        return proxy
+
+    def ovc_mock(self, instance):
+        space_model = MagicMock(model={'name': self.vdc_name})
+        space_mock = MagicMock(model=space_model)
         acc_mock = MagicMock(space_get=MagicMock(return_value=space_mock))
-        self.ovc_mock = MagicMock(account_get=MagicMock(return_value=acc_mock))        
+        acc_mock.spaces = [space_model]
+        return MagicMock(account_get=MagicMock(return_value=acc_mock))
 
     def test_validate(self):
-        # test fail if name is missing        
+        # test fail if name is missing
         name = 'test'
         data = {
             'account': 'test-account',
@@ -39,7 +47,7 @@ class TestVDC(TestCase):
                            message="vdc name is required"):
             instance.validate()
 
-        # test fail if account is missing        
+        # test fail if account is missing
         data = {
             'account': 'test-account',
         }
@@ -58,20 +66,17 @@ class TestVDC(TestCase):
 
     @mock.patch.object(j.clients, '_openvcloud')
     def test_install(self, openvcloud):
+        
+        def find(template_uid, name):
+            if template_uid == self.type.ACCOUNT_TEMPLATE:
+                return [self.set_up_proxy_mock(result=self.acc_info)]
+
         name = 'test'
         data = {
             'account': 'account-service-name',
             'name': name
         }
         instance = self.type(name, None, data)
-
-        account_name = 'be-gen'
-        def find(template_uid, name): 
-            self.assertEqual(template_uid, self.type.ACCOUNT_TEMPLATE)
-            self.assertEqual(name, data['account'])
-            task_mock = MagicMock(result=account_name)
-            proxy = MagicMock(schedule_action=MagicMock(return_value=task_mock))
-            return [proxy]
 
         with mock.patch.object(instance, '_account') as account:
             space = account.space_get.return_value
@@ -112,13 +117,18 @@ class TestVDC(TestCase):
         Test uninstall vdc
         """
 
-        data = {
-            'account': 'test-account',
-            }        
+        def find(template_uid, name):
+            if template_uid == self.type.ACCOUNT_TEMPLATE:
+                return [self.set_up_proxy_mock(result=self.acc_info)]
 
+        data = {
+            'name' : self.vdc_name,
+            'account': self.acocunt_service_name,
+        }
         instance = self.type('test', None, data)
+        ovc.get.side_effect = self.ovc_mock
         with patch.object(instance, 'api') as api:
-            api.services.find.return_value = [MagicMock(schedule_action=MagicMock())]
+            api.services.find.side_effect = find
             instance.uninstall()
             instance.space.delete.assert_called_once_with()
         with pytest.raises(StateCheckError):
@@ -129,11 +139,11 @@ class TestVDC(TestCase):
         """
         Test uninstall vdc. Test error in read-only cloudspace
         """
-        
+
         data_read_only = {
             'account': 'test-account',
             'create': False,
-            }
+        }
         instance = self.type('test', None, data_read_only)
         with pytest.raises(RuntimeError,
                            message='"%s" is readonly cloudspace' % instance.name):
@@ -147,7 +157,7 @@ class TestVDC(TestCase):
 
         data = {
             'account': 'test-account',
-            }        
+        }
 
         instance = self.type('test', None, data)
 
@@ -155,190 +165,7 @@ class TestVDC(TestCase):
             api.services.find.return_value = []
             with pytest.raises(RuntimeError,
                                message='found 0 services with name "%s", required exactly one' % data['account']):
-                instance.uninstall()      
-
-    def test_user_authorize_success(self):
-        """
-        Test authorizing a new user
-        """
-
-        instance = self.type('test', None)
-        instance.state.set('actions', 'install', 'ok')
-
-        # user to add
-        vdcuser, accesstype, username = 'test_user', 'R', 'user@itsyouonline'
-
-        with patch.object(instance, 'api') as api:
-            api.services.find.side_effect = [[MagicMock()], [MagicMock()],
-                                              [MagicMock(schedule_action=MagicMock(
-                                                         return_value=MagicMock(result=username)))]]
-            with patch('js9.j.clients.openvcloud.get', return_value=self.ovc_mock) as ovc:
-                
-                # test success
-                ovc.return_value.account_get.return_value.space_get.return_value.authorize_user.return_value=True
-                instance.user_authorize(vdcuser, accesstype)
-                instance.space.authorize_user.assert_called_once_with(username=username, right=accesstype)
-                api.services.find.assert_has_calls(
-                    [mock.call(template_uid=self.type.VDCUSER_TEMPLATE, name=vdcuser)]
-                )
-
-                self.assertEqual(
-                    instance.data['users'],
-                    [self.initial_user, {'name': username, 'accesstype': accesstype}]
-                    )
-
-    def test_user_authorize_fail_no_vdcuser_service(self):
-        """
-        Test authorizing a new user
-        """
-
-        instance = self.type('test', None)
-        instance.state.set('actions', 'install', 'ok')
-        
-        # user to add
-        vdcuser, accesstype, username = 'test_user', 'R', 'user@itsyouonline'
-        users = [{'userGroupId': username, 'right': 'R'}]
-
-        with patch.object(instance, 'api') as api:
-            api.services.find.side_effect = [[MagicMock()],[MagicMock()], []]
-            with patch('js9.j.clients.openvcloud.get', return_value=self.ovc_mock) as ovc:
-
-                with pytest.raises(RuntimeError,
-                                   message='found 0 services with name "%s", required exactly one' % vdcuser):
-
-                    # fails if no vdcuser service is running for this user
-                    instance.user_authorize(vdcuser, accesstype)
-
-    def test_user_authorize_fail_adding_user(self):
-        """
-        Test authorizing a new user
-        """
-
-        instance = self.type('test', None)
-        instance.state.set('actions', 'install', 'ok')
-
-        # user to add
-        vdcuser, accesstype, username = 'test_user', 'R', 'user@itsyouonline'
-
-        with patch.object(instance, 'api') as api:
-            api.services.find.side_effect = [[MagicMock()], [MagicMock()], 
-                                             [MagicMock(schedule_action=MagicMock(
-                                                        return_value=MagicMock(result=username)))]]
-            with patch('js9.j.clients.openvcloud.get', return_value=self.ovc_mock) as ovc:
-                ovc.return_value.account_get.return_value.space_get.return_value.authorize_user.return_value=False
-                vdcuser, accesstype = 'userTest2', 'R'
-                with pytest.raises(RuntimeError,
-                                   message='failed to add user "%s"' % username):
-                    instance.user_authorize(vdcuser, accesstype)
-
-    def test_user_update_access_right_success(self):
-        """
-        Test updating access right of an authorized user
-        """
-        instance = self.type('test', None)
-        instance.state.set('actions', 'install', 'ok')
-
-        # user to update
-        vdcuser = 'test_user'
-        username = self.initial_user['name']
-        accesstype = 'W'
-        #users = [{'userGroupId': username, 'right': accesstype}]
-        with patch.object(instance, 'api') as api:
-            api.services.find.side_effect = [[MagicMock()], [MagicMock()], 
-                                             [MagicMock(schedule_action=MagicMock(
-                                                        return_value=MagicMock(result=username)))]]
-            with patch('js9.j.clients.openvcloud.get', return_value=self.ovc_mock) as ovc:
-                ovc.return_value.account_get.return_value.space_get.return_value.update_access.return_value=True
-                instance.user_authorize(vdcuser, accesstype)
-                instance.space.update_access.assert_called_once_with(username=username, right=accesstype)
-                self.assertEqual(instance.data['users'],
-                                [{'name': username, 'accesstype': 'W'}])
-
-    def test_user_update_access_right_fail(self):
-        """
-        Test updating access right of an authorized user
-        """
-        instance = self.type('test', None)
-        instance.state.set('actions', 'install', 'ok')
-
-        # user to update
-        vdcuser = 'test_user'
-        username = self.initial_user['name']
-        accesstype = 'W'
-        #users = [{'userGroupId': username, 'right': accesstype}]
-        with patch.object(instance, 'api') as api:
-            api.services.find.side_effect = [[MagicMock()], [MagicMock()], 
-                                             [MagicMock(schedule_action=MagicMock(
-                                                        return_value=MagicMock(result=username)))]]
-            with patch('js9.j.clients.openvcloud.get', return_value=self.ovc_mock) as ovc:
-                ovc.return_value.account_get.return_value.space_get.return_value.update_access.return_value=False
-                with pytest.raises(RuntimeError,
-                                   message='failed to update accesstype of user "test1"'):
-                    instance.user_authorize(vdcuser, accesstype)
-
-    def test_user_unauthorize_success(self):
-        """
-        Test deleting a user
-        """
-        data = {
-            'name': 'vdc_name',
-            'account': 'test-account',
-        }
-        
-        instance = self.type('test', None, data)
-        instance.state.set('actions', 'install', 'ok')
-        
-        # user to delete
-        username = 'user@provider'
-        vdcuser = 'service_name'
-        users = [{'userGroupId': username, 'right': 'R'}]
-
-        # mock finding services
-        def find(template_uid, name):
-            task_mock = MagicMock(result=username)
-            proxy = MagicMock(schedule_action=MagicMock(return_value=task_mock))
-            return [proxy]
-
-        with patch.object(instance, 'api') as api:
-            api.services.find.side_effect = find
-            with patch('js9.j.clients.openvcloud.get', return_value=self.ovc_mock) as ovc:
-                ovc.return_value.account_get.return_value.space_get.return_value.unauthorize_user.return_value=True
-                ovc.return_value.account_get.return_value.space_get.return_value.model = {'acl': users}
-                instance.user_unauthorize(vdcuser)
-                instance.space.unauthorize_user.assert_called_once_with(username=username)
-                self.assertEqual(instance.data['users'], [])
-
-    def test_user_unauthorize_fail(self):
-        """
-        Test deleting a user
-        """
-        data = {
-            'name': 'vdc_name',
-            'account': 'test-account',
-        }
-        
-        instance = self.type('test', None, data)
-        instance.state.set('actions', 'install', 'ok')
-        
-        # user to delete
-        username = 'user@provider'
-        vdcuser = 'service_name'
-        users = [{'userGroupId': username, 'right': 'R'}]
-
-        # mock finding services
-        def find(template_uid, name):
-            task_mock = MagicMock(result=username)
-            proxy = MagicMock(schedule_action=MagicMock(return_value=task_mock))
-            return [proxy]
-
-        with patch.object(instance, 'api') as api:
-            api.services.find.side_effect = find
-            with patch('js9.j.clients.openvcloud.get', return_value=self.ovc_mock) as ovc:
-                ovc.return_value.account_get.return_value.space_get.return_value.unauthorize_user.return_value=False
-                ovc.return_value.account_get.return_value.space_get.return_value.model = {'acl': users}
-                with pytest.raises(RuntimeError,
-                                   message='failed to remove user "%s"' % username):
-                    instance.user_unauthorize(vdcuser)
+                instance.uninstall()
 
     def test_update(self):
         """
@@ -384,15 +211,17 @@ class TestVDC(TestCase):
         }
 
         instance = self.type('test', None, None)
-        port = {'source':22, 'destination':22}
+        port = {'source': 22, 'destination': 22}
         machine_id = 1234
         space_id = 100
         ipaddr_pub = '10.00.00.00'
 
+        node_info = {'name': 'test_node_name', 'id': machine_id}
         def find(template_uid, name):
-            task_mock = MagicMock(result=machine_id)
-            proxy = MagicMock(schedule_action=MagicMock(return_value=task_mock))
-            return [proxy]
+            if template_uid == self.type.ACCOUNT_TEMPLATE:
+                return [self.set_up_proxy_mock(result=self.acc_info)]
+            if template_uid == self.type.NODE_TEMPLATE:
+                return [self.set_up_proxy_mock(result=node_info)]
 
         space_mock = MagicMock(ipaddr_pub=ipaddr_pub, id=space_id)
 
@@ -423,27 +252,30 @@ class TestVDC(TestCase):
         instance = self.type('test', None, None)
         instance.state.set('actions', 'install', 'ok')
 
-        port = {'source' : '22', 'destination' : '2200'}
+        port = {'source': '22', 'destination': '2200'}
         port_id = 111
         machine_id = 1234
         space_id = 100
         ipaddr_pub = '10.00.00.00'
 
+        node_info = {'name': 'test_node_name', 'id': machine_id}
         def find(template_uid, name):
-            task_mock = MagicMock(result=machine_id)
-            proxy = MagicMock(schedule_action=MagicMock(return_value=task_mock))
-            return [proxy]
+            if template_uid == self.type.ACCOUNT_TEMPLATE:
+                return [self.set_up_proxy_mock(result=self.acc_info)]
+            if template_uid == self.type.NODE_TEMPLATE:
+                return [self.set_up_proxy_mock(result=node_info)]
 
         space_mock = MagicMock(ipaddr_pub=ipaddr_pub, id=space_id)
         list_of_ports = [{
             'publicPort': port['source'],
             'localPort': port['destination'],
             'id': port_id
-            }]
+        }]
 
         with patch.object(instance, 'api') as api:
             api.services.find.side_effect = find
-            instance.ovc.api.cloudapi.portforwarding.list = MagicMock(return_value=list_of_ports)
+            instance.ovc.api.cloudapi.portforwarding.list = MagicMock(
+                return_value=list_of_ports)
             instance._space = space_mock
             instance.portforward_delete(node_service='test_node', ports=[port])
             instance.ovc.api.cloudapi.portforwarding.delete.assert_called_with(
@@ -455,3 +287,242 @@ class TestVDC(TestCase):
                 publicIp=ipaddr_pub,
                 machineId=machine_id,
             )
+
+class AuthorizeUserTestCase(TestCase):
+    def setUp(self):
+        config.DATA_DIR = '/tmp'
+        self.type = template_collection._load_template(
+            "https://github.com/openvcloud/0-templates",
+            os.path.dirname(__file__)
+        )
+        # set up existing user
+        self.user = {'service': 'test_user',
+                     'info': {'name': 'test_user@intyouonline', 'accesstype':  'R'}
+                     }
+        # set up new user
+        self.new_user = {'service': 'new_test_user',
+                         'info': {'name': 'new_test_user@intyouonline', 'accesstype':  'W'}
+                         }
+
+        # set up instance
+        self.instance = self.type('test', None)
+        self.instance.state.set('actions', 'install', 'ok')
+        self.acc_info = {'name': 'test_account',
+                         'openvcloud': 'be-gen'}
+        self.mock_bool_result = True
+
+    @staticmethod
+    def set_up_proxy_mock(result, state='ok', name='service_name'):
+        task = MagicMock(result=result, state=state)
+        proxy = MagicMock(schedule_action=MagicMock(return_value=task))
+        proxy.name = name
+        return proxy
+
+    def ovc_mock(self, instance):
+        space_mock = MagicMock(model={
+            'acl': [{
+                'userGroupId': self.user['info']['name'],
+                'right': self.user['info']['accesstype']}
+            ]},
+            authorize_user=MagicMock(return_value=self.mock_bool_result),
+            update_access=MagicMock(return_value=self.mock_bool_result),
+            unauthorize_user=MagicMock(return_value=self.mock_bool_result)
+        )
+        acc_mock = MagicMock(space_get=MagicMock(return_value=space_mock))
+        return MagicMock(account_get=MagicMock(return_value=acc_mock))
+
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_user_authorize_success(self, ovc):
+        """
+        Test authorizing a new user
+        """
+        def find(template_uid, name):
+            if template_uid == self.type.ACCOUNT_TEMPLATE:
+                return [self.set_up_proxy_mock(result=self.acc_info)]
+            if template_uid == self.type.VDCUSER_TEMPLATE:
+                return [self.set_up_proxy_mock(result=self.new_user['info'])]
+
+        ovc.get.side_effect = self.ovc_mock
+        with patch.object(self.instance, 'api') as api:
+            api.services.find.side_effect = find
+            self.instance.user_authorize(self.new_user['service'],
+                                         self.new_user['info']['accesstype'])
+
+            self.instance.space.authorize_user.assert_called_once_with(
+                username=self.new_user['info']['name'], right=self.new_user['info']['accesstype'])
+
+            self.assertEqual(api.services.find.call_count, 3)
+
+            self.assertEqual(
+                self.instance.data['users'],
+                [self.user['info'], self.new_user['info']]
+            )
+
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_user_authorize_fail_no_vdcuser_service(self, ovc):
+        """
+        Test authorizing a new user
+        """
+        def find(template_uid, name):
+            if template_uid == self.type.ACCOUNT_TEMPLATE:
+                return [self.set_up_proxy_mock(result=self.acc_info, state='ok')]
+            return []
+
+        ovc.get.side_effect = self.ovc_mock
+        with patch.object(self.instance, 'api') as api:
+            api.services.find.side_effect = find
+            with self.assertRaisesRegexp(RuntimeError,
+                                         'found 0 services with name "%s", required exactly one' % self.new_user['service']):
+                self.instance.user_authorize(
+                    self.new_user['service'], self.new_user['info']['accesstype'])
+
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_user_authorize_fail_adding_user(self, ovc):
+        """
+        Test authorizing a new user
+        """
+        self.mock_bool_result = False
+        ovc.get.side_effect = self.ovc_mock
+
+        def find(template_uid, name):
+            if template_uid == self.type.ACCOUNT_TEMPLATE:
+                return [self.set_up_proxy_mock(result=self.acc_info, state='ok')]
+            if template_uid == self.type.VDCUSER_TEMPLATE:
+                return [self.set_up_proxy_mock(result=self.new_user['info'], state='ok')]
+
+        with patch.object(self.instance, 'api') as api:
+            api.services.find.side_effect = find
+            with self.assertRaisesRegexp(RuntimeError,
+                                         'failed to add user "%s"' % self.new_user['info']['name']):
+                self.instance.user_authorize(
+                    self.new_user['service'], self.new_user['info']['accesstype'])
+
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_user_update_access_right_success(self, ovc):
+        """
+        Test updating access right of an authorized user
+        """
+        new_accesstype = 'W'
+
+        def find(template_uid, name):
+            if template_uid == self.type.ACCOUNT_TEMPLATE:
+                return [self.set_up_proxy_mock(result=self.acc_info, state='ok')]
+            if template_uid == self.type.VDCUSER_TEMPLATE:
+                return [self.set_up_proxy_mock(result=self.user['info'], state='ok')]
+
+        ovc.get.side_effect = self.ovc_mock
+        with patch.object(self.instance, 'api') as api:
+            api.services.find.side_effect = find
+            self.instance.user_authorize(self.user['service'], new_accesstype)
+
+        self.instance.space.update_access.assert_called_once_with(
+            username=self.user['info']['name'], right=new_accesstype)
+
+        self.assertEqual(self.instance.data['users'],
+                         [{'name': self.user['info']['name'], 'accesstype': 'W'}])
+
+    def test_user_update_access_right_fail(self):
+        """
+        Test failing updating access when vdc service is not installed
+        """
+        instance = self.type('test', None)
+        instance.state.set('actions', 'install', 'ok')
+
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_user_update_access_right_fail(self, ovc):
+        """
+        Test updating access right of an authorized user
+        """
+
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_user_update_access_right_fail(self, ovc):
+        """
+        Test updating access right of an authorized user
+        """
+        new_accesstype = 'W'
+
+        def find(template_uid, name):
+            if template_uid == self.type.ACCOUNT_TEMPLATE:
+                return [self.set_up_proxy_mock(result=self.acc_info, state='ok')]
+            if template_uid == self.type.VDCUSER_TEMPLATE:
+                return [self.set_up_proxy_mock(result=self.user['info'], state='ok')]
+
+        self.mock_bool_result = False
+        ovc.get.side_effect = self.ovc_mock
+        with patch.object(self.instance, 'api') as api:
+            api.services.find.side_effect = find
+            with self.assertRaisesRegexp(RuntimeError,
+                                         'failed to update accesstype of user "%s"' %
+                                         self.user['info']['name']):
+                self.instance.user_authorize(
+                    self.user['service'], new_accesstype)
+
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_user_unauthorize_success(self, ovc):
+        """
+        Test deleting a user
+        """
+        instance = self.instance
+        user = self.user
+
+        def find(template_uid, name):
+            if template_uid == self.type.ACCOUNT_TEMPLATE:
+                return [self.set_up_proxy_mock(result=self.acc_info, state='ok')]
+            if template_uid == self.type.VDCUSER_TEMPLATE:
+                return [self.set_up_proxy_mock(result=self.user['info'], state='ok')]
+
+        ovc.get.side_effect = self.ovc_mock
+        with patch.object(instance, 'api') as api:
+            api.services.find.side_effect = find
+            instance.user_unauthorize(user['service'])
+            instance.space.unauthorize_user.assert_called_once_with(
+                username=user['info']['name'])
+            self.assertEqual(instance.data['users'], [])
+
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_user_unauthorize_fail(self, ovc):
+        """
+        Test deleting a user
+        """
+        instance = self.instance
+        user = self.user
+
+        def find(template_uid, name):
+            if template_uid == self.type.ACCOUNT_TEMPLATE:
+                return [self.set_up_proxy_mock(result=self.acc_info, state='ok')]
+            if template_uid == self.type.VDCUSER_TEMPLATE:
+                return [self.set_up_proxy_mock(result=self.user['info'], state='ok')]
+
+        ovc.get.side_effect = self.ovc_mock
+        self.mock_bool_result = False
+        with patch.object(instance, 'api') as api:
+            api.services.find.side_effect = find
+            with self.assertRaisesRegexp(RuntimeError,
+                                         'failed to remove user "%s"' % user['info']['name']):
+                instance.user_unauthorize(user['service'])
+
+        instance.space.unauthorize_user.assert_called_once_with(
+            username=user['info']['name'])
+
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_user_unauthorize_task_fail(self, ovc):
+        """
+        Test deleting a user
+        """
+        instance = self.instance
+        user = self.user
+
+        def find(template_uid, name):
+            if template_uid == self.type.ACCOUNT_TEMPLATE:
+                return [self.set_up_proxy_mock(result=self.acc_info)]
+            if template_uid == self.type.VDCUSER_TEMPLATE:
+                return [self.set_up_proxy_mock(result=self.user['info'], state='error', name=self.user['service'])]
+
+        ovc.get.side_effect = self.ovc_mock
+        self.mock_bool_result = False
+        with patch.object(instance, 'api') as api:
+            api.services.find.side_effect = find
+            with self.assertRaisesRegexp(RuntimeError,
+                                         'error occurred when executing action "get_info" on service "%s"' %
+                                         self.user['service']):
+                instance.user_unauthorize(user['service'])
