@@ -388,7 +388,6 @@ class vmactions(OVC_BaseTest):
         self.assertNotIn(snapshots_before_rollback[2]["name"], [sn["name"] for sn in snapshots_after_rollback])
         self.assertEqual(len(snapshots_after_rollback), 2)
 
-    @unittest.skip("https://github.com/openvcloud/0-templates/issues/109.")
     def test007_add_and_delete_disk_from_vm(self):
         """ ZRT-OVC-020
         *Test case for testing add and delete disk from vm. *
@@ -407,27 +406,24 @@ class vmactions(OVC_BaseTest):
         self.log("Add disk to vm1, should succeed.")
         disk_name = self.random_string()
         disk_size = randint(10, 50)
-        temp_actions = {'node': {'actions': ['disk_add'],'args': {"name": disk_name, "size":disk_size}, 'service': self.vm1}}    
+        temp_actions = {'node': {'actions': ['disk_add'], 'args': {"name": disk_name, "size": disk_size}, 'service': self.vm1}}    
         res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
                              vms=self.vms, temp_actions=temp_actions)
         self.wait_for_service_action_status(self.vm1, res[self.vm1]['disk_add'])
 
         self.log("Check that disk has been added to vm successfully.")
         cloudspaceId = self.get_cloudspace(self.cs1_name)['id']
-        vm = self.get_vm(cloudspaceId, self.vm1_name)
-        self.assertIn(disk_name, [disk['name'] for disk in vm['disks']])
+        self.assertTrue(self.wait_for_disk(cloudspaceId, self.vm1_name, disk_name))
+        diskid = next(disk for disk in self.get_vm(cloudspaceId, self.vm1_name)['disks'] if disk["name"] == disk_name)['id']
 
-        self.log("Delete disk from vm1, should succeed.")
-        temp_actions = {'node': {'actions': ['disk_delete'], 'args': {"disk_service_name": disk_name}, 'service': self.vm1}}    
-        res = self.create_disk(accounts=self.accounts, cloudspaces=self.cloudspaces, disks=disks, temp_actions=self.temp_actions)
-        self.wait_for_service_action_status(disk, res[disk]['delete'])        
+        temp_actions = {'node': {'actions': ['disk_delete'], 'args': {"disk_service_name": "Disk{}".format(diskid)}, 'service': self.vm1}}    
+        res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
+                             vms=self.vms, temp_actions=temp_actions)
+        self.wait_for_service_action_status(self.vm1, res[self.vm1]['disk_delete'])        
                 
         self.log("Check that disk has been deleted successfully.")
-        cloudspaceId = self.get_cloudspace(self.cs1_name)['id']
-        vm = self.get_vm(cloudspaceId, self.vm1_name)
-        self.assertNotIn(disk_name, [disk['name'] for disk in vm['disks']])
+        self.assertTrue(self.wait_for_disk(cloudspaceId, self.vm1_name,disk_name, "non-exist"))
 
-    @unittest.skip("https://github.com/openvcloud/0-templates/issues/109.")
     def test008_create_and_delete_disk(self):
         """ ZRT-OVC-021
         *Test case for testing create and delete disk. *
@@ -442,19 +438,18 @@ class vmactions(OVC_BaseTest):
         self.log('%s STARTED' % self._testID)
 
         self.log("Create a disk[D1], should succeed.")
+
         disk = self.random_string()
         disk_name = self.random_string()
-        disks = {disk: {"disk": disk_name, "vdc": self.cs1}}
+        disks = {disk: {"name": disk_name, "vdc": self.cs1}}
         self.temp_actions = {'disk': {'actions': ['install']}}
         res = self.create_disk(accounts=self.accounts, cloudspaces=self.cloudspaces, disks=disks, temp_actions=self.temp_actions)
         self.wait_for_service_action_status(disk, res[disk]['install'])
-
         self.log("Check that disk[D1] has been created.")
         disk_list = self.get_disks_list(self.acc1_name)
         self.assertIn(disk_name, [disk["name"] for disk in disk_list])     
 
         self.log("Delete the disk [D1], should succeed.")
-
         self.temp_actions["disk"] = {"actions": ["uninstall"], "service": disk}
         res = self.create_disk(accounts=self.accounts, cloudspaces=self.cloudspaces, disks=disks, temp_actions=self.temp_actions)
         self.wait_for_service_action_status(disk, res[disk]['uninstall'])
@@ -478,14 +473,14 @@ class vmactions(OVC_BaseTest):
         self.log("Create a disk[D1], should succeed.")
         disk = self.random_string()
         disk_name = self.random_string()
-        disks = {disk: {"disk": disk_name, "vdc": self.cs1}}
+        disks = {disk: {"name": disk_name, "vdc": self.cs1}}
         self.temp_actions = {'disk': {'actions': ['install']}}
         res = self.create_disk(accounts=self.accounts, cloudspaces=self.cloudspaces, disks=disks, temp_actions=self.temp_actions)
         self.wait_for_service_action_status(disk, res[disk]['install'])
 
         self.log("Update disk[D1], should succceed.")
         disktype = "B"
-        self.temp_actions["disk"] = {"actions": ["update"], "args": {"type": disktype}, "service": disk}
+        self.temp_actions["disk"] = {"actions": ["update"], "args": {"writeBytesSec": disktype}, "service": disk}
         res = self.create_disk(accounts=self.accounts, cloudspaces=self.cloudspaces, disks=disks, temp_actions=self.temp_actions)
         self.wait_for_service_action_status(disk, res[disk]['update'])        
                 
@@ -508,13 +503,15 @@ class vmactions(OVC_BaseTest):
         self.log("Create a disk[D1], should succeed.")
         disk = self.random_string()
         disk_name = self.random_string()
-        disks = {disk: {"disk": disk_name, "vdc": self.cs1}}
+        disks = {disk: {"name": disk_name, "vdc": self.cs1}}
         self.temp_actions = {'disk': {'actions': ['install']}}
         res = self.create_disk(accounts=self.accounts, cloudspaces=self.cloudspaces, disks=disks, temp_actions=self.temp_actions)
         self.wait_for_service_action_status(disk, res[disk]['install'])
+        diskid = next(disk for disk in self.get_disks_list(self.acc1_name) if disk["name"] == disk_name)['id']
+
 
         self.log("Attach disk [D1] to vm, should succeed.")
-        temp_actions = {'node': {'actions': ['disk_attach'],'args': {"disk_service_name": disk_name}, 'service': self.vm1}}    
+        temp_actions = {'node': {'actions': ['disk_attach'],'args': {"disk_service_name": "Disk{}".format(diskid)}, 'service': self.vm1}}    
         res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
                              vms=self.vms, temp_actions=temp_actions)
         self.wait_for_service_action_status(self.vm1, res[self.vm1]['disk_attach'])
@@ -534,7 +531,7 @@ class vmactions(OVC_BaseTest):
         cloudspaceId = self.get_cloudspace(self.cs1_name)['id']
         vm = self.get_vm(cloudspaceId, self.vm1_name)
         self.assertNotIn(disk_name, [disk['name'] for disk in vm['disks']])
-        
+
     @classmethod
     def tearDownClass(cls):
         self = cls()
