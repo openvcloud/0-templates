@@ -21,7 +21,7 @@ class Node(TemplateBase):
 
         self._config = None
         self._ovc = None
-        self._vdc = None
+        self._space = None
         self._machine = None
 
     def validate(self):
@@ -43,18 +43,18 @@ class Node(TemplateBase):
         task.wait()
         if task.state is not 'ok':
             raise RuntimeError(
-                    'error occurred when executing action "%s" on service "%s"' %
-                    (action, proxy.name))
+                'error occurred when executing action "%s" on service "%s"' %
+                (action, proxy.name))
         return task.result
 
     def get_info(self):
         """ Get VM info """
         self.state.check('actions', 'install', 'ok')
         return {
-            'name' : self.data['name'],
-            'id' : self.data['machineId'],
-            'vdc' : self.data['vdc'],
-            'disk_services' : self.data['disks']
+            'name': self.data['name'],
+            'id': self.data['machineId'],
+            'vdc': self.data['vdc'],
+            'disk_services': self.data['disks']
         }
 
     def _get_proxy(self, template_uid, service_name):
@@ -64,9 +64,11 @@ class Node(TemplateBase):
         :param service_name: name of the service
         """
 
-        matches = self.api.services.find(template_uid=template_uid, name=service_name)
+        matches = self.api.services.find(
+            template_uid=template_uid, name=service_name)
         if len(matches) != 1:
-            raise RuntimeError('found %d services with name "%s", required exactly one' % (len(matches), service_name))
+            raise RuntimeError('found %d services with name "%s", required exactly one' % (
+                len(matches), service_name))
         return matches[0]
 
     @property
@@ -76,13 +78,12 @@ class Node(TemplateBase):
         """
         if self._config is not None:
             return self._config
-        
+
         config = {}
         # traverse the tree up words so we have all info we need to return, connection and
 
         # get vdc proxy
         vdc = self._get_proxy(self.VDC_TEMPLATE, self.data['vdc'])
-        self._vdc = vdc
 
         # get vdc info
         vdc_info = self._execute_task(proxy=vdc, action='get_info')
@@ -95,7 +96,7 @@ class Node(TemplateBase):
 
         # get connection
         config['ovc'] = account_info['openvcloud']
-        
+
         self._config = config
         return self._config
 
@@ -112,27 +113,20 @@ class Node(TemplateBase):
         return self._ovc
 
     @property
-    def vdc(self):
-        """ Vdc service instance """
-        self.config
-        return self._vdc
-
-    @property
     def space(self):
         """ Return space object """
-
-        account = self.config['account']
-        vdc = self.config['vdc']
-
-        return self.ovc.space_get(
-            accountName=account,
-            spaceName=vdc
-        )
+        if not self._space:
+            account = self.config['account']
+            vdc = self.config['vdc']
+            self._space = self.ovc.space_get(
+                accountName=account,
+                spaceName=vdc
+            )
+        return self._space
 
     @property
     def machine(self):
         """ Return VM object """
-
         if not self._machine:
             if self.data['name'] in self.space.machines:
                 self._machine = self.space.machine_get(name=self.data['name'])
@@ -140,7 +134,7 @@ class Node(TemplateBase):
         return self._machine
 
     @retry((BaseException),
-            tries=5, delay=3, backoff=2, logger=None)
+           tries=5, delay=3, backoff=2, logger=None)
     def install(self):
         """ Install VM """
 
@@ -158,7 +152,6 @@ class Node(TemplateBase):
         self.data['ipPrivate'] = machine.ipaddr_priv
         self.data['ipPublic'] = machine.ipaddr_public
         self.data['machineId'] = machine.id
-
         # configure disks of the vm
         self._configure_disks()
         self.state.set('actions', 'install', 'ok')
@@ -169,13 +162,13 @@ class Node(TemplateBase):
         """
         data = self.data
 
-        # get name of sshkey       
+        # get name of sshkey
         sshkey_proxy = self._get_proxy(self.SSH_TEMPLATE, self.data['sshKey'])
         sshkey_info = self._execute_task(proxy=sshkey_proxy, action='get_info')
         sshkey = sshkey_info['name']
 
         self._machine = self.space.machine_get(
-            create = True,
+            create=True,
             name=data['name'],
             sshkeyname=sshkey,
             image=data['osImage'],
@@ -186,7 +179,6 @@ class Node(TemplateBase):
         )
 
         return self._machine
-
 
     def _configure_disks(self):
         """
@@ -201,7 +193,7 @@ class Node(TemplateBase):
         # update data
         self.data['dataDiskFilesystem'] = fs_type
         self.data['dataDiskMountpoint'] = mount_point
-        
+
         # make sure machine is started
         machine.start()
         # get disks from the vm
@@ -211,21 +203,21 @@ class Node(TemplateBase):
         boot_disk = [disk for disk in disks if disk['type'] == 'B'][0]
         if boot_disk['sizeMax'] != self.data['bootDiskSize']:
             raise RuntimeError('Datadisk is expected to have size {}, has size {}'.format(
-                                self.data['bootDiskSize'], boot_disk['sizeMax'])
-                              )
+                self.data['bootDiskSize'], boot_disk['sizeMax'])
+            )
 
         # identify data disks
         data_disks = [disk for disk in disks if disk['type'] == 'D']
         if len(data_disks) > 1:
             raise RuntimeError('Exactly one data disk is expected, VM "{vm}" has {nr} data disks'.format(
-                                vm=machine.name, nr=len(data_disks))
-                                )
+                vm=machine.name, nr=len(data_disks))
+            )
         elif len(data_disks) == 1:
             # check that datadisk has correct size
             if data_disks[0]['sizeMax'] != self.data['dataDiskSize']:
                 raise RuntimeError('Datadisk is expected to have size {}, has size {}'.format(
-                                    self.data['dataDiskSize'], data_disks[0]['sizeMax'])
-                                )
+                    self.data['dataDiskSize'], data_disks[0]['sizeMax'])
+                )
         else:
             # if no datadisks, create one
             machine.disk_add(name='Disk nr 1', description='Machine disk of type D',
@@ -248,11 +240,12 @@ class Node(TemplateBase):
                     device=device, mp_found=mp_found, mp=mount_point
                 ))
 
-            # check type of the filesystem           
-            fs_found = re.search('%s on %s type (.+?) ' % (device, mount_point), disk_info)
+            # check type of the filesystem
+            fs_found = re.search('%s on %s type (.+?) ' %
+                                 (device, mount_point), disk_info)
             if fs_found == None or fs_found.group(1) != fs_type:
                 raise RuntimeError('VM "{vm}" has volume mounted on {mp} with filesystem "{fs}", should be "{fs_type}"'.format(
-                                    vm=self.data['name'], mp=mount_point, fs=fs_found, fs_type=fs_type))
+                    vm=self.data['name'], mp=mount_point, fs=fs_found, fs_type=fs_type))
             # if filesystem is correct, install is complete
             return
 
@@ -291,7 +284,7 @@ class Node(TemplateBase):
         if not self.data.get('managedPrivate', False):
             return self.machine.prefab
 
-        return self.machine.prefab_private  
+        return self.machine.prefab_private
 
     def uninstall(self):
         """ 
@@ -309,7 +302,6 @@ class Node(TemplateBase):
             proxy.delete()
 
         self._machine = None
-
 
     def start(self):
         """ Start the VM """
@@ -425,7 +417,7 @@ class Node(TemplateBase):
         # get disk id and type
 
         disk_proxy = self._get_proxy(self.DISK_TEMPLATE, disk_service_name)
-        
+
         # fetch disk info
         disk_info = self._execute_task(proxy=disk_proxy, action='get_info')
         disk_id = disk_info['diskId']
@@ -433,7 +425,7 @@ class Node(TemplateBase):
 
         if disk_type == 'B':
             raise RuntimeError("Can't detach Boot disk")
-        
+
         # detach disk
         self.machine.disk_detach(disk_id)
 
@@ -443,10 +435,10 @@ class Node(TemplateBase):
     def disk_add(self, name, disk_service_name=None, description='Data disk', size=10, type='D'):
         """
         Create new disk at the VM
-        """        
+        """
         self.state.check('actions', 'install', 'ok')
 
-        disk_id = self.machine.disk_add(name=name, description=description, 
+        disk_id = self.machine.disk_add(name=name, description=description,
                                         size=size, type=type)
         disk = {'id': disk_id,
                 'description': description,
@@ -459,7 +451,7 @@ class Node(TemplateBase):
         """
         Delete disk at the machine
         """
-        
+
         self.state.check('actions', 'install', 'ok')
 
         if disk_service_name not in self.data['disks']:

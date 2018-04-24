@@ -1,6 +1,7 @@
 from unittest import TestCase
 from unittest import mock
 from unittest.mock import MagicMock, patch
+from unittest import skip
 import tempfile
 import shutil
 import os
@@ -22,14 +23,53 @@ class TestNode(TestCase):
             os.path.dirname(__file__)
         )
 
-        self.valid_data ={
+        vdc_service_name = 'test-vdc-service'
+        acc_service_name = 'test_account-service'
+        self.valid_data = {
             'name': 'nodeName',
-            'vdc': 'vdcName', 
+            'vdc': vdc_service_name,
             'sshKey': 'keyName'
-            }
+        }
+        self.acc = {'service': acc_service_name,
+                    'info': {'name': 'test_account_real_name',
+                             'openvcloud': 'be-gen'}
+                    }
+        self.vdc = {'service': vdc_service_name,
+                    'info': {'name': 'test_vdc_real_name',
+                             'account': acc_service_name}
+                    }
+        self.disk = {'service': 'test_disk_service',
+                     'info': {'name': 'disk_real_name',
+                              'vdc': self.vdc['service'],
+                              'diskId': 1,
+                              'diskType': 'D',
+                        },
+                }
 
     def tearDown(self):
         patch.stopall()
+
+    def ovc_mock(self, instance):
+        disks = [{'type': 'B', 'sizeMax': 10, 'id': 1234}, 
+                 {'type': 'D', 'sizeMax': 10, 'id': 4321}]
+        machine_mock = MagicMock(disks=disks)
+        machine_mock.prefab.core.run.return_value = (
+                    None, '/dev/vdb on /var type ext4 ', None)
+        space_mock = MagicMock(machines=[self.valid_data['name']],
+                               machine_get=MagicMock(return_value=machine_mock))
+        return MagicMock(space_get=MagicMock(return_value=space_mock))
+
+    @staticmethod
+    def set_up_proxy_mock(result, state='ok', name='service_name'):
+        """ Setup a mock for a proxy of zrobot service
+
+            The object has property @name,implements method @schedule_action
+            which returns @task object with properties @state and @result
+        """
+        task = MagicMock(result=result, state=state)
+        proxy = MagicMock(schedule_action=MagicMock(return_value=task))
+        proxy.name = name
+        return proxy
 
     def test_validate_success(self):
         """
@@ -42,8 +82,8 @@ class TestNode(TestCase):
         def validate(instance, api):
             api.services.find.return_value = [None]
             instance.validate()
-        
-        data ={
+
+        data = {
             'vdc': 'vdcName',
             'sshKey': 'keyName',
             'name': 'nodeName',
@@ -71,109 +111,125 @@ class TestNode(TestCase):
         instance.delete()
 
         # test missing name
-        invalid_data ={
+        invalid_data = {
             'vdc': 'vdcName',
             'sshKey': 'keyName'
-            }
+        }
 
         instance = self.type(name=name, guid=None, data=invalid_data)
         with pytest.raises(ValueError,
                            message='VM name is required'):
             instance.validate()
-        instance.delete()              
+        instance.delete()
 
         # test missing sshkey service name
-        invalid_data ={
+        invalid_data = {
             'name': 'nodeName',
             'vdc': 'vdcName',
-            }
+        }
 
         instance = self.type(name=name, guid=None, data=invalid_data)
         with pytest.raises(ValueError,
                            message='sshKey name is required'):
             instance.validate()
-        instance.delete()              
+        instance.delete()
 
         # test missing sshkey service name
-        invalid_data ={
+        invalid_data = {
             'sshKey': 'sshkeyName',
-            }
+        }
         with pytest.raises(ValueError,
                            message='vdc name is required'):
             instance.validate()
         instance.delete()
 
-    @staticmethod
-    def set_up_proxy_mock(result, state='ok', name='service_name'):
-        task = MagicMock(result=result, state=state)
-        proxy = MagicMock(schedule_action=MagicMock(return_value=task))
-        proxy.name = name
-        return proxy
-
-    def test_config(self):
+    def test_config_success(self):
         """
         Test fetching config from vdc, account, and ovc services
         """
 
-        acc_info =  {'name': 'test_account',
-                     'openvcloud': 'be-gen'}
-        vdc_info =  {'name': 'test_vdc',
-                     'account': 'test_account'}   
-
         def find(template_uid, name):
             if template_uid == self.type.ACCOUNT_TEMPLATE:
-                return [self.set_up_proxy_mock(result=acc_info)]
+                return [self.set_up_proxy_mock(result=self.acc['info'])]
             if template_uid == self.type.VDC_TEMPLATE:
-                return [self.set_up_proxy_mock(result=vdc_info)]
+                return [self.set_up_proxy_mock(result=self.vdc['info'])]
 
         instance = self.type(name='test', data=self.valid_data)
 
         with patch.object(instance, 'api') as api:
             api.services.find.side_effect = find
             instance.config
-            self.assertEqual(instance.config['ovc'], acc_info['openvcloud'])
-            self.assertEqual(instance.config['account'], acc_info['name'])
+            self.assertEqual(
+                instance.config['ovc'], self.acc['info']['openvcloud'])
+            self.assertEqual(
+                instance.config['account'], self.acc['info']['name'])
 
-    def test_config_invalid_vdc(self):
+    def test_config_fail_no_vdc_service(self):
         """
         Test getting config from a vdc service
         """
         instance = self.type(name='test', data=self.valid_data)
-        vdc_name = 'test_vdc'
 
         with patch.object(instance, 'api') as api:
-            api.services.find.side_effect = [[], [None,None]]
+            api.services.find.return_value = []
             # test when no vdc service is found
-            with pytest.raises(RuntimeError,
-                               message='found 0 vdcs with name "%s", required exactly one' % self.valid_data['vdc']):
+            with self.assertRaisesRegexp(
+                    RuntimeError,
+                    'found 0 services with name "%s", required exactly one'
+                    % self.valid_data['vdc']):
                 instance.config
 
+    def test_config_fail_vdc_service_not_unique(self):
+        """
+        Test getting config from a vdc service
+        """
+        instance = self.type(name='test', data=self.valid_data)
+
+        with patch.object(instance, 'api') as api:
+            api.services.find.return_value = [None, None]
             # test when more than 1 vdc service is found
-            with pytest.raises(RuntimeError,
-                               message='found 2 vdcs with name "%s", required exactly one' % self.valid_data['vdc']):
+            with self.assertRaisesRegexp(RuntimeError,
+                                         'found 2 services with name "%s", required exactly one' %
+                                         self.valid_data['vdc']):
                 instance.config
 
-    def test_config_invalid_account(self):
+    def test_config_fail_no_account_service(self):
         """
         Test getting config from a account service
         """
+        # set up finding service mock
+        def find(template_uid, name):
+            if template_uid == self.type.ACCOUNT_TEMPLATE:
+                return []
+            if template_uid == self.type.VDC_TEMPLATE:
+                return [self.set_up_proxy_mock(result=self.vdc['info'])]
+
         instance = self.type(name='test', data=self.valid_data)
-        vdc_name = 'test_vdc'
-        account_name = 'test_account'
 
         with patch.object(instance, 'api') as api:
-            # test when no account service is found
-            task_mock = MagicMock(result=vdc_name)
-            mock_find_vdc = MagicMock(schedule_action=MagicMock(return_value=task_mock))            
-            api.services.find.side_effect = [ [mock_find_vdc], []]
-            with pytest.raises(RuntimeError,
-                               message='found 0 accounts with name "%s", required exactly one' % account_name):
+            api.services.find = find
+            with self.assertRaisesRegexp(
+                    RuntimeError,
+                    'found 0 services with name "%s", required exactly one' % self.acc['service']):
                 instance.config
 
-            # test when more than 1 account service is found
-            api.services.find.side_effect = [ [mock_find_vdc], [None, None]]
-            with pytest.raises(RuntimeError,
-                               message='found 2 accounts with name "%s", required exactly one' % account_name):
+    def test_config_fail_account_service_not_unique(self):
+        """
+        Test getting config from a account service
+        """
+        # set up finding service mock
+        def find(template_uid, name):
+            if template_uid == self.type.ACCOUNT_TEMPLATE:
+                return [None, None]
+            if template_uid == self.type.VDC_TEMPLATE:
+                return [self.set_up_proxy_mock(result=self.vdc['info'])]
+
+        instance = self.type(name='test', data=self.valid_data)
+        with patch.object(instance, 'api') as api:
+            api.services.find.side_effect = find
+            with self.assertRaisesRegexp(
+                    RuntimeError,
+                    'found 2 services with name "%s", required exactly one' % self.acc['service']):
                 instance.config
 
     @mock.patch.object(j.clients, '_openvcloud')
@@ -188,62 +244,39 @@ class TestNode(TestCase):
         ovc.get.return_value.space_get.return_value.machine_create.assert_not_called()
 
     @mock.patch.object(j.clients, '_openvcloud')
-    def test_install_existent_machine(self, ovc):
+    def test_install_existent_vm_success(self, ovc):
         """
         Test successfull install VM action
         """
         instance = self.type(name='test', data=self.valid_data)
-        key_name = 'keyName'
-        account_service = 'account_service'
-        account_name = 'account_name'
-        sshkey_name = 'sshkey_name'
-        ovc_name = 'ovc_name'
 
-        # mock ovc client
-        def get_ovc_client(instance):
-            boot_disk = {'id':int, 'type':'B', 'sizeMax':10}
-            data_disk = {'id':int, 'type':'D', 'sizeMax':10}
-            disks = mock.PropertyMock()
-            disks.side_effect=[[boot_disk, data_disk], [boot_disk, data_disk],
-                               [boot_disk], [boot_disk, data_disk]]
-            machine_mock = MagicMock()
-            type(machine_mock).disks=disks
+        ssh = {'service': 'ssh_service_name', 
+               'info': {'name': self.valid_data['sshKey']}}
+        def find(template_uid, name):
+            if template_uid == self.type.SSH_TEMPLATE:
+                return [self.set_up_proxy_mock(result=ssh['info'], name=ssh['service'])]            
+            if template_uid == self.type.ACCOUNT_TEMPLATE:
+                return [self.set_up_proxy_mock(result=self.acc['info'], name=self.acc['service'])]
+            if template_uid == self.type.VDC_TEMPLATE:
+                return [self.set_up_proxy_mock(result=self.vdc['info'], name=self.vdc['service'])]
 
-            # set device mounted
-            machine_mock.prefab.core.run.return_value = (None, '/dev/vdb on /var type ext4 ', None)
-            space_mock = MagicMock(machine_get=MagicMock(return_value=machine_mock),
-                                   machines={'nodeName':MagicMock(delete=MagicMock())})
+        disk = self.disk
 
-            ovc_mock=MagicMock(space_get=MagicMock(return_value=space_mock)) 
-            return ovc_mock           
+        def find_or_create(template_uid, service_name, data):
+            self.assertEqual(template_uid, self.type.DISK_TEMPLATE)
+            return self.set_up_proxy_mock(result=disk['info'], name=disk['service'])
 
-        # mock finding services
-        def find(template_uid, name):     
-            result_mock = mock.PropertyMock()
-            result_mock.side_effect = [
-                key_name, account_service, account_name,
-                sshkey_name, ovc_name
-                ]
-            task_mock = MagicMock()
-            type(task_mock).result = result_mock 
-            proxy = MagicMock(schedule_action=MagicMock(return_value=task_mock))
-            return [proxy]
+        ovc.get.side_effect = self.ovc_mock
 
         with patch.object(instance, 'api') as api:
             api.services.find.side_effect = find
-            ovc.get.side_effect = get_ovc_client
-            ovc_mock = ovc.get("instance")
-            # test when device is mounted
-            ovc_mock.space_get.return_value.\
-                                 machine_get.return_value. \
-                                 prefab.core.run.return_value = (None, '/dev/vdb on /var type ext4 ', None)
-
+            api.services.find_or_create.side_effect = find_or_create
             instance.install()
 
             # check call to get/create machine
             instance.space.machine_get.assert_called_once_with(
                 create=True,
-                name=instance.get_name(),
+                name=instance.data['name'],
                 sshkeyname=self.valid_data['sshKey'],
                 sizeId=1,
                 managed_private=False,
@@ -252,68 +285,7 @@ class TestNode(TestCase):
                 image='Ubuntu 16.04'
             )
 
-    @mock.patch.object(j.clients, '_openvcloud')
-    def test_install_and_mount_device(self, ovc):
-        """
-        Test successfull install VM action
-        """
-        name = 'test'
-        instance = self.type(name=name, data=self.valid_data)
-
-        key_name = 'keyName'
-        account_service = 'account_service'
-        account_name = 'account_name'
-        sshkey_name = 'sshkey_name'
-        ovc_name = 'ovc_name'
-
-        # mock ovc client
-        def get_ovc_client(instance):
-            boot_disk = {'id':int, 'type':'B', 'sizeMax':10}
-            data_disk = {'id':int, 'type':'D', 'sizeMax':10}
-            disks = mock.PropertyMock()
-            disks.side_effect=[[boot_disk], [boot_disk, data_disk]]
-            machine_mock = MagicMock()
-            type(machine_mock).disks=disks
-            # set device mounted
-            machine_mock.prefab.core.run.return_value = (None, '', None)
-            space_mock = MagicMock(machine_get=MagicMock(return_value=machine_mock),
-                                   machines={'nodeName':MagicMock(delete=MagicMock())})
-
-            ovc_mock=MagicMock(space_get=MagicMock(return_value=space_mock)) 
-            return ovc_mock           
-
-        # mock finding services
-        def find(template_uid, name):     
-            result_mock = mock.PropertyMock()
-            result_mock.side_effect = [
-                key_name, account_service, account_name,
-                sshkey_name, ovc_name
-                ]
-            task_mock = MagicMock()
-            type(task_mock).result = result_mock 
-            proxy = MagicMock(schedule_action=MagicMock(return_value=task_mock))
-            return [proxy]
-
-        with patch.object(instance, 'api') as api:
-            # test when device is not mounted and disk is not present
-            api.services.find.side_effect = find
-            ovc.get.return_value = get_ovc_client('instance')
-            ovc_mock = ovc.get()
-            # check call to create a filesystem
-            instance.install()
-            # check call to add disk
-            instance.machine.disk_add.assert_called_once_with(
-                name='Disk nr 1', description='Machine disk of type D',
-                size=10, type='D')
-            ovc.get.return_value.space_get.return_value. \
-                                 machine_get.return_value.\
-                                 prefab.system.filesystem.create.assert_called_once_with(
-                                    fs_type='ext4', device='/dev/vdb'
-                                 )
-
-            # state install must be ok 
-            instance.state.check('actions', 'install', 'ok')
-
+    @skip("skip until #114 is closed")
     @mock.patch.object(j.clients, '_openvcloud')
     def test_install_fail_wrong_data_disk_size(self, ovc):
         """
@@ -329,26 +301,29 @@ class TestNode(TestCase):
 
         # set up ovc mock
         def get_ovc_client(instance):
-            boot_disk = {'id':int, 'type':'B', 'sizeMax':10}
-            data_disk = {'id':int, 'type':'D', 'sizeMax':11}
+            boot_disk = {'id': int, 'type': 'B', 'sizeMax': 10}
+            data_disk = {'id': int, 'type': 'D', 'sizeMax': 11}
             disks = [boot_disk, data_disk]
             machine_mock = MagicMock(prefab=MagicMock(return_value=None), id=1)
-            machine_mock.disks=disks
-            machine_mock.prefab.core.run.return_value = (None, '/dev/vdb on /var type ext4 ', None)
-            space_mock = MagicMock(machine_get=MagicMock(return_value=machine_mock))
+            machine_mock.disks = disks
+            machine_mock.prefab.core.run.return_value = (
+                None, '/dev/vdb on /var type ext4 ', None)
+            space_mock = MagicMock(
+                machine_get=MagicMock(return_value=machine_mock))
             ovc_mock = MagicMock(space_get=MagicMock(return_value=space_mock))
             return ovc_mock
 
         # mock finding services
-        def find(template_uid, name):     
+        def find(template_uid, name):
             result_mock = mock.PropertyMock()
             result_mock.side_effect = [
                 key_name, account_service, account_name,
                 sshkey_name, ovc_name
-                ]
+            ]
             task_mock = MagicMock()
-            type(task_mock).result = result_mock 
-            proxy = MagicMock(schedule_action=MagicMock(return_value=task_mock))
+            type(task_mock).result = result_mock
+            proxy = MagicMock(
+                schedule_action=MagicMock(return_value=task_mock))
             return [proxy]
 
         instance = self.type(name=name, data=self.valid_data)
@@ -356,13 +331,15 @@ class TestNode(TestCase):
             # setup mocks
             api.services.find.side_effect = find
             ovc.get.side_effect = get_ovc_client
-            api.services.find.return_value = [MagicMock(schedule_action=MagicMock())]
-            
-            # boot disk has wrong size 
+            api.services.find.return_value = [
+                MagicMock(schedule_action=MagicMock())]
+
+            # boot disk has wrong size
             with self.assertRaisesRegex(RuntimeError,
                                         'Datadisk is expected to have size 10, has size 11'):
                 instance.install()
 
+    @skip("skip until #114 is closed")
     @mock.patch.object(j.clients, '_openvcloud')
     def test_install_fail_wrong_boot_disk_size(self, ovc):
         """
@@ -378,34 +355,38 @@ class TestNode(TestCase):
 
         # set up ovc mock
         def get_ovc_client(instance):
-            boot_disk = {'id':int, 'type':'B', 'sizeMax':11}
-            disks = [boot_disk] #, data_disk]
+            boot_disk = {'id': int, 'type': 'B', 'sizeMax': 11}
+            disks = [boot_disk]  # , data_disk]
             machine_mock = MagicMock(prefab=MagicMock(return_value=None), id=1)
-            machine_mock.disks=disks
-            machine_mock.prefab.core.run.return_value = (None, '/dev/vdb on /var type ext4 ', None)
-            space_mock = MagicMock(machine_get=MagicMock(return_value=machine_mock))
+            machine_mock.disks = disks
+            machine_mock.prefab.core.run.return_value = (
+                None, '/dev/vdb on /var type ext4 ', None)
+            space_mock = MagicMock(
+                machine_get=MagicMock(return_value=machine_mock))
             ovc_mock = MagicMock(space_get=MagicMock(return_value=space_mock))
             return ovc_mock
 
         # mock finding services
-        def find(template_uid, name):     
+        def find(template_uid, name):
             result_mock = mock.PropertyMock()
             result_mock.side_effect = [
                 key_name, account_service, account_name,
                 sshkey_name, ovc_name
-                ]
+            ]
             task_mock = MagicMock()
-            type(task_mock).result = result_mock 
-            proxy = MagicMock(schedule_action=MagicMock(return_value=task_mock))
+            type(task_mock).result = result_mock
+            proxy = MagicMock(
+                schedule_action=MagicMock(return_value=task_mock))
             return [proxy]
 
         instance = self.type(name=name, data=self.valid_data)
         with patch.object(instance, 'api') as api:
-            api.services.find.return_value = [MagicMock(schedule_action=MagicMock())]
+            api.services.find.return_value = [
+                MagicMock(schedule_action=MagicMock())]
             ovc.get.side_effect = get_ovc_client
-            # boot disk has wrong size 
+            # boot disk has wrong size
             with pytest.raises(RuntimeError,
-                              message='Bootdisk is expected to have size 10, has size 11'):
+                               message='Bootdisk is expected to have size 10, has size 11'):
                 instance.install()
 
     @mock.patch.object(j.clients, '_openvcloud')
@@ -413,22 +394,22 @@ class TestNode(TestCase):
         """
         Test uninstall VM action
         """
+        disk=self.disk
+        def find(template_uid, name):
+            if template_uid == self.type.ACCOUNT_TEMPLATE:
+                return [self.set_up_proxy_mock(result=self.acc['info'], name=self.acc['service'])]
+            if template_uid == self.type.VDC_TEMPLATE:
+                return [self.set_up_proxy_mock(result=self.vdc['info'], name=self.vdc['service'])]
+            if template_uid == self.type.DISK_TEMPLATE:
+                return [self.set_up_proxy_mock(result=disk['info'], name=disk['service'])]
+
         instance = self.type(name='test', data=self.valid_data)
 
-        def get_ovc_client(instance):
-            space_mock = MagicMock(machines={'nodeName' : MagicMock(delete=MagicMock())})
-            ovc_mock=MagicMock(space_get=MagicMock(return_value=space_mock))
-            return ovc_mock
-
+        ovc.get.side_effect = self.ovc_mock
         with patch.object(instance, 'api') as api:
-            api.services.find.return_value = [MagicMock(schedule_action=MagicMock())]
-            ovc.get.return_value = get_ovc_client('instance')
-
+            api.services.find.side_effect = find
             instance.uninstall()
-
-            ovc.get.return_value.space_get.return_value. \
-                                 machine_get.return_value.\
-                                 delete.assert_called_once_with()
+            instance.machine.delete.assert_called_once_with()
 
         # state install must be unset
         with pytest.raises(StateCheckError,
@@ -524,12 +505,12 @@ class TestNode(TestCase):
         Test successfull resume action
         """
         instance = self.type(name='test', data=self.valid_data)
-        
+
         instance.state.set('actions', 'install', 'ok')
         instance._machine = MagicMock()
         instance.resume()
         instance.machine.resume.assert_called_once_with()
-    
+
     def test_resume_fail(self):
         """
         Test failing resume action
@@ -622,7 +603,8 @@ class TestNode(TestCase):
         instance.state.set('actions', 'install', 'ok')
         instance._machine = MagicMock()
         instance.snapshot_rollback(snapshot_epoch)
-        instance.machine.snapshot_rollback.assert_called_once_with(snapshot_epoch)
+        instance.machine.snapshot_rollback.assert_called_once_with(
+            snapshot_epoch)
 
     def test_snapshot_rollback_fail(self):
         """
@@ -652,7 +634,8 @@ class TestNode(TestCase):
         instance.state.set('actions', 'install', 'ok')
         instance._machine = MagicMock()
         instance.snapshot_delete(snapshot_epoch)
-        instance.machine.snapshot_delete.assert_called_once_with(snapshot_epoch) 
+        instance.machine.snapshot_delete.assert_called_once_with(
+            snapshot_epoch)
 
     def test_snapshot_delete_fail(self):
         """
@@ -677,11 +660,23 @@ class TestNode(TestCase):
         """
         Test successfull add disk action
         """
-        instance = self.type(name='test', data=self.valid_data)
+        def find(template_uid, name):
+            if template_uid == self.type.ACCOUNT_TEMPLATE:
+                return [self.set_up_proxy_mock(result=self.acc['info'], name=self.acc['service'])]
+            if template_uid == self.type.VDC_TEMPLATE:
+                return [self.set_up_proxy_mock(result=self.vdc['info'], name=self.vdc['service'])]
 
+        disk = self.disk
+
+        def find_or_create(template_uid, service_name, data):
+            self.assertEqual(template_uid, self.type.DISK_TEMPLATE)
+            return self.set_up_proxy_mock(result=disk['info'], name=disk['service'])
+
+        instance = self.type(name='test', data=self.valid_data)
         instance.state.set('actions', 'install', 'ok')
         with patch.object(instance, 'api') as api:
-            api.services.find.return_value = [MagicMock(schedule_action=MagicMock())]
+            api.services.find.side_effect = find
+            api.services.find_or_create.side_effect = find_or_create
             instance._machine = MagicMock()
             instance.disk_add(name='test')
             instance.machine.disk_add.assert_called_with(
@@ -702,8 +697,7 @@ class TestNode(TestCase):
         instance.state.set('actions', 'install', 'ok')
 
         # test call without arguments
-        with pytest.raises(TypeError,
-                           message="disk_add() missing 1 required positional argument: 'name'"):
+        with self.assertRaises(TypeError):
             instance.disk_add()
 
     @mock.patch.object(j.clients, '_openvcloud')
@@ -711,12 +705,21 @@ class TestNode(TestCase):
         """
         Test successfull attach disk action
         """
+        disk = self.disk
+        def find(template_uid, name):
+            if template_uid == self.type.ACCOUNT_TEMPLATE:
+                return [self.set_up_proxy_mock(result=self.acc['info'], name=self.acc['service'])]
+            if template_uid == self.type.VDC_TEMPLATE:
+                return [self.set_up_proxy_mock(result=self.vdc['info'], name=self.vdc['service'])]
+            if template_uid == self.type.DISK_TEMPLATE:
+                return [self.set_up_proxy_mock(result=disk['info'], name=disk['service'])]
+        
         instance = self.type(name='test', data=self.valid_data)
 
         instance.state.set('actions', 'install', 'ok')
         disk_id = 1
         with patch.object(instance, 'api') as api:
-            api.services.find.return_value = [MagicMock(schedule_action=MagicMock(return_value=MagicMock(result=disk_id)))]
+            api.services.find.side_effect = find
             instance._machine = MagicMock()
             instance.disk_attach(disk_service_name='test')
             instance.machine.disk_attach.assert_called_with(disk_id)
@@ -750,28 +753,23 @@ class TestNode(TestCase):
         """
         Test successfull detach disk action
         """
+        disk = self.disk
+        def find(template_uid, name):
+            if template_uid == self.type.ACCOUNT_TEMPLATE:
+                return [self.set_up_proxy_mock(result=self.acc['info'], name=self.acc['service'])]
+            if template_uid == self.type.VDC_TEMPLATE:
+                return [self.set_up_proxy_mock(result=self.vdc['info'], name=self.vdc['service'])]
+            if template_uid == self.type.DISK_TEMPLATE:
+                return [self.set_up_proxy_mock(result=disk['info'], name=disk['service'])]
+            
         instance = self.type(name='test', data=self.valid_data)
-
         instance.state.set('actions', 'install', 'ok')
-        disk_id = 1
-        disk_type = 'D'
-        disk_service_name = 'test_disk'
-        instance.data['disks'] = [disk_service_name]
-
-        actions_mock = mock.PropertyMock()
-        actions_mock.side_effect = [disk_type, disk_id, disk_type]
-        service_mock = MagicMock(
-            name=disk_service_name, 
-            schedule_action=MagicMock(
-                )
-            )
-        type(service_mock.schedule_action.return_value).result = actions_mock
-
+        instance.data['disks'] = [disk['service']]
+        ovc.get.side_effect = self.ovc_mock
         with patch.object(instance, 'api') as api:
-            api.services.find.return_value = [service_mock]
-            instance._machine = MagicMock()
-            instance.disk_detach(disk_service_name=disk_service_name)
-            instance.machine.disk_detach.assert_called_with(disk_id)
+            api.services.find.side_effect = find
+            instance.disk_detach(disk_service_name=disk['service'])
+            instance.machine.disk_detach.assert_called_with(disk['info']['diskId'])
 
     @mock.patch.object(j.clients, '_openvcloud')
     def test_disk_detach_fail(self, ovc):
