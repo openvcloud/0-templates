@@ -27,7 +27,7 @@ For information about the different access rights check docs at [openvcloud](htt
 ## Actions
 
 - `install`: create a VDC in given `account` if doesn't exist.
-- `uninstall`: delete a VDC.
+- `uninstall`: delete a VDC and trigger `uninstall` action on VMs and Disks created on this VDC.
 - `enable`: enable VDC.
 - `disable`: disable VDC.
 - `portforward_create`: create a port forward.

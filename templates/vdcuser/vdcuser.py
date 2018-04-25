@@ -2,6 +2,7 @@ from js9 import j
 from zerorobot.template.base import TemplateBase
 from zerorobot.template.state import StateCheckError
 
+
 class Vdcuser(TemplateBase):
 
     version = '0.0.1'
@@ -27,10 +28,21 @@ class Vdcuser(TemplateBase):
         Get proxy object of the service of type @template_uid with name @service_name
         '''
 
-        matches = self.api.services.find(template_uid=template_uid, name=service_name)
+        matches = self.api.services.find(
+            template_uid=template_uid, name=service_name)
         if len(matches) != 1:
-            raise RuntimeError('found %d services with name "%s", required exactly one' % (len(matches), service_name))
+            raise RuntimeError('found %d services with name "%s", required exactly one' % (
+                len(matches), service_name))
         return matches[0]
+
+    def _execute_task(self, proxy, action, args={}):
+        task = proxy.schedule_action(action=action)
+        task.wait()
+        if task.state is not 'ok':
+            raise RuntimeError(
+                'error occurred when executing action "%s" on service "%s"' %
+                (action, proxy.name))
+        return task.result
 
     @property
     def ovc(self):
@@ -40,18 +52,18 @@ class Vdcuser(TemplateBase):
         if not self._ovc_instance:
             # get ovc instance name
             proxy = self._get_proxy(self.OVC_TEMPLATE, self.data['openvcloud'])
-            task = proxy.schedule_action('get_name')
-            task.wait()
-            self._ovc_instance = task.result
-        return j.clients.openvcloud.get(self._ovc_instance)
+            ovc_info = self._execute_task(proxy=proxy, action='get_info')
+            self._ovc_instance = j.clients.openvcloud.get(ovc_info['name'])
 
-    def get_name(self):
-        '''
-        Returns the full openvcloud username (username@provider).
-        Raises StateCheckError when install was not successfully run before.
-        '''
+        return self._ovc_instance
+
+    def get_info(self):
+        """ Return vdcuser info """
         self.state.check('actions', 'install', 'ok')
-        return self._get_fqid()
+        return {
+            'name': self._get_fqid(),
+            'groups': self.data['groups'],
+        }
 
     def _get_fqid(self):
         '''
@@ -64,7 +76,7 @@ class Vdcuser(TemplateBase):
         '''
         Install vdcuser
         '''
-        
+
         try:
             self.state.check('actions', 'install', 'ok')
             return
@@ -94,7 +106,7 @@ class Vdcuser(TemplateBase):
     def uninstall(self):
         """
         unauthorize user to all consumed vdc
-        """      
+        """
         client = self.ovc
         try:
             username = self._get_fqid()
