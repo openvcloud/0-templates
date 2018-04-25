@@ -17,6 +17,9 @@ class TestOpenvcloud(TestCase):
             os.path.dirname(__file__)
         )
 
+    def tearDown(self):
+        mock.patch.stopall()
+
     def test_validate(self):
         # test fail if name is not given
         name = 'test'

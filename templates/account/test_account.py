@@ -18,10 +18,6 @@ class TestAccount(TestCase):
             os.path.dirname(__file__)
         )
 
-        # define properties of account mock
-        #acc_mock =  MagicMock(model={'acl': []})
-        # self.ovc_mock = MagicMock(account_get=MagicMock(return_value=acc_mock),
-        #                           accounts={})
         self.ovc = {'service': 'test_ovc_service',
                     'info': {'name': 'connection_instance_name'}
                     }
@@ -35,6 +31,9 @@ class TestAccount(TestCase):
                         'info': {'name': 'test_vdcuser@itsyouonline',
                         'openvcloud': self.ovc['service']}
                         }                    
+
+    def tearDown(self):
+        patch.stopall()
 
     @staticmethod
     def set_up_proxy_mock(result=None, state='ok', name='service_name'):

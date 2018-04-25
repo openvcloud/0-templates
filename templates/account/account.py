@@ -16,7 +16,7 @@ class Account(TemplateBase):
     def __init__(self, name, guid=None, data=None):
         super().__init__(name=name, guid=guid, data=data)
         self._account = None
-        self._ovc_instance = None
+        self._ovc = None
 
     def validate(self):
         """
@@ -25,13 +25,6 @@ class Account(TemplateBase):
         for key in ['name', 'openvcloud']:
             if not self.data[key]:
                 raise ValueError('"%s" is required' % key)
-
-        ovcs = self.api.services.find(
-            template_uid=self.OVC_TEMPLATE, name=self.data['openvcloud'])
-
-        if len(ovcs) != 1:
-            raise RuntimeError('found %s openvcloud connections with name "%s", requires exactly 1' % (
-                len(ovcs), self.data['openvcloud']))
 
     def _get_proxy(self, template_uid, service_name):
         """
@@ -57,14 +50,13 @@ class Account(TemplateBase):
     @property
     def ovc(self):
         """ Get ovc client """
-        if not self._ovc_instance:
-            self._ovc_proxy = self._get_proxy(
+        if not self._ovc:
+            ovc_proxy = self._get_proxy(
                 self.OVC_TEMPLATE, self.data['openvcloud'])
             ovc_info = self._execute_task(
-                proxy=self._ovc_proxy, action='get_info')
-            self._ovc_instance = ovc_info['name']
-
-        return j.clients.openvcloud.get(self._ovc_instance)
+                proxy=ovc_proxy, action='get_info')
+            self._ovc = j.clients.openvcloud.get(ovc_info['name'])
+        return self._ovc
 
     @property
     def account(self):
@@ -79,7 +71,7 @@ class Account(TemplateBase):
         self.state.check('actions', 'install', 'ok')
         return {
             'name' : self.data['name'],
-            'openvcloud' : self._ovc_instance,
+            'openvcloud' : self.data['openvcloud'],
             'users' : self._get_users()
         }
 
@@ -133,6 +125,15 @@ class Account(TemplateBase):
         self.state.set('actions', 'install', 'ok')
 
     def uninstall(self):
+
+        # check if account is listed on given ovc connection
+        for acc in self.ovc.accounts:
+            if self.data['name'] == acc.model['name']:
+                break
+        else:
+            # if account doesn't exist, do nothing
+            return
+
         if not self.data['create']:
             raise RuntimeError('readonly account')
 
@@ -155,8 +156,8 @@ class Account(TemplateBase):
             raise RuntimeError('readonly account')
 
         # fetch user name from the vdcuser service
-        vdcuser = self._get_proxy(self.VDCUSER_TEMPLATE, vdcuser)
-        user_info = self._execute_task(proxy=vdcuser, action='get_info')
+        proxy = self._get_proxy(self.VDCUSER_TEMPLATE, vdcuser)
+        user_info = self._execute_task(proxy=proxy, action='get_info')
         name = user_info['name']  
 
         users = self._get_users()

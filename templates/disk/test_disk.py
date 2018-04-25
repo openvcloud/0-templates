@@ -21,19 +21,40 @@ class TestDisk(TestCase):
         self.location_gid = 123
         self.account_name = 'test_account'
         # define properties of space mock
-        account_mock = MagicMock(disks=[{'id':self.disk_id}],
-                                 disk_create=MagicMock(return_value=self.disk_id),
-                                 model={'name': self.account_name})
-        space_mock = MagicMock(model={'acl': [], 'location':self.location},
-                               account=account_mock)
-        self.ovc_mock = MagicMock(space_get=MagicMock(return_value=space_mock),
-                                  locations=[
-                                      { 
-                                        'name':self.location,
-                                        'gid': self.location_gid,
-                                      }
-                                    ],
-                                )
+        # account_mock = MagicMock(disks=[{'id':self.disk_id}],
+        #                          disk_create=MagicMock(return_value=self.disk_id),
+        #                          model={'name': self.account_name})
+        # space_mock = MagicMock(model={'acl': [], 'location':self.location},
+        #                        account=account_mock)
+        # self.ovc_mock = MagicMock(space_get=MagicMock(return_value=space_mock),
+        #                           locations=[
+        #                               { 
+        #                                 'name':self.location,
+        #                                 'gid': self.location_gid,
+        #                               }
+        #                             ],
+        #                         )
+        self.acc = {'service': 'test_account_service',
+                    'info': {'name': 'test_account_real_name',
+                             'openvcloud': 'be-gen'}
+                    }
+        self.vdc = {'service': 'test_vdc_service',
+                    'info': {'name': 'test_vdc_real_name',
+                             'account': self.acc['service']}
+                    }
+        self.disk = {'service': 'test_disk_service',
+                     'info': {'name': 'disk_real_name',
+                              'vdc': self.vdc['service'],
+                              'diskId': 1,
+                              'diskType': 'D',
+                        },
+                }
+
+    def tearDown(self):
+        patch.stopall()
+
+
+
 
     def test_validate_success_name(self):
         """
@@ -492,8 +513,3 @@ class TestDisk(TestCase):
             ovc.get.return_value = self.ovc_mock
 
             instance.update(maxIops=maxIops)
-
-        # instance.ovc.api.cloudapi.disks.limitIO.assert_called_once_with(
-        #     diskId=data['diskId'], 
-        #     iops=maxIops
-        # )

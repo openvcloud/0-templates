@@ -9,6 +9,7 @@ class Vdc(TemplateBase):
     version = '0.0.1'
     template_name = "vdc"
 
+    OVC_TEMPLATE = 'github.com/openvcloud/0-templates/openvcloud/0.0.1'
     ACCOUNT_TEMPLATE = 'github.com/openvcloud/0-templates/account/0.0.1'
     VDCUSER_TEMPLATE = 'github.com/openvcloud/0-templates/vdcuser/0.0.1'
     NODE_TEMPLATE = 'github.com/openvcloud/0-templates/node/0.0.1'
@@ -65,9 +66,15 @@ class Vdc(TemplateBase):
         An ovc connection instance
         """
         if not self._ovc:
+            # get name of ovc service
             proxy = self._get_proxy(self.ACCOUNT_TEMPLATE, self.data['account'])
             account_info = self._execute_task(proxy=proxy, action='get_info')
-            self._ovc = j.clients.openvcloud.get(account_info['openvcloud'])
+            ovc_service = account_info['openvcloud']
+
+            # get name of ovc connection instance
+            proxy = self._get_proxy(self.OVC_TEMPLATE, ovc_service)
+            ovc_info = self._execute_task(proxy=proxy, action='get_info')
+            self._ovc = j.clients.openvcloud.get(ovc_info['name'])
 
         return self._ovc
 
@@ -302,7 +309,6 @@ class Vdc(TemplateBase):
             if existent_user['accesstype'] == accesstype:
                 # nothing to do here
                 break
-
             if self.space.update_access(username=name, right=accesstype):
                 existent_user['accesstype'] = accesstype
                 break
