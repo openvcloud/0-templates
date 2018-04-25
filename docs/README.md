@@ -8,7 +8,9 @@ There are several possibilities to send API calls:
 * (recommended) using the JumpScale client for Zero-Robot, this requires [JumpScale](https://github.com/Jumpscale) environment (easy to set up and use with Zero-Robot, convenient for automation).
 * (not recommended) using the `zrobot` CLI tool, for sending blueprints and control services.
 
-**Design**. Network of Zero-Robots managing G8s depends on the use case and can be chosen.
+## Design
+
+Network of Zero-Robots managing G8s depends on the use case and can be chosen.
 We currently assume that you have one Zero-Robot per Partner Portal, responsible for managing all accounts, users, virtual datacenters (VDCs), virtual machines (nodes) and disks linked to that Partner Portal. This Zero-Robot can be deployed by another "master" Zero-Robot responsible monitoring all Zero-Robots, and deploying all partner portals.
 All OpenvCloud objects (users, accounts, VDCs, VMs, and disks) are managed by services of corresponding type. Each service is an instance of a template, specifically designed to be used by a Zero-Robot.
 Creating, deleting services and scheduling  tasks on the services is possible by sending API calls to the Zero-Robot managing an OpenvCloud account.
