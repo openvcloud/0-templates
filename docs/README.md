@@ -9,7 +9,7 @@ There are several possibilities to send API calls:
 * (not recommended) using the `zrobot` CLI tool, for sending blueprints and control services.
 
 **Design**. Network of Zero-Robots managing G8s depends on the use case and can be chosen.
-We currently assume that you have one Zero-Robot per Partner Portal, responsible to manage all accounts, VDCs, nodes and disks linked to that Partner Portal. The Zero-Robot managing the Partner Portal can be deployed by another "master" Zero-Robot responsible monitoring all Zero-Robots.
+We currently assume that you have one Zero-Robot per Partner Portal, responsible for managing all accounts, users, virtual datacenters (VDCs), virtual machines (nodes) and disks linked to that Partner Portal. This Zero-Robot can be deployed by another "master" Zero-Robot responsible monitoring all Zero-Robots, and deploying all partner portals.
 All OpenvCloud objects (users, accounts, VDCs, VMs, and disks) are managed by services of corresponding type. Each service is an instance of a template, specifically designed to be used by a Zero-Robot.
 Creating, deleting services and scheduling  tasks on the services is possible by sending API calls to the Zero-Robot managing an OpenvCloud account.
 All actions for an OpenvCloud object have to be executed via Zero-Robot services, therefore, it is important that all communication (also from the VDC Control Panel) go through the Zero-Robot, and thus not directly to the G8s. This concept is illustrated by the figure below.
