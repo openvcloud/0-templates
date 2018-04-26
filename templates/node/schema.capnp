@@ -9,29 +9,29 @@ struct Schema {
 	# Name of the sshkey service. Required.
 	sshKey @2 :Text;
 
-	# Description for the VM. Optional.
-	description @3 :Text;
-
 	# Memory available for the vm in GB
-	bootDiskSize @4 :Int64 = 10;
+	bootDiskSize @3 :Int64 = 10;
 
 	# Standard datadisk parameters for creation of VM
-	dataDiskSize @5 :Int64 = 10;
+	dataDiskSize @4 :Int64 = 10;
 
 	# If set to true, will access the VM using private network of the cloudspace
-	managedPrivate @6 :Bool = false;
+	managedPrivate @5 :Bool = false;
 
 	# OS Image
-	osImage @7 :Text = "Ubuntu 16.04";
+	osImage @6 :Text = "Ubuntu 16.04";
 
 	# Type of VM: defines the number of CPU and memory available for the vm
-	sizeId @8 :Int64 = 1;
+	sizeId @7 :Int64 = 1;
 
 	# Number of CPUs
-	vCpus @9 :Int64;
+	vCpus @8 :Int64;
 
 	# Memory in MB
-	memSize @10 :Int64;
+	memSize @9 :Int64;
+
+	# Description for the VM, contains name of uploaded ssh-key. **Filled in automatically, don't specify it in the blueprint**.
+	description @10 :Text;
 
 	# ID of the VM. **Filled in automatically, don't specify it in the blueprint**
 	machineId @11 :Int64 = 0;

@@ -15,7 +15,7 @@ The template is responsible for managing a virtual machine (VM) on the OpenvClou
 - `dataDiskSize`: size of data disk in GB. Default to 10.
 - `dataDiskMountpoint`: data disk mount point. Default to `/var`.
 - `dataDiskFilesystem`: file system of the data disk, supports: `xfs`, `ext2`, `ext3`, `ext4`. **Optional**.
-- `description`: arbitrary description of the VM. **Optional**.
+- `description`: description contain sshkey name loaded to the VM. **Filled in automatically, don't specify it in the blueprint**.
 - `vCpus`: number of CPUs in the VM. **Filled in automatically, don't specify it in the blueprint**.
 - `memSize`: memory size in the VM **Filled in automatically, don't specify it in the blueprint**.
 - `machineId`: unique identifier of the VM. **Filled in automatically, don't specify it in the blueprint**.
