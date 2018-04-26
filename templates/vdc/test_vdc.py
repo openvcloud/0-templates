@@ -65,10 +65,10 @@ class TestVDC(TestCase):
         return proxy
 
     def find(self, template_uid, name):
-        if template_uid == self.type.ACCOUNT_TEMPLATE:
-            return [self.set_up_proxy_mock(result=self.acc['info'], name=self.acc['service'])]
         if template_uid == self.type.OVC_TEMPLATE:
             return [self.set_up_proxy_mock(result=self.ovc['info'], name=self.ovc['service'])]
+        if template_uid == self.type.ACCOUNT_TEMPLATE:
+            return [self.set_up_proxy_mock(result=self.acc['info'], name=self.acc['service'])]
         if template_uid == self.type.NODE_TEMPLATE:
             return [self.set_up_proxy_mock(result=self.node['info'], name=self.node['service'])]
         if template_uid == self.type.VDCUSER_TEMPLATE:

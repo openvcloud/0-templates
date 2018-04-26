@@ -159,8 +159,9 @@ class Disk(TemplateBase):
                                 Relevant only for attached disks
         """
         disks = [disk['id'] for disk in self.account.disks]   
-        import ipdb; ipdb.set_trace()
         if self.data['diskId'] in disks:
+            if self.data['type'] == 'B':
+                raise RuntimeError("can't delete boot disk")
             self.account.disk_delete(self.data['diskId'], detach=False)
         
         self.state.delete('actions', 'install')
@@ -189,7 +190,12 @@ class Disk(TemplateBase):
         account_proxy = self._get_proxy(self.ACCOUNT_TEMPLATE, account_service_name)
         account_info = self._execute_task(proxy=account_proxy, action='get_info')
         config['account'] = account_info['name']
-        config['ovc'] = account_info['openvcloud']
+        ovc_service_name = account_info['openvcloud']
+
+        # get ovc name
+        ovc_proxy = self._get_proxy(self.OVC_TEMPLATE, ovc_service_name)
+        ovc_info = self._execute_task(proxy=ovc_proxy, action='get_info')
+        config['ovc'] = ovc_info['name']
 
         self._config = config
         return self._config
