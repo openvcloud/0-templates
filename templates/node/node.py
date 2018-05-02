@@ -147,8 +147,7 @@ class Node(TemplateBase):
             template_uid=self.SSH_TEMPLATE, name=self.data['sshKey'])
         sshkey_info = proxy.schedule_action(action='get_info').wait().result
 
-        self._machine = self.space.machine_get(
-            create=True,
+        self._machine = self.space.machine_create(
             name=data['name'],
             sshkeyname=sshkey_info['name'],
             image=data['osImage'],
@@ -182,7 +181,7 @@ class Node(TemplateBase):
         # check that bootdisk has correct size
         boot_disk = [disk for disk in disks if disk['type'] == 'B'][0]
         if boot_disk['sizeMax'] != self.data['bootDiskSize']:
-            raise RuntimeError('Datadisk is expected to have size {}, has size {}'.format(
+            raise RuntimeError('Bootdisk is expected to have size {}, has size {}'.format(
                 self.data['bootDiskSize'], boot_disk['sizeMax'])
             )
 

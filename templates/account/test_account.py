@@ -4,7 +4,6 @@ import os
 from unittest import TestCase
 from unittest import mock
 from unittest.mock import MagicMock, patch
-import pytest
 
 from zerorobot import config, template_collection
 from zerorobot.template.state import StateCheckError
@@ -249,7 +248,7 @@ class TestAccount(TestCase):
         instance = self.type('test', None)
         user = {'vdcuser': 'test1', 'accesstype': 'RCX',
                 'user_name': 'user@provider'}
-        with pytest.raises(StateCheckError):
+        with self.assertRaises(StateCheckError):
             # fails if account not installed
             instance.user_authorize(user['vdcuser'], user['accesstype'])
 
@@ -381,7 +380,7 @@ class TestAccount(TestCase):
         instance = self.type('test', None)
         user = {'vdcuser': 'test1', 'accesstype': 'RCX',
                 'user_name': 'user@provider'}
-        with pytest.raises(StateCheckError):
+        with self.assertRaises(StateCheckError):
             # fails if account not installed
             instance.user_authorize(user['vdcuser'])
 

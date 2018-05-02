@@ -1,5 +1,4 @@
 import os
-import pytest
 from unittest import mock
 from unittest import TestCase
 from js9 import j
@@ -29,9 +28,9 @@ class TestOpenvcloud(TestCase):
             'location': 'abc',
         }
         instance = self.type(name, None, data)
-        with pytest.raises(ValueError,
-                           message='name is required'):
+        with self.assertRaisesRegex(ValueError, 'name is required'):
             instance.validate()
+
         # test fail if address is not given
         data = {
             'name' : 'be-gen-demo', 
@@ -39,8 +38,7 @@ class TestOpenvcloud(TestCase):
             'location': 'abc',
         }
         instance = self.type(name, None, data)
-        with pytest.raises(ValueError,
-                           message='name is required'):
+        with self.assertRaisesRegex(ValueError, 'address is required'):
             instance.validate()
 
         # test fail if token is not given
@@ -50,8 +48,7 @@ class TestOpenvcloud(TestCase):
             'location': 'abc',
         }
         instance = self.type(name, None, data)
-        with pytest.raises(ValueError,
-                           message='token is required'):
+        with self.assertRaisesRegex(ValueError, 'token is required'):
             instance.validate()
 
         # test fail if location is not given
@@ -61,8 +58,7 @@ class TestOpenvcloud(TestCase):
             'token': 'some-token',
         }
         instance = self.type(name, None, data)
-        with pytest.raises(ValueError,
-                           message='location is required'):
+        with self.assertRaisesRegex(ValueError, 'location is required'):
             instance.validate()
         # test success
         data = {
@@ -104,7 +100,7 @@ class TestOpenvcloud(TestCase):
             'location': 'abc',
         }
         instance = self.type('test', None, data)
-        with pytest.raises(StateCheckError):
+        with self.assertRaises(StateCheckError):
             # fails if not installed
             instance.update()
 
@@ -134,5 +130,5 @@ class TestOpenvcloud(TestCase):
             instance=instance.data['name']
         )
 
-        with pytest.raises(StateCheckError):
+        with self.assertRaises(StateCheckError):
             instance.state.check('actions', 'install', 'ok')

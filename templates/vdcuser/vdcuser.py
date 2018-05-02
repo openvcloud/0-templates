@@ -21,7 +21,7 @@ class Vdcuser(TemplateBase):
 
         for key in ['name', 'email', 'openvcloud']:
             if not self.data[key]:
-                raise ValueError('"%s" is required' % key)
+                raise ValueError('%s is required' % key)
 
     @property
     def ovc(self):

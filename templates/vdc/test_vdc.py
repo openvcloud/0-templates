@@ -4,7 +4,6 @@ import os
 from unittest import TestCase
 from unittest import mock
 from unittest.mock import MagicMock, patch
-import pytest
 
 from zerorobot import config, template_collection
 from zerorobot.template.state import StateCheckError
@@ -107,17 +106,15 @@ class TestVDC(TestCase):
             'account': 'test-account',
         }
         instance = self.type(name, None, data)
-        with pytest.raises(ValueError,
-                           message="vdc name is required"):
+        with self.assertRaisesRegex(ValueError, "vdc name is required"):
             instance.validate()
 
         # test fail if account is missing
         data = {
-            'account': 'test-account',
+            'name': 'test-vdc',
         }
         instance = self.type(name, None, data)
-        with pytest.raises(ValueError,
-                           message="account service name is required"):
+        with self.assertRaisesRegex(ValueError, "account service name is required"):
             instance.validate()
 
         # test success
@@ -197,12 +194,13 @@ class TestVDC(TestCase):
         """
 
         data_read_only = {
+            'name': 'test',
             'account': 'test-account',
             'create': False,
         }
         instance = self.type('test', None, data_read_only)
-        with pytest.raises(RuntimeError,
-                           message='"%s" is readonly cloudspace' % instance.name):
+        with self.assertRaisesRegex(
+            RuntimeError, '"%s" is readonly cloudspace' % data_read_only['name']):
             instance.uninstall()
 
     @mock.patch.object(j.clients, '_openvcloud')
@@ -250,8 +248,7 @@ class TestVDC(TestCase):
     def test_portforward_create_require_arguments(self, ovc):
         """ Test call without arguments """
         instance = self.type('test', None, None)
-        with pytest.raises(TypeError,
-                           message="portforward_create() missing 2 required positional arguments: 'node_service' and 'ports'"):
+        with self.assertRaises(TypeError):
             instance.portforward_create()
 
     @mock.patch.object(j.clients, '_openvcloud')

@@ -5,7 +5,6 @@ from unittest import skip
 import tempfile
 import shutil
 import os
-import pytest
 
 from js9 import j
 from zerorobot.template.base import TemplateBase
@@ -68,7 +67,7 @@ class TestNode(TestCase):
         machine_mock.prefab.core.run.return_value = (
                     None, '/dev/vdb on /var type ext4 ', None)
         space_mock = MagicMock(machines=[self.node['info']['name']],
-                               machine_get=MagicMock(return_value=machine_mock))
+                               machine_create=MagicMock(return_value=machine_mock))
         return MagicMock(space_get=MagicMock(return_value=space_mock))
 
     @staticmethod
@@ -189,7 +188,7 @@ class TestNode(TestCase):
             self.assertEqual(template_uid, self.type.DISK_TEMPLATE)
             return self.set_up_proxy_mock(result=disk['info'], name=disk['service'])
 
-        ovc.get.side_effect = self.ovc_mock
+        ovc.get.return_value = self.ovc_mock(self.ovc['info']['name'])
 
         with patch.object(instance, 'api') as api:
             api.services.get.side_effect = self.get_service
@@ -197,8 +196,7 @@ class TestNode(TestCase):
             instance.install()
 
             # check call to get/create machine
-            instance.space.machine_get.assert_called_once_with(
-                create=True,
+            instance.space.machine_create.assert_called_once_with(
                 name=instance.data['name'],
                 sshkeyname=self.sshkey['info']['name'],
                 sizeId=1,
@@ -208,81 +206,54 @@ class TestNode(TestCase):
                 image='Ubuntu 16.04'
             )
 
-    @skip("skip until #114 is closed")
     @mock.patch.object(j.clients, '_openvcloud')
     def test_install_fail_wrong_data_disk_size(self, ovc):
         """
         Test failing install VM action.
         Data disk size is not correct.
         """
-        name = 'test'
-        key_name = 'keyName'
-        account_service = 'account_service'
-        account_name = 'account_name'
-        sshkey_name = 'sshkey_name'
-        ovc_name = 'ovc_name'
 
-        # set up ovc mock
-        def get_ovc_client(instance):
-            boot_disk = {'id': int, 'type': 'B', 'sizeMax': 10}
-            data_disk = {'id': int, 'type': 'D', 'sizeMax': 11}
-            disks = [boot_disk, data_disk]
-            machine_mock = MagicMock(prefab=MagicMock(return_value=None), id=1)
-            machine_mock.disks = disks
-            machine_mock.prefab.core.run.return_value = (
-                None, '/dev/vdb on /var type ext4 ', None)
-            space_mock = MagicMock(
-                machine_get=MagicMock(return_value=machine_mock))
-            ovc_mock = MagicMock(space_get=MagicMock(return_value=space_mock))
-            return ovc_mock
+        instance = self.type(name=self.node['service'], data=self.node['info'])
+        ovc.get.return_value = self.ovc_mock(self.ovc['info']['name'])
+        client = ovc.get.return_value
+        space = client.space_get.return_value
+        machine = space.machine_create.return_value
+        machine.disks=[
+            {'id': int, 'type': 'B', 'sizeMax': 10},
+            {'id': int, 'type': 'D', 'sizeMax': 11}
+        ]
 
-        instance = self.type(name=name, data=self.node['info'])
         with patch.object(instance, 'api') as api:
             # setup mocks
             api.services.get.side_effect = self.get_service
-            ovc.get.side_effect = get_ovc_client
-            api.services.get.return_value = [
-                MagicMock(schedule_action=MagicMock())]
 
             # boot disk has wrong size
             with self.assertRaisesRegex(RuntimeError,
                                         'Datadisk is expected to have size 10, has size 11'):
                 instance.install()
 
-    @skip("skip until #114 is closed")
     @mock.patch.object(j.clients, '_openvcloud')
     def test_install_fail_wrong_boot_disk_size(self, ovc):
         """
         Test failing install VM action.
         Boot disk size is not correct
         """
-        name = 'test'
-        key_name = 'keyName'
-        account_service = 'account_service'
-        account_name = 'account_name'
-        sshkey_name = 'sshkey_name'
-        ovc_name = 'ovc_name'
+        instance = self.type(name=self.node['service'], data=self.node['info'])
+        ovc.get.return_value = self.ovc_mock(self.ovc['info']['name'])
+        client = ovc.get.return_value
+        space = client.space_get.return_value
+        machine = space.machine_create.return_value
+        machine.disks=[
+            {'id': int, 'type': 'B', 'sizeMax': 11},
+            {'id': int, 'type': 'D', 'sizeMax': 10}
+        ]
 
-        # set up ovc mock
-        def get_ovc_client(instance):
-            boot_disk = {'id': int, 'type': 'B', 'sizeMax': 11}
-            disks = [boot_disk]  # , data_disk]
-            machine_mock = MagicMock(prefab=MagicMock(return_value=None), id=1)
-            machine_mock.disks = disks
-            machine_mock.prefab.core.run.return_value = (
-                None, '/dev/vdb on /var type ext4 ', None)
-            space_mock = MagicMock(
-                machine_get=MagicMock(return_value=machine_mock))
-            ovc_mock = MagicMock(space_get=MagicMock(return_value=space_mock))
-            return ovc_mock
-
-        instance = self.type(name=name, data=self.node['info'])
         with patch.object(instance, 'api') as api:
-            api.services.get.return_value = self.get_service
-            ovc.get.side_effect = get_ovc_client
+            api.services.get.side_effect = self.get_service
+
             # boot disk has wrong size
-            with pytest.raises(RuntimeError,
-                               message='Bootdisk is expected to have size 10, has size 11'):
+            with self.assertRaisesRegex(RuntimeError,
+                                       'Bootdisk is expected to have size 10, has size 11'):
                 instance.install()
 
     @mock.patch.object(j.clients, '_openvcloud')
@@ -320,7 +291,7 @@ class TestNode(TestCase):
         instance = self.type(name='test', data=self.node['info'])
 
         # fails if not installed
-        with pytest.raises(StateCheckError):
+        with self.assertRaises(StateCheckError):
             instance.start()
 
     def test_stop_success(self):
@@ -341,7 +312,7 @@ class TestNode(TestCase):
         instance = self.type(name='test', data=self.node['info'])
 
         # fails if not installed
-        with pytest.raises(StateCheckError):
+        with self.assertRaises(StateCheckError):
             instance.stop()
 
     def test_restart_success(self):
@@ -362,7 +333,7 @@ class TestNode(TestCase):
         instance = self.type(name='test', data=self.node['info'])
 
         # fails if not installed
-        with pytest.raises(StateCheckError):
+        with self.assertRaises(StateCheckError):
             instance.restart()
 
     def test_pause_success(self):
@@ -383,7 +354,7 @@ class TestNode(TestCase):
         instance = self.type(name='test', data=self.node['info'])
 
         # fails if not installed
-        with pytest.raises(StateCheckError):
+        with self.assertRaises(StateCheckError):
             instance.pause()
 
     def test_resume_success(self):
@@ -404,7 +375,7 @@ class TestNode(TestCase):
         instance = self.type(name='test', data=self.node['info'])
 
         # fails if not installed
-        with pytest.raises(StateCheckError):
+        with self.assertRaises(StateCheckError):
             instance.resume()
 
     def test_reset_success(self):
@@ -425,7 +396,7 @@ class TestNode(TestCase):
         instance = self.type(name='test', data=self.node['info'])
 
         # fails if not installed
-        with pytest.raises(StateCheckError):
+        with self.assertRaises(StateCheckError):
             instance.reset()
 
     def test_snapshot_success(self):
@@ -446,7 +417,7 @@ class TestNode(TestCase):
         instance = self.type(name='test', data=self.node['info'])
 
         # fails if not installed
-        with pytest.raises(StateCheckError):
+        with self.assertRaises(StateCheckError):
             instance.snapshot()
 
     def test_clone_success(self):
@@ -469,14 +440,13 @@ class TestNode(TestCase):
         clone_name = 'test_clone'
 
         # fails if not installed
-        with pytest.raises(StateCheckError):
+        with self.assertRaises(StateCheckError):
             instance.clone(clone_name)
 
         instance.state.set('actions', 'install', 'ok')
 
         # test call without arguments
-        with pytest.raises(TypeError,
-                           message="clone() missing 1 required positional argument: 'clone_name'"):
+        with self.assertRaises(TypeError):
             instance.clone()
 
     def test_snapshot_rollback_success(self):
@@ -500,13 +470,13 @@ class TestNode(TestCase):
         snapshot_epoch = 'test_epoch'
 
         # fails if not installed
-        with pytest.raises(StateCheckError):
+        with self.assertRaises(StateCheckError):
             instance.snapshot_rollback(snapshot_epoch)
 
         instance.state.set('actions', 'install', 'ok')
 
         # test call without arguments
-        with pytest.raises(TypeError,
+        with self.assertRaises(TypeError,
                            message="snapshot_rollback() missing 1 required positional argument: 'snapshot_epoch'"):
             instance.snapshot_rollback()
 
@@ -531,13 +501,13 @@ class TestNode(TestCase):
         snapshot_epoch = 'test_epoch'
 
         # fails if not installed
-        with pytest.raises(StateCheckError):
+        with self.assertRaises(StateCheckError):
             instance.snapshot_delete(snapshot_epoch)
 
         instance.state.set('actions', 'install', 'ok')
 
         # test call without arguments
-        with pytest.raises(TypeError,
+        with self.assertRaises(TypeError,
                            message="snapshot_delete() missing 1 required positional argument: 'snapshot_epoch'"):
             instance.snapshot_delete()
 
@@ -572,7 +542,7 @@ class TestNode(TestCase):
         instance = self.type(name='test', data=self.node['info'])
 
         # fails if not installed
-        with pytest.raises(StateCheckError):
+        with self.assertRaises(StateCheckError):
             instance.disk_add(name='test')
 
         instance.state.set('actions', 'install', 'ok')
@@ -603,7 +573,7 @@ class TestNode(TestCase):
         instance = self.type(name='test', data=self.node['info'])
 
         # fails if not installed
-        with pytest.raises(StateCheckError):
+        with self.assertRaises(StateCheckError):
             instance.disk_attach(disk_service_name=str)
 
         instance.state.set('actions', 'install', 'ok')

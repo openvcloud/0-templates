@@ -1,5 +1,4 @@
 import os
-import pytest
 from mock import MagicMock
 
 
@@ -53,8 +52,7 @@ class TestVdcUser(TestCase):
             'email': 'email@test.com',
         }
         instance = self.type('vdcuser', None, data)
-        with pytest.raises(ValueError,
-                           message='name is required'):
+        with self.assertRaisesRegex(ValueError, 'name is required'):
             instance.validate()
 
         # missing email
@@ -64,8 +62,7 @@ class TestVdcUser(TestCase):
             'name': 'username',
         }
         instance = self.type('vdcuser', None, data)
-        with pytest.raises(ValueError,
-                           message='email is required'):
+        with self.assertRaisesRegex(ValueError, 'email is required'):
             instance.validate()
 
         # missing openvcloud
@@ -75,8 +72,7 @@ class TestVdcUser(TestCase):
             'email': 'email@test.com',
         }
         instance = self.type('vdcuser', None, data)
-        with pytest.raises(ValueError,
-                           message='openvcloud is required'):
+        with self.assertRaisesRegex(ValueError, 'openvcloud is required'):
             instance.validate()
 
         # test success

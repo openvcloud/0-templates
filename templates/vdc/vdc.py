@@ -164,7 +164,7 @@ class Vdc(TemplateBase):
         Delete VDC
         """
         if not self.data['create']:
-            raise RuntimeError('readonly cloudspace')
+            raise RuntimeError('"%s" is readonly cloudspace' % self.data['name'])
 
         # check if space exists on account
         for space in self.account.spaces:
@@ -197,7 +197,7 @@ class Vdc(TemplateBase):
 
         self.state.check('actions', 'install', 'ok')
         if not self.data['create']:
-            raise RuntimeError('readonly cloudspace')
+            raise RuntimeError('"%s" is readonly cloudspace' % self.data['name'])
             
         # Get space, raise error if not found
         self.state.check('actions', 'install', 'ok')
@@ -273,7 +273,7 @@ class Vdc(TemplateBase):
         self.state.check('actions', 'install', 'ok')
 
         if not self.data['create']:
-            raise RuntimeError('readonly cloudspace')
+            raise RuntimeError('"%s" is readonly cloudspace' % self.data['name'])
         
         # fetch list of authorized users to self.data['users']
         users = self._get_users()
@@ -317,7 +317,7 @@ class Vdc(TemplateBase):
         self.state.check('actions', 'install', 'ok')
 
         if not self.data['create']:
-            raise RuntimeError('readonly cloudspace')
+            raise RuntimeError('"%s" is readonly cloudspace' % self.data['name'])
 
         self.state.check('actions', 'install', 'ok')
         
@@ -351,7 +351,7 @@ class Vdc(TemplateBase):
 
         self.state.check('actions', 'install', 'ok')
         if not self.data['create']:
-            raise RuntimeError('readonly cloudspace')
+            raise RuntimeError('"%s" is readonly cloudspace' % self.data['name'])
         # work around not supporting the **kwargs in actions call
         kwargs = locals()
         kwargs.pop('self')
