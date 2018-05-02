@@ -12,6 +12,7 @@ from zerorobot.template.base import TemplateBase
 from zerorobot import config, template_collection
 from zerorobot.template_uid import TemplateUID
 from zerorobot.template.state import StateCheckError
+from zerorobot.service_collection import ServiceNotFoundError
 
 
 class TestNode(TestCase):
@@ -23,20 +24,17 @@ class TestNode(TestCase):
             os.path.dirname(__file__)
         )
 
-        vdc_service_name = 'test-vdc-service'
-        acc_service_name = 'test_account-service'
-        self.valid_data = {
-            'name': 'nodeName',
-            'vdc': vdc_service_name,
-            'sshKey': 'keyName'
-        }
-        self.acc = {'service': acc_service_name,
+        self.ovc = {
+            'service': 'test_ovc_service',
+            'info': {'name': 'connection_instance_name'}
+        }        
+        self.acc = {'service': 'test_account-service',
                     'info': {'name': 'test_account_real_name',
-                             'openvcloud': 'be-gen'}
+                             'openvcloud': self.ovc['service']}
                     }
-        self.vdc = {'service': vdc_service_name,
+        self.vdc = {'service': 'test-vdc-service',
                     'info': {'name': 'test_vdc_real_name',
-                             'account': acc_service_name}
+                             'account': self.acc['service']}
                     }
         self.disk = {'service': 'test_disk_service',
                      'info': {'name': 'disk_real_name',
@@ -45,6 +43,20 @@ class TestNode(TestCase):
                               'diskType': 'D',
                         },
                 }
+        self.sshkey = {
+            'service': 'test_node_service',
+            'info': {
+                    'name': 'test_sshkey_name',
+                }
+        }                 
+        self.node = {
+            'service': 'test_node_service',
+            'info': {
+                    'name': 'test_node_name',
+                    'vdc': self.vdc['service'],
+                    'sshKey': self.sshkey['service']
+                }
+        }   
 
     def tearDown(self):
         patch.stopall()
@@ -55,20 +67,32 @@ class TestNode(TestCase):
         machine_mock = MagicMock(disks=disks)
         machine_mock.prefab.core.run.return_value = (
                     None, '/dev/vdb on /var type ext4 ', None)
-        space_mock = MagicMock(machines=[self.valid_data['name']],
+        space_mock = MagicMock(machines=[self.node['info']['name']],
                                machine_get=MagicMock(return_value=machine_mock))
         return MagicMock(space_get=MagicMock(return_value=space_mock))
 
     @staticmethod
-    def set_up_proxy_mock(result, state='ok', name='service_name'):
-        """ Setup a mock for a proxy of zrobot service
-
-            The object has property @name,implements method @schedule_action
-            which returns @task object with properties @state and @result
-        """
-        task = MagicMock(result=result, state=state)
-        proxy = MagicMock(schedule_action=MagicMock(return_value=task))
+    def set_up_proxy_mock(result=None, name='service_name'):
+        """ Setup a mock for a proxy of zrobot service  """
+        proxy = MagicMock(schedule_action=MagicMock())
+        proxy.schedule_action().wait = MagicMock()
+        proxy.schedule_action().wait().result = result
         proxy.name = name
+        return proxy
+
+    def get_service(self, template_uid, name):
+        if template_uid == self.type.OVC_TEMPLATE:
+            proxy = self.set_up_proxy_mock(result=self.ovc['info'], name=name)
+        elif template_uid == self.type.ACCOUNT_TEMPLATE:
+            proxy = self.set_up_proxy_mock(result=self.acc['info'], name=name)
+        elif template_uid == self.type.VDC_TEMPLATE:
+            proxy = self.set_up_proxy_mock(result=self.vdc['info'], name=name)            
+        elif template_uid == self.type.DISK_TEMPLATE:
+            proxy = self.set_up_proxy_mock(result=self.disk['info'], name=name)
+        elif template_uid == self.type.SSH_TEMPLATE:
+            proxy = self.set_up_proxy_mock(result=self.sshkey['info'], name=name)            
+        else:
+            proxy = None
         return proxy
 
     def test_validate_success(self):
@@ -76,39 +100,13 @@ class TestNode(TestCase):
         Test successfull validation
         """
         name = 'test'
-        instance = self.type(name=name, guid=None, data=self.valid_data)
+        instance = self.type(name=name, guid=None, data=self.node['info'])
+        instance.validate()
 
-        @mock.patch.object(instance, 'api')
-        def validate(instance, api):
-            api.services.find.return_value = [None]
-            instance.validate()
-
-        data = {
-            'vdc': 'vdcName',
-            'sshKey': 'keyName',
-            'name': 'nodeName',
-        }
-
-        instance = self.type(name=name, guid=None, data=data)
-        try:
-            instance.validate()
-        except ValueError as err:
-            pytest.fail("Validate should be successfull!\nGot error: %s" % err)
-
-    def test_validate_fail(self):
+    def test_validate_fail_missing_vdc(self):
         """
         Test validate method
         """
-        name = 'test'
-        instance = self.type(name=name, guid=None, data=self.valid_data)
-
-        @mock.patch.object(instance, 'api')
-        def validate(instance, api):
-            api.services.find.return_value = [None]
-            instance.validate()
-
-        validate(instance)
-        instance.delete()
 
         # test missing name
         invalid_data = {
@@ -116,121 +114,56 @@ class TestNode(TestCase):
             'sshKey': 'keyName'
         }
 
-        instance = self.type(name=name, guid=None, data=invalid_data)
-        with pytest.raises(ValueError,
-                           message='VM name is required'):
+        instance = self.type(name='test', guid=None, data=invalid_data)
+        with self.assertRaisesRegex(ValueError, 'VM name is required'):
             instance.validate()
-        instance.delete()
 
+    def test_validate_fail_missing_sshkey(self):
         # test missing sshkey service name
         invalid_data = {
             'name': 'nodeName',
             'vdc': 'vdcName',
         }
 
-        instance = self.type(name=name, guid=None, data=invalid_data)
-        with pytest.raises(ValueError,
-                           message='sshKey name is required'):
+        instance = self.type(name='test', guid=None, data=invalid_data)
+        with self.assertRaisesRegex(ValueError, 'sshKey service name is required'):
             instance.validate()
-        instance.delete()
 
+    def test_validate_fail_missing_vm_name(self):
         # test missing sshkey service name
         invalid_data = {
+            'name': 'nodeName',
             'sshKey': 'sshkeyName',
         }
-        with pytest.raises(ValueError,
-                           message='vdc name is required'):
+        instance = self.type(name='test', guid=None, data=invalid_data)
+        with self.assertRaisesRegex(ValueError, 'vdc service name is required'):
             instance.validate()
-        instance.delete()
 
     def test_config_success(self):
         """
         Test fetching config from vdc, account, and ovc services
         """
-
-        def find(template_uid, name):
-            if template_uid == self.type.ACCOUNT_TEMPLATE:
-                return [self.set_up_proxy_mock(result=self.acc['info'])]
-            if template_uid == self.type.VDC_TEMPLATE:
-                return [self.set_up_proxy_mock(result=self.vdc['info'])]
-
-        instance = self.type(name='test', data=self.valid_data)
+        instance = self.type(name='test', data=self.node['info'])
 
         with patch.object(instance, 'api') as api:
-            api.services.find.side_effect = find
+            api.services.get.side_effect = self.get_service
             instance.config
-            self.assertEqual(
-                instance.config['ovc'], self.acc['info']['openvcloud'])
-            self.assertEqual(
-                instance.config['account'], self.acc['info']['name'])
+            
+        self.assertEqual(
+            instance.config['ovc'], self.ovc['info']['name'])
+        self.assertEqual(
+            instance.config['account'], self.acc['info']['name'])
+        self.assertEqual(
+            instance.config['vdc'], self.vdc['info']['name'])
 
     def test_config_fail_no_vdc_service(self):
         """
         Test getting config from a vdc service
         """
-        instance = self.type(name='test', data=self.valid_data)
+        instance = self.type(name='test', data=self.node['info'])
 
-        with patch.object(instance, 'api') as api:
-            api.services.find.return_value = []
-            # test when no vdc service is found
-            with self.assertRaisesRegexp(
-                    RuntimeError,
-                    'found 0 services with name "%s", required exactly one'
-                    % self.valid_data['vdc']):
-                instance.config
-
-    def test_config_fail_vdc_service_not_unique(self):
-        """
-        Test getting config from a vdc service
-        """
-        instance = self.type(name='test', data=self.valid_data)
-
-        with patch.object(instance, 'api') as api:
-            api.services.find.return_value = [None, None]
-            # test when more than 1 vdc service is found
-            with self.assertRaisesRegexp(RuntimeError,
-                                         'found 2 services with name "%s", required exactly one' %
-                                         self.valid_data['vdc']):
-                instance.config
-
-    def test_config_fail_no_account_service(self):
-        """
-        Test getting config from a account service
-        """
-        # set up finding service mock
-        def find(template_uid, name):
-            if template_uid == self.type.ACCOUNT_TEMPLATE:
-                return []
-            if template_uid == self.type.VDC_TEMPLATE:
-                return [self.set_up_proxy_mock(result=self.vdc['info'])]
-
-        instance = self.type(name='test', data=self.valid_data)
-
-        with patch.object(instance, 'api') as api:
-            api.services.find = find
-            with self.assertRaisesRegexp(
-                    RuntimeError,
-                    'found 0 services with name "%s", required exactly one' % self.acc['service']):
-                instance.config
-
-    def test_config_fail_account_service_not_unique(self):
-        """
-        Test getting config from a account service
-        """
-        # set up finding service mock
-        def find(template_uid, name):
-            if template_uid == self.type.ACCOUNT_TEMPLATE:
-                return [None, None]
-            if template_uid == self.type.VDC_TEMPLATE:
-                return [self.set_up_proxy_mock(result=self.vdc['info'])]
-
-        instance = self.type(name='test', data=self.valid_data)
-        with patch.object(instance, 'api') as api:
-            api.services.find.side_effect = find
-            with self.assertRaisesRegexp(
-                    RuntimeError,
-                    'found 2 services with name "%s", required exactly one' % self.acc['service']):
-                instance.config
+        with self.assertRaises(ServiceNotFoundError):
+            instance.config
 
     @mock.patch.object(j.clients, '_openvcloud')
     def test_install_when_already_installed(self, ovc):
@@ -238,7 +171,7 @@ class TestNode(TestCase):
         Test successfull install VM action
         """
         # if installed, do nothing
-        instance = self.type(name='test', data=self.valid_data)
+        instance = self.type(name='test', data=self.node['info'])
         instance.state.set('actions', 'install', 'ok')
         instance.install()
         ovc.get.return_value.space_get.return_value.machine_create.assert_not_called()
@@ -248,17 +181,7 @@ class TestNode(TestCase):
         """
         Test successfull install VM action
         """
-        instance = self.type(name='test', data=self.valid_data)
-
-        ssh = {'service': 'ssh_service_name', 
-               'info': {'name': self.valid_data['sshKey']}}
-        def find(template_uid, name):
-            if template_uid == self.type.SSH_TEMPLATE:
-                return [self.set_up_proxy_mock(result=ssh['info'], name=ssh['service'])]            
-            if template_uid == self.type.ACCOUNT_TEMPLATE:
-                return [self.set_up_proxy_mock(result=self.acc['info'], name=self.acc['service'])]
-            if template_uid == self.type.VDC_TEMPLATE:
-                return [self.set_up_proxy_mock(result=self.vdc['info'], name=self.vdc['service'])]
+        instance = self.type(name='test', data=self.node['info'])
 
         disk = self.disk
 
@@ -269,7 +192,7 @@ class TestNode(TestCase):
         ovc.get.side_effect = self.ovc_mock
 
         with patch.object(instance, 'api') as api:
-            api.services.find.side_effect = find
+            api.services.get.side_effect = self.get_service
             api.services.find_or_create.side_effect = find_or_create
             instance.install()
 
@@ -277,7 +200,7 @@ class TestNode(TestCase):
             instance.space.machine_get.assert_called_once_with(
                 create=True,
                 name=instance.data['name'],
-                sshkeyname=self.valid_data['sshKey'],
+                sshkeyname=self.sshkey['info']['name'],
                 sizeId=1,
                 managed_private=False,
                 datadisks=[10],
@@ -313,25 +236,12 @@ class TestNode(TestCase):
             ovc_mock = MagicMock(space_get=MagicMock(return_value=space_mock))
             return ovc_mock
 
-        # mock finding services
-        def find(template_uid, name):
-            result_mock = mock.PropertyMock()
-            result_mock.side_effect = [
-                key_name, account_service, account_name,
-                sshkey_name, ovc_name
-            ]
-            task_mock = MagicMock()
-            type(task_mock).result = result_mock
-            proxy = MagicMock(
-                schedule_action=MagicMock(return_value=task_mock))
-            return [proxy]
-
-        instance = self.type(name=name, data=self.valid_data)
+        instance = self.type(name=name, data=self.node['info'])
         with patch.object(instance, 'api') as api:
             # setup mocks
-            api.services.find.side_effect = find
+            api.services.get.side_effect = self.get_service
             ovc.get.side_effect = get_ovc_client
-            api.services.find.return_value = [
+            api.services.get.return_value = [
                 MagicMock(schedule_action=MagicMock())]
 
             # boot disk has wrong size
@@ -366,23 +276,9 @@ class TestNode(TestCase):
             ovc_mock = MagicMock(space_get=MagicMock(return_value=space_mock))
             return ovc_mock
 
-        # mock finding services
-        def find(template_uid, name):
-            result_mock = mock.PropertyMock()
-            result_mock.side_effect = [
-                key_name, account_service, account_name,
-                sshkey_name, ovc_name
-            ]
-            task_mock = MagicMock()
-            type(task_mock).result = result_mock
-            proxy = MagicMock(
-                schedule_action=MagicMock(return_value=task_mock))
-            return [proxy]
-
-        instance = self.type(name=name, data=self.valid_data)
+        instance = self.type(name=name, data=self.node['info'])
         with patch.object(instance, 'api') as api:
-            api.services.find.return_value = [
-                MagicMock(schedule_action=MagicMock())]
+            api.services.get.return_value = self.get_service
             ovc.get.side_effect = get_ovc_client
             # boot disk has wrong size
             with pytest.raises(RuntimeError,
@@ -394,33 +290,23 @@ class TestNode(TestCase):
         """
         Test uninstall VM action
         """
-        disk=self.disk
-        def find(template_uid, name):
-            if template_uid == self.type.ACCOUNT_TEMPLATE:
-                return [self.set_up_proxy_mock(result=self.acc['info'], name=self.acc['service'])]
-            if template_uid == self.type.VDC_TEMPLATE:
-                return [self.set_up_proxy_mock(result=self.vdc['info'], name=self.vdc['service'])]
-            if template_uid == self.type.DISK_TEMPLATE:
-                return [self.set_up_proxy_mock(result=disk['info'], name=disk['service'])]
-
-        instance = self.type(name='test', data=self.valid_data)
+        instance = self.type(name='test', data=self.node['info'])
 
         ovc.get.side_effect = self.ovc_mock
         with patch.object(instance, 'api') as api:
-            api.services.find.side_effect = find
+            api.services.get.side_effect = self.get_service
             instance.uninstall()
             instance.machine.delete.assert_called_once_with()
 
         # state install must be unset
-        with pytest.raises(StateCheckError,
-                           message='actions:install:ok should be unset'):
+        with self.assertRaises(StateCheckError):
             instance.state.check('actions', 'install', 'ok')
 
     def test_start_success(self):
         """
         Test successfull start action
         """
-        instance = self.type(name='test', data=self.valid_data)
+        instance = self.type(name='test', data=self.node['info'])
 
         instance.state.set('actions', 'install', 'ok')
         instance._machine = MagicMock()
@@ -431,7 +317,7 @@ class TestNode(TestCase):
         """
         Test failing start action
         """
-        instance = self.type(name='test', data=self.valid_data)
+        instance = self.type(name='test', data=self.node['info'])
 
         # fails if not installed
         with pytest.raises(StateCheckError):
@@ -441,7 +327,7 @@ class TestNode(TestCase):
         """
         Test successfull stop action
         """
-        instance = self.type(name='test', data=self.valid_data)
+        instance = self.type(name='test', data=self.node['info'])
 
         instance.state.set('actions', 'install', 'ok')
         instance._machine = MagicMock()
@@ -452,7 +338,7 @@ class TestNode(TestCase):
         """
         Test failing stop action
         """
-        instance = self.type(name='test', data=self.valid_data)
+        instance = self.type(name='test', data=self.node['info'])
 
         # fails if not installed
         with pytest.raises(StateCheckError):
@@ -462,7 +348,7 @@ class TestNode(TestCase):
         """
         Test successfull restart action
         """
-        instance = self.type(name='test', data=self.valid_data)
+        instance = self.type(name='test', data=self.node['info'])
 
         instance.state.set('actions', 'install', 'ok')
         instance._machine = MagicMock()
@@ -473,7 +359,7 @@ class TestNode(TestCase):
         """
         Test failing restart action
         """
-        instance = self.type(name='test', data=self.valid_data)
+        instance = self.type(name='test', data=self.node['info'])
 
         # fails if not installed
         with pytest.raises(StateCheckError):
@@ -483,7 +369,7 @@ class TestNode(TestCase):
         """
         Test successfull pause action
         """
-        instance = self.type(name='test', data=self.valid_data)
+        instance = self.type(name='test', data=self.node['info'])
 
         instance.state.set('actions', 'install', 'ok')
         instance._machine = MagicMock()
@@ -494,7 +380,7 @@ class TestNode(TestCase):
         """
         Test failing pause action
         """
-        instance = self.type(name='test', data=self.valid_data)
+        instance = self.type(name='test', data=self.node['info'])
 
         # fails if not installed
         with pytest.raises(StateCheckError):
@@ -504,7 +390,7 @@ class TestNode(TestCase):
         """
         Test successfull resume action
         """
-        instance = self.type(name='test', data=self.valid_data)
+        instance = self.type(name='test', data=self.node['info'])
 
         instance.state.set('actions', 'install', 'ok')
         instance._machine = MagicMock()
@@ -515,7 +401,7 @@ class TestNode(TestCase):
         """
         Test failing resume action
         """
-        instance = self.type(name='test', data=self.valid_data)
+        instance = self.type(name='test', data=self.node['info'])
 
         # fails if not installed
         with pytest.raises(StateCheckError):
@@ -525,7 +411,7 @@ class TestNode(TestCase):
         """
         Test successfull reset action
         """
-        instance = self.type(name='test', data=self.valid_data)
+        instance = self.type(name='test', data=self.node['info'])
 
         instance.state.set('actions', 'install', 'ok')
         instance._machine = MagicMock()
@@ -536,7 +422,7 @@ class TestNode(TestCase):
         """
         Test failing reset action
         """
-        instance = self.type(name='test', data=self.valid_data)
+        instance = self.type(name='test', data=self.node['info'])
 
         # fails if not installed
         with pytest.raises(StateCheckError):
@@ -546,7 +432,7 @@ class TestNode(TestCase):
         """
         Test successfull snapshot action
         """
-        instance = self.type(name='test', data=self.valid_data)
+        instance = self.type(name='test', data=self.node['info'])
 
         instance.state.set('actions', 'install', 'ok')
         instance._machine = MagicMock()
@@ -557,7 +443,7 @@ class TestNode(TestCase):
         """
         Test failing snapshot action
         """
-        instance = self.type(name='test', data=self.valid_data)
+        instance = self.type(name='test', data=self.node['info'])
 
         # fails if not installed
         with pytest.raises(StateCheckError):
@@ -567,7 +453,7 @@ class TestNode(TestCase):
         """
         Test successfull clone action
         """
-        instance = self.type(name='test', data=self.valid_data)
+        instance = self.type(name='test', data=self.node['info'])
         clone_name = 'test_clone'
 
         instance.state.set('actions', 'install', 'ok')
@@ -579,7 +465,7 @@ class TestNode(TestCase):
         """
         Test failing clone action
         """
-        instance = self.type(name='test', data=self.valid_data)
+        instance = self.type(name='test', data=self.node['info'])
         clone_name = 'test_clone'
 
         # fails if not installed
@@ -597,7 +483,7 @@ class TestNode(TestCase):
         """
         Test successfull snapshot_rollback action
         """
-        instance = self.type(name='test', data=self.valid_data)
+        instance = self.type(name='test', data=self.node['info'])
         snapshot_epoch = 'test_epoch'
 
         instance.state.set('actions', 'install', 'ok')
@@ -610,7 +496,7 @@ class TestNode(TestCase):
         """
         Test failing snapshot_rollback action
         """
-        instance = self.type(name='test', data=self.valid_data)
+        instance = self.type(name='test', data=self.node['info'])
         snapshot_epoch = 'test_epoch'
 
         # fails if not installed
@@ -628,7 +514,7 @@ class TestNode(TestCase):
         """
         Test successfull snapshot delete action
         """
-        instance = self.type(name='test', data=self.valid_data)
+        instance = self.type(name='test', data=self.node['info'])
         snapshot_epoch = 'test_epoch'
 
         instance.state.set('actions', 'install', 'ok')
@@ -641,7 +527,7 @@ class TestNode(TestCase):
         """
         Test failing snapshot delete action
         """
-        instance = self.type(name='test', data=self.valid_data)
+        instance = self.type(name='test', data=self.node['info'])
         snapshot_epoch = 'test_epoch'
 
         # fails if not installed
@@ -660,11 +546,6 @@ class TestNode(TestCase):
         """
         Test successfull add disk action
         """
-        def find(template_uid, name):
-            if template_uid == self.type.ACCOUNT_TEMPLATE:
-                return [self.set_up_proxy_mock(result=self.acc['info'], name=self.acc['service'])]
-            if template_uid == self.type.VDC_TEMPLATE:
-                return [self.set_up_proxy_mock(result=self.vdc['info'], name=self.vdc['service'])]
 
         disk = self.disk
 
@@ -672,10 +553,10 @@ class TestNode(TestCase):
             self.assertEqual(template_uid, self.type.DISK_TEMPLATE)
             return self.set_up_proxy_mock(result=disk['info'], name=disk['service'])
 
-        instance = self.type(name='test', data=self.valid_data)
+        instance = self.type(name='test', data=self.node['info'])
         instance.state.set('actions', 'install', 'ok')
         with patch.object(instance, 'api') as api:
-            api.services.find.side_effect = find
+            api.services.get.side_effect = self.get_service
             api.services.find_or_create.side_effect = find_or_create
             instance._machine = MagicMock()
             instance.disk_add(name='test')
@@ -688,7 +569,7 @@ class TestNode(TestCase):
         """
         Test failing add disk action
         """
-        instance = self.type(name='test', data=self.valid_data)
+        instance = self.type(name='test', data=self.node['info'])
 
         # fails if not installed
         with pytest.raises(StateCheckError):
@@ -705,31 +586,21 @@ class TestNode(TestCase):
         """
         Test successfull attach disk action
         """
-        disk = self.disk
-        def find(template_uid, name):
-            if template_uid == self.type.ACCOUNT_TEMPLATE:
-                return [self.set_up_proxy_mock(result=self.acc['info'], name=self.acc['service'])]
-            if template_uid == self.type.VDC_TEMPLATE:
-                return [self.set_up_proxy_mock(result=self.vdc['info'], name=self.vdc['service'])]
-            if template_uid == self.type.DISK_TEMPLATE:
-                return [self.set_up_proxy_mock(result=disk['info'], name=disk['service'])]
-        
-        instance = self.type(name='test', data=self.valid_data)
-
+        instance = self.type(name='test', data=self.node['info'])
         instance.state.set('actions', 'install', 'ok')
-        disk_id = 1
+
         with patch.object(instance, 'api') as api:
-            api.services.find.side_effect = find
+            api.services.get.side_effect = self.get_service
             instance._machine = MagicMock()
             instance.disk_attach(disk_service_name='test')
-            instance.machine.disk_attach.assert_called_with(disk_id)
+            instance.machine.disk_attach.assert_called_with(self.disk['info']['diskId'])
 
     @mock.patch.object(j.clients, '_openvcloud')
     def test_disk_attach_fail(self, ovc):
         """
         Test failing attach disk action
         """
-        instance = self.type(name='test', data=self.valid_data)
+        instance = self.type(name='test', data=self.node['info'])
 
         # fails if not installed
         with pytest.raises(StateCheckError):
@@ -737,16 +608,9 @@ class TestNode(TestCase):
 
         instance.state.set('actions', 'install', 'ok')
 
-        # test call without arguments
-        with pytest.raises(TypeError,
-                           message="disk_attach() missing 1 required positional argument: 'disk_service_name'"):
-            instance.disk_attach()
+        with self.assertRaises(ServiceNotFoundError):
+            instance.disk_attach(disk_service_name='test')
 
-        # fail if disk service is not running
-        with patch.object(instance, 'api') as api:
-            api.services.find.return_value = []
-            with pytest.raises(RuntimeError):
-                instance.disk_attach(disk_service_name='test')
 
     @mock.patch.object(j.clients, '_openvcloud')
     def test_disk_detach_success(self, ovc):
@@ -754,45 +618,36 @@ class TestNode(TestCase):
         Test successfull detach disk action
         """
         disk = self.disk
-        def find(template_uid, name):
-            if template_uid == self.type.ACCOUNT_TEMPLATE:
-                return [self.set_up_proxy_mock(result=self.acc['info'], name=self.acc['service'])]
-            if template_uid == self.type.VDC_TEMPLATE:
-                return [self.set_up_proxy_mock(result=self.vdc['info'], name=self.vdc['service'])]
-            if template_uid == self.type.DISK_TEMPLATE:
-                return [self.set_up_proxy_mock(result=disk['info'], name=disk['service'])]
-            
-        instance = self.type(name='test', data=self.valid_data)
+         
+        instance = self.type(name='test', data=self.node['info'])
         instance.state.set('actions', 'install', 'ok')
         instance.data['disks'] = [disk['service']]
         ovc.get.side_effect = self.ovc_mock
         with patch.object(instance, 'api') as api:
-            api.services.find.side_effect = find
+            api.services.get.side_effect = self.get_service
             instance.disk_detach(disk_service_name=disk['service'])
             instance.machine.disk_detach.assert_called_with(disk['info']['diskId'])
+
+
+    @mock.patch.object(j.clients, '_openvcloud')
+    def test_disk_detach_fail_state_check_error(self, ovc):
+        instance = self.type(name='test', data=self.node['info'])
+
+        # fails if not installed
+        with self.assertRaises(StateCheckError):
+            instance.disk_detach(disk_service_name=str)        
 
     @mock.patch.object(j.clients, '_openvcloud')
     def test_disk_detach_fail(self, ovc):
         """
         Test failing detach disk action
         """
-        instance = self.type(name='test', data=self.valid_data)
-
-        # fails if not installed
-        with pytest.raises(StateCheckError):
-            instance.disk_detach(disk_service_name=str)
-
+        instance = self.type(name='test', data=self.node['info'])
         instance.state.set('actions', 'install', 'ok')
 
-        # test call without arguments
-        with pytest.raises(TypeError,
-                           message="disk_detach() missing 1 required positional argument: 'disk_service_name'"):
-            instance.disk_detach()
-
-        # fails if disk service is not running
-        disk_service_name = 'test_disk'
+        # fails if disk service is not found
+        disk_service_name = 'test'
         instance.data['disks'] = [disk_service_name]
-        with patch.object(instance, 'api') as api:
-            api.services.find.return_value = []
-            with pytest.raises(RuntimeError):
-                instance.disk_detach(disk_service_name=disk_service_name)
+        with self.assertRaises(ServiceNotFoundError):
+            instance.disk_detach(disk_service_name=disk_service_name)
+

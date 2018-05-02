@@ -2,7 +2,7 @@
 
 ## Description
 
-This template is responsible for creating an account on a openVCloud environment.
+This template is responsible for creating an account on an openvCloud environment. Account service is required to create VDCs (Virtual Data Centers).
 
 ## Schema
 
@@ -32,7 +32,7 @@ For information about the different access rights, check docs at [openvcloud](ht
 ## Actions
 
 - `install`: creates an account or gets an existent account.
-- `uninstall`: delete an account and trigger uninstall on all VDCs (Virtual Data Centers) linked to this account.
+- `uninstall`: delete an account if empty. Attempt to delete an account with VDCs on it, will produce an error.
 - `user_authorize`: adds a user to the account or updates access rights. In order to add a user, corresponding [`vdcuser`](#vdc-user) service should be installed.
 - `user_unauthorize`: deletes a user from the account.
 - `update`: updates the account attributes:
@@ -66,7 +66,7 @@ account = robot.services.create(
     data={'name': 'test_account','openvcloud':'ovc_service'}
 )
 account.schedule_action('install')
-account.schedue_action('update', {'maxMemoryCapacity': 5})
+account.schedule_action('update', {'maxMemoryCapacity': 5})
 
 # examples to manage users
 # first create a service for vdcuser admin
@@ -80,9 +80,9 @@ vdcuser.schedule_action('install')
 # authorize user
 account.schedule_action('user_authorize', {'vdcuser': 'admin', 'accesstype': 'R'})
 # update user access of the existing user
-account.schedule_action('user_authorize', {'vdcuser': 'admin', 'accesstype': 'W'})
+account.schedule_action('user_authorize', {'vdcuser': 'admin', 'accesstype': 'RCX'})
 # unauthorize user
-account.schedule_action('user_unauthorize', {'vdcuser': 'admin', 'accesstype': 'W'})
+account.schedule_action('user_unauthorize', {'vdcuser': 'admin', 'accesstype': 'RCX'})
 
 account.schedule_action('uninstall')
 ```

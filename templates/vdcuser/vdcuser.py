@@ -12,50 +12,30 @@ class Vdcuser(TemplateBase):
 
     def __init__(self, name, guid=None, data=None):
         super().__init__(name=name, guid=guid, data=data)
-        self._ovc_instance = None
+        self._ovc = None
 
     def validate(self):
-        '''
+        """
         Validate service data received during creation
-        '''
+        """
 
         for key in ['name', 'email', 'openvcloud']:
             if not self.data[key]:
                 raise ValueError('"%s" is required' % key)
 
-    def _get_proxy(self, template_uid, service_name):
-        '''
-        Get proxy object of the service of type @template_uid with name @service_name
-        '''
-
-        matches = self.api.services.find(
-            template_uid=template_uid, name=service_name)
-        if len(matches) != 1:
-            raise RuntimeError('found %d services with name "%s", required exactly one' % (
-                len(matches), service_name))
-        return matches[0]
-
-    def _execute_task(self, proxy, action, args={}):
-        task = proxy.schedule_action(action=action)
-        task.wait()
-        if task.state is not 'ok':
-            raise RuntimeError(
-                'error occurred when executing action "%s" on service "%s"' %
-                (action, proxy.name))
-        return task.result
-
     @property
     def ovc(self):
-        '''
+        """
         Get ovc client
-        '''
-        if not self._ovc_instance:
+        """
+        if not self._ovc:
             # get ovc instance name
-            proxy = self._get_proxy(self.OVC_TEMPLATE, self.data['openvcloud'])
-            ovc_info = self._execute_task(proxy=proxy, action='get_info')
-            self._ovc_instance = j.clients.openvcloud.get(ovc_info['name'])
+            proxy = self.api.services.get(
+                template_uid=self.OVC_TEMPLATE, name=self.data['openvcloud'])
+            ovc_info = proxy.schedule_action(action='get_info').wait().result
+            self._ovc = j.clients.openvcloud.get(ovc_info['name'])
 
-        return self._ovc_instance
+        return self._ovc
 
     def get_info(self):
         """ Return vdcuser info """
@@ -66,16 +46,16 @@ class Vdcuser(TemplateBase):
         }
 
     def _get_fqid(self):
-        '''
+        """
         Returns the full openvcloud username (username@provider).
-        '''
+        """
         provider = self.data.get('provider')
         return "%s@%s" % (self.data.get('name'), provider) if provider else self.data.get('name')
 
     def install(self):
-        '''
+        """
         Install vdcuser
-        '''
+        """
 
         try:
             self.state.check('actions', 'install', 'ok')

@@ -177,47 +177,27 @@ class Disk(TemplateBase):
             return self._config
 
         config = {}
-        # traverse the tree up words so we have all info we need to return, connection and
-        # account
 
         # get real vdc name
-        vdc_proxy = self._get_proxy(self.VDC_TEMPLATE, self.data['vdc'])
-        vdc_info = self._execute_task(proxy=vdc_proxy, action='get_info')
+        proxy = self.api.services.get(
+            template_uid=self.VDC_TEMPLATE, name=self.data['vdc'])
+        vdc_info = proxy.schedule_action(action='get_info').wait().result
         config['vdc'] = vdc_info['name']
-        account_service_name = vdc_info['account']
 
         # get account name
-        account_proxy = self._get_proxy(self.ACCOUNT_TEMPLATE, account_service_name)
-        account_info = self._execute_task(proxy=account_proxy, action='get_info')
+        proxy = self.api.services.get(
+            template_uid=self.ACCOUNT_TEMPLATE, name=vdc_info['account'])
+        account_info = proxy.schedule_action(action='get_info').wait().result
         config['account'] = account_info['name']
-        ovc_service_name = account_info['openvcloud']
 
         # get ovc name
-        ovc_proxy = self._get_proxy(self.OVC_TEMPLATE, ovc_service_name)
-        ovc_info = self._execute_task(proxy=ovc_proxy, action='get_info')
+        proxy = self.api.services.get(
+            template_uid=self.OVC_TEMPLATE, name=account_info['openvcloud'])
+        ovc_info = proxy.schedule_action(action='get_info').wait().result
         config['ovc'] = ovc_info['name']
 
         self._config = config
         return self._config
-
-    def _get_proxy(self, template_uid, service_name):
-        """
-        Get proxy object of the service with name @service_name
-        """
-
-        matches = self.api.services.find(template_uid=template_uid, name=service_name)
-        if len(matches) != 1:
-            raise RuntimeError('found %d services with name "%s", required exactly one' % (len(matches), service_name))
-        return matches[0]
-
-    def _execute_task(self, proxy, action, args={}):
-        task = proxy.schedule_action(action=action, args=args)
-        task.wait()
-        if task.state is not 'ok':
-            raise RuntimeError(
-                    'error occurred when executing action "%s" on service "%s"' %
-                    (action, proxy.name))
-        return task.result
 
     @property
     def ovc(self):

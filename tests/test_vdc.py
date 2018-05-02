@@ -272,14 +272,14 @@ class TestVDC(TestCase):
             with patch('js9.j.clients.openvcloud.get', return_value=self.ovc_mock) as ovc:
                 # new accesstype update
                 vdcuser = 'userTest'
-                accesstype = 'W'
+                accesstype = 'RCX'
 
                 # test success
                 ovc.return_value.account_get.return_value.space_get.return_value.update_access.return_value=True
                 instance.user_authorize(vdcuser, accesstype)
                 instance.space.update_access.assert_called_once_with(username=self.initial_user['name'], right=accesstype)
                 self.assertEqual(instance.data['users'],
-                                [{'name': 'test1', 'accesstype': 'W'}])
+                                [{'name': 'test1', 'accesstype': 'RCX'}])
 
                 # test fail
                 ovc.return_value.account_get.return_value.space_get.return_value.update_access.return_value=False

@@ -6,6 +6,7 @@ from unittest import mock
 from unittest.mock import MagicMock, patch
 from zerorobot import config, template_collection
 from zerorobot.template.state import StateCheckError
+from zerorobot.service_collection import ServiceNotFoundError
 
 class TestDisk(TestCase):
     def setUp(self):
@@ -18,24 +19,6 @@ class TestDisk(TestCase):
         self.valid_data = {'vdc' : 'test_vdc', 'name': 'test_disk'}
         self.location = {'name': 'be-gen-demo', 'gid': 123}
 
-        #self.location_gid = 123
-        #self.disk_id = '1111'
-        #self.account_name = 'test_account'
-        # define properties of space mock
-        # account_mock = MagicMock(disks=[{'id':self.disk_id}],
-        #                          disk_create=MagicMock(return_value=self.disk_id),
-        #                          model={'name': self.account_name})
-        # space_mock = MagicMock(model={'acl': [], 'location':self.location},
-        #                        account=account_mock)
-        # self.ovc_mock = MagicMock(space_get=MagicMock(return_value=space_mock),
-        #                           locations=[
-        #                               { 
-        #                                 'name':self.location,
-        #                                 'gid': self.location_gid,
-        #                               }
-        #                             ],
-        #       
-        #                   )
         self.ovc = {
             'service': 'test_ovc_service',
             'info': {'name': 'connection_instance_name'}
@@ -58,19 +41,25 @@ class TestDisk(TestCase):
     def tearDown(self):
         patch.stopall()
 
-    def find(self, template_uid, name):
-        if template_uid == self.type.OVC_TEMPLATE:
-            return [self.set_up_proxy_mock(result=self.ovc['info'], name=self.ovc['service'])]
-        if template_uid == self.type.ACCOUNT_TEMPLATE:
-            return [self.set_up_proxy_mock(result=self.acc['info'], name=self.acc['service'])]
-        if template_uid == self.type.VDC_TEMPLATE:
-            return [self.set_up_proxy_mock(result=self.vdc['info'], name=self.vdc['service'])]
 
     @staticmethod
-    def set_up_proxy_mock(result, state='ok', name='service_name'):
-        task = MagicMock(result=result, state=state)
-        proxy = MagicMock(schedule_action=MagicMock(return_value=task))
+    def set_up_proxy_mock(result=None, name='service_name'):
+        """ Setup a mock for a proxy of zrobot service  """
+        proxy = MagicMock(schedule_action=MagicMock())
+        proxy.schedule_action().wait = MagicMock()
+        proxy.schedule_action().wait().result = result
         proxy.name = name
+        return proxy
+
+    def get_service(self, template_uid, name):
+        if template_uid == self.type.OVC_TEMPLATE:
+            proxy = self.set_up_proxy_mock(result=self.ovc['info'], name=name)
+        elif template_uid == self.type.ACCOUNT_TEMPLATE:
+            proxy = self.set_up_proxy_mock(result=self.acc['info'], name=name)
+        elif template_uid == self.type.VDC_TEMPLATE:
+            proxy = self.set_up_proxy_mock(result=self.vdc['info'], name=name)                    
+        else:
+            proxy = None
         return proxy
 
     def ovc_mock(self, instance):
@@ -279,7 +268,7 @@ class TestDisk(TestCase):
         
         with patch.object(instance, 'api') as api:
             ovc.get.return_value = self.ovc_mock(self.ovc['info']['name'])
-            api.services.find.side_effect = self.find
+            api.services.get.side_effect = self.get_service
             instance.install()
             instance.account.disk_create.assert_called_once_with(
                             name=data['name'],
@@ -300,7 +289,7 @@ class TestDisk(TestCase):
         # test success
         ovc.get.return_value = self.ovc_mock(self.ovc['info']['name'])
         with patch.object(instance, 'api') as api:
-            api.services.find.side_effect = self.find
+            api.services.get.side_effect = self.get_service
             instance.install()
             instance.account.disk_create.assert_not_called()
 
@@ -315,7 +304,7 @@ class TestDisk(TestCase):
         with patch.object(instance, 'api') as api:
             ovc.get.return_value = self.ovc_mock(self.ovc['info']['name'])
             ovc.get.return_value.space_get.return_value.account.disks = []
-            api.services.find.side_effect = self.find
+            api.services.get.side_effect = self.get_service
             with self.assertRaisesRegex(ValueError,
                                         'Disk with id %s does not exist on account "%s"' % 
                                         (disk_id, self.acc['info']['name'] )):
@@ -328,7 +317,7 @@ class TestDisk(TestCase):
         instance = self.type(name='test', data=self.disk['info'])
 
         with patch.object(instance, 'api') as api:
-            api.services.find.side_effect = self.find
+            api.services.get.side_effect = self.get_service
             instance.config
             self.assertEqual(instance.config['ovc'], self.ovc['info']['name'])
 
@@ -337,51 +326,8 @@ class TestDisk(TestCase):
         Test fetching config from vdc, account, and ovc services
         """
         instance = self.type(name='test', data=self.disk['info'])
-        with patch.object(instance, 'api') as api:
-            api.services.find.return_value = []
-            # test when more than 1 vdc service is found
-            with self.assertRaisesRegex(RuntimeError,
-                                        'found 0 services with name "%s", required exactly one' % self.vdc['service']):
-                instance.config
-
-    def test_config_fail_find_more_than_one_vdc(self):
-        """
-        Test fetching config from vdc, account, and ovc services
-        """
-        instance = self.type(name='test', data=self.disk['info'])
-        with patch.object(instance, 'api') as api:
-            api.services.find.return_value = [None,None]
-            # test when more than 1 vdc service is found
-            with self.assertRaisesRegex(RuntimeError,
-                                        'found 2 services with name "%s", required exactly one' % self.vdc['service']):
-                instance.config
-
-    def test_config_fail_find_no_account(self):
-        """
-        Test fetching config from vdc, account, and ovc services
-        """
-        instance = self.type(name='test', data=self.disk['info'])
-        with patch.object(instance, 'api') as api:
-            vdc_proxy = self.find(self.type.VDC_TEMPLATE, self.vdc['service'])
-            api.services.find.side_effect = [vdc_proxy, []]
-            with self.assertRaisesRegex(RuntimeError,
-                                        'found 0 services with name "%s", required exactly one' % 
-                                        self.acc['service']):
-                instance.config
-
-    def test_config_fail_find_no_ovc(self):
-        """
-        Test fetching config from vdc, account, and ovc services
-        """
-        instance = self.type(name='test', data=self.disk['info'])
-        with patch.object(instance, 'api') as api:
-            vdc_proxy = self.find(self.type.VDC_TEMPLATE, self.vdc['service'])
-            acc_proxy = self.find(self.type.ACCOUNT_TEMPLATE, self.acc['service'])
-            api.services.find.side_effect = [vdc_proxy, acc_proxy, []]
-            with self.assertRaisesRegex(RuntimeError,
-                                        'found 0 services with name "%s", required exactly one' % 
-                                        self.ovc['service']):
-                instance.config
+        with self.assertRaises(ServiceNotFoundError):
+            instance.config
 
     @mock.patch.object(j.clients, '_openvcloud')
     def test_uninstall_fail_boot_disk(self, ovc):
@@ -390,7 +336,7 @@ class TestDisk(TestCase):
         instance = self.type(name='test', data=data)
         ovc.get.return_value = self.ovc_mock(self.ovc['info']['name'])
         with patch.object(instance, 'api') as api:
-            api.services.find.side_effect = self.find        
+            api.services.get.side_effect = self.get_service        
             with self.assertRaisesRegex(RuntimeError, "can't delete boot disk"):
                 instance.uninstall()
 
@@ -401,7 +347,7 @@ class TestDisk(TestCase):
 
         ovc.get.return_value = self.ovc_mock(self.ovc['info']['name'])
         with patch.object(instance, 'api') as api:
-            api.services.find.side_effect = self.find
+            api.services.get.side_effect = self.get_service
             instance.uninstall()
 
         instance.account.disk_delete.assert_called_once_with(data['diskId'], detach=False)
@@ -418,7 +364,7 @@ class TestDisk(TestCase):
         instance = self.type(name='test', data=data)
         with patch.object(instance, 'api') as api:
             ovc.get.return_value = self.ovc_mock(self.ovc['info']['name'])
-            api.services.find.side_effect = self.find
+            api.services.get.side_effect = self.get_service
             instance.uninstall()
 
         instance.account.disk_delete.assert_not_called()
@@ -440,7 +386,7 @@ class TestDisk(TestCase):
         instance.state.set('actions', 'install', 'ok')
 
         with patch.object(instance, 'api') as api:
-            api.services.find.side_effect = self.find
+            api.services.get.side_effect = self.get_service
             ovc.get.return_value = self.ovc_mock(self.ovc['info']['name'])
             instance.update(maxIops=maxIops)
         

@@ -33,24 +33,6 @@ class Vdc(TemplateBase):
         if not self.data['account']:
             raise ValueError('account service name is required')
 
-    def _get_proxy(self, template_uid, service_name):
-        """
-        Get proxy object of the service with name @service_name
-        """
-        matches = self.api.services.find(template_uid=template_uid, name=service_name)
-        if len(matches) != 1:
-            raise RuntimeError('found %d services with name "%s", required exactly one' % (len(matches), service_name))
-        return matches[0]
-
-    def _execute_task(self, proxy, action, args={}):
-        task = proxy.schedule_action(action=action)
-        task.wait()
-        if task.state is not 'ok':
-            raise RuntimeError(
-                    'error occurred when executing action "%s" on service "%s"' %
-                    (action, proxy.name))
-        return task.result
-
     def get_info(self):
         """ Return vdc info """
         self.state.check('actions', 'install', 'ok')
@@ -67,13 +49,14 @@ class Vdc(TemplateBase):
         """
         if not self._ovc:
             # get name of ovc service
-            proxy = self._get_proxy(self.ACCOUNT_TEMPLATE, self.data['account'])
-            account_info = self._execute_task(proxy=proxy, action='get_info')
-            ovc_service = account_info['openvcloud']
+            proxy = self.api.services.get(
+                template_uid=self.ACCOUNT_TEMPLATE, name=self.data['account'])
+            acc_info = proxy.schedule_action(action='get_info').wait().result
 
             # get name of ovc connection instance
-            proxy = self._get_proxy(self.OVC_TEMPLATE, ovc_service)
-            ovc_info = self._execute_task(proxy=proxy, action='get_info')
+            proxy = self.api.services.get(
+                template_uid=self.OVC_TEMPLATE, name=acc_info['openvcloud'])
+            ovc_info = proxy.schedule_action(action='get_info').wait().result
             self._ovc = j.clients.openvcloud.get(ovc_info['name'])
 
         return self._ovc
@@ -86,11 +69,11 @@ class Vdc(TemplateBase):
             return self._account
 
         # get actual account name
-        proxy = self._get_proxy(self.ACCOUNT_TEMPLATE, self.data['account'])
-        account_info = self._execute_task(proxy=proxy, action='get_info')
-        account_name = account_info['name']
+        proxy = self.api.services.get(
+            template_uid=self.ACCOUNT_TEMPLATE, name=self.data['account'])
+        acc_info = proxy.schedule_action(action='get_info').wait().result
+        self._account = self.ovc.account_get(acc_info['name'], create=False)
 
-        self._account = self.ovc.account_get(account_name, create=False)
         return self._account
 
     @property
@@ -140,7 +123,6 @@ class Vdc(TemplateBase):
         externalnetworkId = self.data.get('externalNetworkID', -1)
         if externalnetworkId == -1:
             externalnetworkId = None
-
         self._space = self.account.space_get(
             name=self.data['name'],
             create=True,
@@ -236,10 +218,9 @@ class Vdc(TemplateBase):
         """
         self.state.check('actions', 'install', 'ok')
 
-        proxy = self._get_proxy(self.NODE_TEMPLATE, node_service)
-        node_info = self._execute_task(proxy=proxy, action='get_info')
-        machine_id = node_info['id']
-
+        proxy = self.api.services.get(
+            template_uid=self.NODE_TEMPLATE, name=node_service)
+        node_info = proxy.schedule_action(action='get_info').wait().result
         # add portforwards
         for port in ports:
             self.ovc.api.cloudapi.portforwarding.create(
@@ -248,8 +229,8 @@ class Vdc(TemplateBase):
                 localPort=port['destination'],
                 publicPort=port['source'],
                 publicIp=self.space.ipaddr_pub,
-                machineId=machine_id,
-                )
+                machineId=node_info['id'],
+            )
 
     def portforward_delete(self, node_service, ports, protocol='tcp'):
         """
@@ -261,10 +242,10 @@ class Vdc(TemplateBase):
         """
         self.state.check('actions', 'install', 'ok')
 
-        proxy = self._get_proxy(self.NODE_TEMPLATE, node_service)
-        node_info = self._execute_task(proxy=proxy, action='get_info')
+        proxy = self.api.services.get(
+            template_uid=self.NODE_TEMPLATE, name=node_service)
+        node_info = proxy.schedule_action(action='get_info').wait().result
         machine_id = node_info['id']
-
         existent_ports = [(port['publicPort'], port['localPort'], port['id'])
                             for port in self.ovc.api.cloudapi.portforwarding.list(
                                             cloudspaceId=self.space.id, machineId=machine_id,
@@ -298,8 +279,9 @@ class Vdc(TemplateBase):
         users = self._get_users()
 
         # derive service name from username
-        vdcuser = self._get_proxy(self.VDCUSER_TEMPLATE, vdcuser)
-        user_info = self._execute_task(proxy=vdcuser, action='get_info')
+        proxy = self.api.services.get(
+            template_uid=self.VDCUSER_TEMPLATE, name=vdcuser)
+        user_info = proxy.schedule_action(action='get_info').wait().result
         name = user_info['name']
 
         for existent_user in users:
@@ -340,8 +322,9 @@ class Vdc(TemplateBase):
         self.state.check('actions', 'install', 'ok')
         
         # fetch user name from the vdcuser service
-        vdcuser = self._get_proxy(self.VDCUSER_TEMPLATE, vdcuser)
-        user_info = self._execute_task(proxy=vdcuser, action='get_info')
+        proxy = self.api.services.get(
+            template_uid=self.VDCUSER_TEMPLATE, name=vdcuser)
+        user_info = proxy.schedule_action(action='get_info').wait().result
         username = user_info['name']
 
         # get user access on the cloudspace

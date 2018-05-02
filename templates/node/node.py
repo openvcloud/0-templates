@@ -10,9 +10,9 @@ class Node(TemplateBase):
     version = '0.0.1'
     template_name = "node"
 
-    VDC_TEMPLATE = 'github.com/openvcloud/0-templates/vdc/0.0.1'
+    OVC_TEMPLATE = 'github.com/openvcloud/0-templates/openvcloud/0.0.1'
     ACCOUNT_TEMPLATE = 'github.com/openvcloud/0-templates/account/0.0.1'
-
+    VDC_TEMPLATE = 'github.com/openvcloud/0-templates/vdc/0.0.1'
     SSH_TEMPLATE = 'github.com/openvcloud/0-templates/sshkey/0.0.1'
     DISK_TEMPLATE = 'github.com/openvcloud/0-templates/disk/0.0.1'
 
@@ -38,15 +38,6 @@ class Node(TemplateBase):
         if not self.data['sshKey']:
             raise ValueError('sshKey service name is required')
 
-    def _execute_task(self, proxy, action, args={}):
-        task = proxy.schedule_action(action=action, args=args)
-        task.wait()
-        if task.state is not 'ok':
-            raise RuntimeError(
-                'error occurred when executing action "%s" on service "%s"' %
-                (action, proxy.name))
-        return task.result
-
     def get_info(self):
         """ Get VM info """
         self.state.check('actions', 'install', 'ok')
@@ -56,20 +47,6 @@ class Node(TemplateBase):
             'vdc': self.data['vdc'],
             'disk_services': self.data['disks']
         }
-
-    def _get_proxy(self, template_uid, service_name):
-        """
-        Get proxy object of the service 
-
-        :param service_name: name of the service
-        """
-
-        matches = self.api.services.find(
-            template_uid=template_uid, name=service_name)
-        if len(matches) != 1:
-            raise RuntimeError('found %d services with name "%s", required exactly one' % (
-                len(matches), service_name))
-        return matches[0]
 
     @property
     def config(self):
@@ -83,19 +60,22 @@ class Node(TemplateBase):
         # traverse the tree up words so we have all info we need to return, connection and
 
         # get vdc proxy
-        vdc = self._get_proxy(self.VDC_TEMPLATE, self.data['vdc'])
+        proxy = self.api.services.get(template_uid=self.VDC_TEMPLATE, name=self.data['vdc'])
 
         # get vdc info
-        vdc_info = self._execute_task(proxy=vdc, action='get_info')
+        vdc_info = proxy.schedule_action(action='get_info').wait().result
         config['vdc'] = vdc_info['name']
 
         # get account name
-        account = self._get_proxy(self.ACCOUNT_TEMPLATE, vdc_info['account'])
-        account_info = self._execute_task(proxy=account, action='get_info')
+        proxy = self.api.services.get(template_uid=self.ACCOUNT_TEMPLATE,  name=vdc_info['account'])
+        account_info = proxy.schedule_action(action='get_info').wait().result
         config['account'] = account_info['name']
 
-        # get connection
-        config['ovc'] = account_info['openvcloud']
+        # get connection instance name
+        proxy = self.api.services.get(
+            template_uid=self.OVC_TEMPLATE, name=account_info['openvcloud'])
+        ovc_info = proxy.schedule_action(action='get_info').wait().result
+        config['ovc'] = ovc_info['name']
 
         self._config = config
         return self._config
@@ -163,14 +143,14 @@ class Node(TemplateBase):
         data = self.data
 
         # get name of sshkey
-        sshkey_proxy = self._get_proxy(self.SSH_TEMPLATE, self.data['sshKey'])
-        sshkey_info = self._execute_task(proxy=sshkey_proxy, action='get_info')
-        sshkey = sshkey_info['name']
+        proxy = self.api.services.get(
+            template_uid=self.SSH_TEMPLATE, name=self.data['sshKey'])
+        sshkey_info = proxy.schedule_action(action='get_info').wait().result
 
         self._machine = self.space.machine_get(
             create=True,
             name=data['name'],
-            sshkeyname=sshkey,
+            sshkeyname=sshkey_info['name'],
             image=data['osImage'],
             disksize=data['bootDiskSize'],
             datadisks=[data['dataDiskSize']],
@@ -259,7 +239,11 @@ class Node(TemplateBase):
         prefab.executor.sshclient.connect()
 
     def _create_disk_service(self, disk, service_name=None):
-        # create a disk service
+        """ Create a disk service
+
+            :param disk: dict of data
+            service_name: name of the disk service
+        """
         if not service_name:
             service_name = 'Disk%s' % str(disk['id'])
 
@@ -272,7 +256,7 @@ class Node(TemplateBase):
                   'node': self.name},
         )
         # update data in the disk service
-        self._execute_task(proxy=service, action='install')
+        service.schedule_action(action='install').wait()
 
         # append service name to the list of attached disks
         if service_name not in self.data['disks']:
@@ -298,7 +282,7 @@ class Node(TemplateBase):
         # delete services for disks attached to the vm
         while self.data['disks']:
             disk = self.data['disks'].pop()
-            proxy = self._get_proxy(self.DISK_TEMPLATE, disk)
+            proxy = self.api.services.get(template_uid=self.DISK_TEMPLATE, name=disk)
             proxy.delete()
 
         self._machine = None
@@ -393,12 +377,12 @@ class Node(TemplateBase):
         self.state.check('actions', 'install', 'ok')
 
         # get diskId
-        disk_proxy = self._get_proxy(self.DISK_TEMPLATE, disk_service_name)
-        disk_info = self._execute_task(proxy=disk_proxy, action='get_info')
-        disk_id = disk_info['diskId']
+        proxy = self.api.services.get(
+            template_uid=self.DISK_TEMPLATE, name=disk_service_name)
+        disk_info = proxy.schedule_action(action='get_info').wait().result
 
         # attach the disk
-        self.machine.disk_attach(disk_id)
+        self.machine.disk_attach(disk_info['diskId'])
 
         # add service name to data
         self.data['disks'].append(disk_service_name)
@@ -416,18 +400,17 @@ class Node(TemplateBase):
             return
         # get disk id and type
 
-        disk_proxy = self._get_proxy(self.DISK_TEMPLATE, disk_service_name)
+        proxy = self.api.services.get(
+            template_uid=self.DISK_TEMPLATE, name=disk_service_name)
 
         # fetch disk info
-        disk_info = self._execute_task(proxy=disk_proxy, action='get_info')
-        disk_id = disk_info['diskId']
-        disk_type = disk_info['diskType']
+        disk_info = proxy.schedule_action(action='get_info').wait().result
 
-        if disk_type == 'B':
+        if disk_info['diskType'] == 'B':
             raise RuntimeError("Can't detach Boot disk")
 
         # detach disk
-        self.machine.disk_detach(disk_id)
+        self.machine.disk_detach(disk_info['diskId'])
 
         # delete disk from list of attached disks
         self.data['disks'].remove(disk_service_name)
@@ -461,8 +444,8 @@ class Node(TemplateBase):
         self.disk_detach(disk_service_name=disk_service_name)
 
         # get disk service proxy
-        proxy = self._get_proxy(self.DISK_TEMPLATE, disk_service_name)
+        proxy = self.api.services.get(
+            template_uid=self.DISK_TEMPLATE, name=disk_service_name)
 
         # uninstall detached disk
-        # get diskId
-        self._execute_task(proxy=proxy, action='uninstall')
+        proxy.schedule_action(action='uninstall').wait()

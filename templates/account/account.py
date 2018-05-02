@@ -26,35 +26,13 @@ class Account(TemplateBase):
             if not self.data[key]:
                 raise ValueError('"%s" is required' % key)
 
-    def _get_proxy(self, template_uid, service_name):
-        """
-        Get proxy object of the service of type @template_uid with name @service_name
-        """
-
-        matches = self.api.services.find(
-            template_uid=template_uid, name=service_name)
-        if len(matches) != 1:
-            raise RuntimeError('found %d services with name "%s", required exactly one' % (
-                len(matches), service_name))
-        return matches[0]
-
-    def _execute_task(self, proxy, action, args={}):
-        task = proxy.schedule_action(action=action)
-        task.wait()
-        if task.state is not 'ok':
-            raise RuntimeError(
-                    'error occurred when executing action "%s" on service "%s"' %
-                    (action, proxy.name))
-        return task.result
-
     @property
     def ovc(self):
         """ Get ovc client """
         if not self._ovc:
-            ovc_proxy = self._get_proxy(
-                self.OVC_TEMPLATE, self.data['openvcloud'])
-            ovc_info = self._execute_task(
-                proxy=ovc_proxy, action='get_info')
+            proxy = self.api.services.get(
+                template_uid=self.OVC_TEMPLATE, name=self.data['openvcloud'])
+            ovc_info = proxy.schedule_action(action='get_info').wait().result
             self._ovc = j.clients.openvcloud.get(ovc_info['name'])
         return self._ovc
 
@@ -97,7 +75,6 @@ class Account(TemplateBase):
             self.state.check('actions', 'install', 'ok')
         except StateCheckError:
             pass
-            
         # Set limits
         # if account does not exist, it will create it,
         # unless 'create' flag is set to False
@@ -156,8 +133,9 @@ class Account(TemplateBase):
             raise RuntimeError('readonly account')
 
         # fetch user name from the vdcuser service
-        proxy = self._get_proxy(self.VDCUSER_TEMPLATE, vdcuser)
-        user_info = self._execute_task(proxy=proxy, action='get_info')
+        proxy = self.api.services.get(
+            template_uid=self.VDCUSER_TEMPLATE, name=vdcuser)
+        user_info = proxy.schedule_action(action='get_info').wait().result
         name = user_info['name']  
 
         users = self._get_users()
@@ -199,8 +177,9 @@ class Account(TemplateBase):
         self.state.check('actions', 'install', 'ok')
 
         # fetch user name from the vdcuser service
-        vdcuser = self._get_proxy(self.VDCUSER_TEMPLATE, vdcuser)
-        user_info = self._execute_task(proxy=vdcuser, action='get_info')
+        proxy = self.api.services.get(
+            template_uid=self.VDCUSER_TEMPLATE, name=vdcuser)
+        user_info = proxy.schedule_action(action='get_info').wait().result
         username = user_info['name']
 
         # get user access on the account
