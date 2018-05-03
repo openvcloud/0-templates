@@ -35,6 +35,7 @@ For information about the different access rights check docs at [openvcloud](htt
 - `update`: update limits of the VDC.
 - `user_authorize`: authorize a new user on the VDC, or update access rights of the existent user.
 - `user_unauthorize`: unauthorize user.
+- `get_info`: fetch vdc name, account service name and list of users.
 
 ## Usage examples via the 0-robot DSL
 
@@ -67,6 +68,10 @@ vdc = robot.services.create(
     data={'name': 'vdc_name' ,'account':'account-service'}
 )
 vdc.schedule_action('install')
+
+# fetch info
+info = vdc.schedule_action('get_info').wait(die=True).result
+
 vdc.schedule_action('enable')
 vdc.schedule_action('disable')
 vdc.schedule_action('update', {'maxMemoryCapacity': 5,

@@ -41,6 +41,7 @@ For information about the different access rights, check docs at [openvcloud](ht
   - `maxCPUCapacity`
   - `maxNumPublicIP`
   - `maxVDiskCapacity`
+- `get_info`: fetch account name, name of ovc service and list of users.
 
 ## Usage examples via the 0-robot DSL
 
@@ -83,6 +84,9 @@ account.schedule_action('user_authorize', {'vdcuser': 'admin', 'accesstype': 'R'
 account.schedule_action('user_authorize', {'vdcuser': 'admin', 'accesstype': 'RCX'})
 # unauthorize user
 account.schedule_action('user_unauthorize', {'vdcuser': 'admin', 'accesstype': 'RCX'})
+
+# fetch info
+info = account.schedule_action('get_info').wait(die=True).result
 
 account.schedule_action('uninstall')
 ```

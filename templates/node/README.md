@@ -15,7 +15,7 @@ The template is responsible for managing a virtual machine (VM) on the OpenvClou
 - `dataDiskSize`: size of data disk in GB. Default to 10.
 - `dataDiskMountpoint`: data disk mount point. Default to `/var`.
 - `dataDiskFilesystem`: file system of the data disk, supports: `xfs`, `ext2`, `ext3`, `ext4`. **Optional**.
-- `description`: description contain sshkey name loaded to the VM. **Filled in automatically, don't specify it in the blueprint**.
+- `description`: arbitrary description of the VM. When installing the VM name of the loaded ssh-key will be added to the description. **Optional**.
 - `vCpus`: number of CPUs in the VM. **Filled in automatically, don't specify it in the blueprint**.
 - `memSize`: memory size in the VM **Filled in automatically, don't specify it in the blueprint**.
 - `machineId`: unique identifier of the VM. **Filled in automatically, don't specify it in the blueprint**.
@@ -44,12 +44,7 @@ The template is responsible for managing a virtual machine (VM) on the OpenvClou
 - `disk_attach`: attach disk to the VM.
 - `disk_detach`: detach disk from the VM.
 - `disk_delete`: delete disk, attached to the VM.
-
-### Actions to fetch VM info
-
-- `get_name`: return VM name.
-- `get_id`: return VM id.
-- `get_disk_services`: return list of the services managing disks attached to the vm.
+- `get_info`: fetch VM name, id and list of disk services linked to the VM.
 
 ## Usage examples via the 0-robot DSL
 
@@ -72,27 +67,33 @@ ovc.schedule_action('install')
 account = robot.services.create(
     template_uid="github.com/openvcloud/0-templates/account/0.0.1",
     service_name="account-service",
-    data={'name': 'account_name','openvcloud':'ovc_service'}
+    data={'name': 'account_name',
+          'openvcloud':'ovc_service'}
 )
 account.schedule_action('install')
 
 vdc = robot.services.create(
     template_uid="github.com/openvcloud/0-templates/vdc/0.0.1",
     service_name="vdc-service",
-    data={'name': 'vdc_name' ,'account':'account-service'}
+    data={'name': 'vdc_name' ,
+          'account':'account-service'}
 )
 vdc.schedule_action('install')
 
 sshkey = robot.services.create(
     template_uid="github.com/openvcloud/0-templates/sshkey/0.0.1",
     service_name="key-service",
-    data={'name': 'id_rsa', 'dir':'/root/.ssh/', 'passphrase': 'testpassphrase'}
+    data={'name': 'id_rsa', 
+          'dir':'/root/.ssh/', 
+          'passphrase': 'testpassphrase'}
 )
 sshkey.schedule_action('install')
 
 node = robot.services.create(template_uid="github.com/openvcloud/0-templates/node/0.0.1",
     service_name="mynode",
-    data={'sshKey':'key-service', 'vdc':'vdc-service'}
+    data={'name': 'vm_name',
+          'sshKey': 'key-service',
+          'vdc':'vdc-service'}
 )
 node.schedule_action('install')
 
@@ -114,10 +115,11 @@ node.schedule_action('disk_attach', {'disk_service_name': 'Disk0000'})
 node.schedule_action('disk_detach', {'disk_service_name': 'Disk0000'})
 node.schedule_action('disk_delete', {'disk_service_name': 'Disk0000'})
 
-# get result of an action
-task = node.schedule_action('list_snapshots')
-task.wait()
-snapshots = taks.result
+# get list of snapshots
+snapshots = node.schedule_action('list_snapshots').wait(die=True).result
+
+# get info
+info = node.schedule_action('get_info').wait(die=True).result
 
 node.schedule_action('uninstall')
 

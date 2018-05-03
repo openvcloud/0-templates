@@ -7,13 +7,13 @@ Disk service can be linked with an existing disk, based on disk ID, or create a 
 
 ## Schema
 
-- `name`: name of the disk. **Required.**
-- `vdc`: virtual Data Center id. **Required.**
-- `diskId`: id of the disk. If provided during service creation, the service will link to the disk with this `diskId`. If disk with given id does not exist on given location, `zrobot` will log a corresponding error.
+- `name`: name of the disk. When creating a new device, `name` is **Required.**
+- `vdc`: Virtual Data Center(VDC) service name. **Required.**
+- `diskId`: id of the disk. If provided during service creation, the service will link to the disk with this `diskId`. If disk with given id does not exist on the location, `zrobot` will log a corresponding error. When linking to an earlier created disk, `diskId` is  **Required.**
  If `diskId` is not given, new disk will be created.
 - `size`: disk size in GB, default: 1.
 - `type`: type of the disk (B=Boot; D=Data), default: `D`.
-- `location`: location of the resource on cloud (i.e be-g8-3).
+- `location`: location of the resource on cloud (i.e be-g8-3). Fetched from VDC object and **Filled automatically**.
 - `description`: description of the disk. **Optional.**
 - `totalBytesSec`: total throughput limit in bytes per second. This cannot appear with read_bytes_sec or write_bytes_sec. **Optional.**
 - `readBytesSec`: read throughput limit in bytes per second. **Optional.**
@@ -33,7 +33,7 @@ Disk service can be linked with an existing disk, based on disk ID, or create a 
 
 - `install`: installs disk service; if `diskId` is given links the service with earlier created disk, if not given - creates new disk.
 - `uninstall`: delete disk.
-- `update`: update limits.
+- `update`: update limits. Note that updating limits is allowed only for attached disks. Trying to update limits of detached disk will produce an error.
 
 ## Usage examples via the 0-robot DSL
 
@@ -56,7 +56,8 @@ ovc.schedule_action('install')
 account = robot.services.create(
     template_uid="github.com/openvcloud/0-templates/account/0.0.1",
     service_name="account-service",
-    data={'name': 'account_name','openvcloud':'ovc_service'}
+    data={'name': 'account_name',
+          'openvcloud':'ovc_service'}
 )
 account.schedule_action('install')
 
@@ -67,10 +68,11 @@ vdc = robot.services.create(
 )
 vdc.schedule_action('install')
 
-disk = = robot.services.create(
+disk = robot.services.create(
     template_uid="github.com/openvcloud/0-templates/disk/0.0.1",
     service_name="vdc-service",
-    data={'name': 'test_disk', 'vdc': 'vdc-service'}
+    data={'name': 'test_disk',
+          'vdc': 'vdc-service'}
 )
 
 disk.schedule_action('install')
