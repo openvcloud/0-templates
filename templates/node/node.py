@@ -63,18 +63,18 @@ class Node(TemplateBase):
         proxy = self.api.services.get(template_uid=self.VDC_TEMPLATE, name=self.data['vdc'])
 
         # get vdc info
-        vdc_info = proxy.schedule_action(action='get_info').wait().result
+        vdc_info = proxy.schedule_action(action='get_info').wait(die=True).result
         config['vdc'] = vdc_info['name']
 
         # get account name
         proxy = self.api.services.get(template_uid=self.ACCOUNT_TEMPLATE,  name=vdc_info['account'])
-        account_info = proxy.schedule_action(action='get_info').wait().result
+        account_info = proxy.schedule_action(action='get_info').wait(die=True).result
         config['account'] = account_info['name']
 
         # get connection instance name
         proxy = self.api.services.get(
             template_uid=self.OVC_TEMPLATE, name=account_info['openvcloud'])
-        ovc_info = proxy.schedule_action(action='get_info').wait().result
+        ovc_info = proxy.schedule_action(action='get_info').wait(die=True).result
         config['ovc'] = ovc_info['name']
 
         self._config = config
@@ -145,7 +145,7 @@ class Node(TemplateBase):
         # get name of sshkey
         proxy = self.api.services.get(
             template_uid=self.SSH_TEMPLATE, name=self.data['sshKey'])
-        sshkey_info = proxy.schedule_action(action='get_info').wait().result
+        sshkey_info = proxy.schedule_action(action='get_info').wait(die=True).result
 
         self._machine = self.space.machine_create(
             name=data['name'],
@@ -255,7 +255,7 @@ class Node(TemplateBase):
                   'node': self.name},
         )
         # update data in the disk service
-        service.schedule_action(action='install').wait()
+        service.schedule_action(action='install').wait(die=True)
 
         # append service name to the list of attached disks
         if service_name not in self.data['disks']:
@@ -378,7 +378,7 @@ class Node(TemplateBase):
         # get diskId
         proxy = self.api.services.get(
             template_uid=self.DISK_TEMPLATE, name=disk_service_name)
-        disk_info = proxy.schedule_action(action='get_info').wait().result
+        disk_info = proxy.schedule_action(action='get_info').wait(die=True).result
 
         # attach the disk
         self.machine.disk_attach(disk_info['diskId'])
@@ -403,7 +403,7 @@ class Node(TemplateBase):
             template_uid=self.DISK_TEMPLATE, name=disk_service_name)
 
         # fetch disk info
-        disk_info = proxy.schedule_action(action='get_info').wait().result
+        disk_info = proxy.schedule_action(action='get_info').wait(die=True).result
 
         if disk_info['diskType'] == 'B':
             raise RuntimeError("Can't detach Boot disk")
@@ -447,4 +447,4 @@ class Node(TemplateBase):
             template_uid=self.DISK_TEMPLATE, name=disk_service_name)
 
         # uninstall detached disk
-        proxy.schedule_action(action='uninstall').wait()
+        proxy.schedule_action(action='uninstall').wait(die=True)

@@ -38,7 +38,7 @@ class TestAccount(TestCase):
     def set_up_proxy_mock(result=None, name='service_name'):
         proxy = MagicMock(schedule_action=MagicMock())
         proxy.schedule_action().wait = MagicMock()
-        proxy.schedule_action().wait().result = result
+        proxy.schedule_action().wait(die=True).result = result
         proxy.name = name
         return proxy
 

@@ -181,19 +181,19 @@ class Disk(TemplateBase):
         # get real vdc name
         proxy = self.api.services.get(
             template_uid=self.VDC_TEMPLATE, name=self.data['vdc'])
-        vdc_info = proxy.schedule_action(action='get_info').wait().result
+        vdc_info = proxy.schedule_action(action='get_info').wait(die=True).result
         config['vdc'] = vdc_info['name']
 
         # get account name
         proxy = self.api.services.get(
             template_uid=self.ACCOUNT_TEMPLATE, name=vdc_info['account'])
-        account_info = proxy.schedule_action(action='get_info').wait().result
+        account_info = proxy.schedule_action(action='get_info').wait(die=True).result
         config['account'] = account_info['name']
 
         # get ovc name
         proxy = self.api.services.get(
             template_uid=self.OVC_TEMPLATE, name=account_info['openvcloud'])
-        ovc_info = proxy.schedule_action(action='get_info').wait().result
+        ovc_info = proxy.schedule_action(action='get_info').wait(die=True).result
         config['ovc'] = ovc_info['name']
 
         self._config = config

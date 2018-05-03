@@ -39,7 +39,7 @@ class TestVdcUser(TestCase):
 
         proxy = MagicMock(schedule_action=MagicMock())
         proxy.schedule_action().wait = MagicMock()
-        proxy.schedule_action().wait().result = self.ovc['info']
+        proxy.schedule_action().wait(die=True).result = self.ovc['info']
 
         return proxy
 

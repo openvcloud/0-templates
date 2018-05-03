@@ -32,7 +32,7 @@ class Vdcuser(TemplateBase):
             # get ovc instance name
             proxy = self.api.services.get(
                 template_uid=self.OVC_TEMPLATE, name=self.data['openvcloud'])
-            ovc_info = proxy.schedule_action(action='get_info').wait().result
+            ovc_info = proxy.schedule_action(action='get_info').wait(die=True).result
             self._ovc = j.clients.openvcloud.get(ovc_info['name'])
 
         return self._ovc

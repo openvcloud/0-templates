@@ -32,7 +32,7 @@ class Account(TemplateBase):
         if not self._ovc:
             proxy = self.api.services.get(
                 template_uid=self.OVC_TEMPLATE, name=self.data['openvcloud'])
-            ovc_info = proxy.schedule_action(action='get_info').wait().result
+            ovc_info = proxy.schedule_action(action='get_info').wait(die=True).result
             self._ovc = j.clients.openvcloud.get(ovc_info['name'])
         return self._ovc
 
@@ -135,7 +135,7 @@ class Account(TemplateBase):
         # fetch user name from the vdcuser service
         proxy = self.api.services.get(
             template_uid=self.VDCUSER_TEMPLATE, name=vdcuser)
-        user_info = proxy.schedule_action(action='get_info').wait().result
+        user_info = proxy.schedule_action(action='get_info').wait(die=True).result
         name = user_info['name']  
 
         users = self._get_users()
@@ -179,7 +179,7 @@ class Account(TemplateBase):
         # fetch user name from the vdcuser service
         proxy = self.api.services.get(
             template_uid=self.VDCUSER_TEMPLATE, name=vdcuser)
-        user_info = proxy.schedule_action(action='get_info').wait().result
+        user_info = proxy.schedule_action(action='get_info').wait(die=True).result
         username = user_info['name']
 
         # get user access on the account

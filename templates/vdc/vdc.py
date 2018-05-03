@@ -51,12 +51,12 @@ class Vdc(TemplateBase):
             # get name of ovc service
             proxy = self.api.services.get(
                 template_uid=self.ACCOUNT_TEMPLATE, name=self.data['account'])
-            acc_info = proxy.schedule_action(action='get_info').wait().result
+            acc_info = proxy.schedule_action(action='get_info').wait(die=True).result
 
             # get name of ovc connection instance
             proxy = self.api.services.get(
                 template_uid=self.OVC_TEMPLATE, name=acc_info['openvcloud'])
-            ovc_info = proxy.schedule_action(action='get_info').wait().result
+            ovc_info = proxy.schedule_action(action='get_info').wait(die=True).result
             self._ovc = j.clients.openvcloud.get(ovc_info['name'])
 
         return self._ovc
@@ -71,7 +71,7 @@ class Vdc(TemplateBase):
         # get actual account name
         proxy = self.api.services.get(
             template_uid=self.ACCOUNT_TEMPLATE, name=self.data['account'])
-        acc_info = proxy.schedule_action(action='get_info').wait().result
+        acc_info = proxy.schedule_action(action='get_info').wait(die=True).result
         self._account = self.ovc.account_get(acc_info['name'], create=False)
 
         return self._account
@@ -220,7 +220,7 @@ class Vdc(TemplateBase):
 
         proxy = self.api.services.get(
             template_uid=self.NODE_TEMPLATE, name=node_service)
-        node_info = proxy.schedule_action(action='get_info').wait().result
+        node_info = proxy.schedule_action(action='get_info').wait(die=True).result
         # add portforwards
         for port in ports:
             self.ovc.api.cloudapi.portforwarding.create(
@@ -244,7 +244,7 @@ class Vdc(TemplateBase):
 
         proxy = self.api.services.get(
             template_uid=self.NODE_TEMPLATE, name=node_service)
-        node_info = proxy.schedule_action(action='get_info').wait().result
+        node_info = proxy.schedule_action(action='get_info').wait(die=True).result
         machine_id = node_info['id']
         existent_ports = [(port['publicPort'], port['localPort'], port['id'])
                             for port in self.ovc.api.cloudapi.portforwarding.list(
@@ -281,7 +281,7 @@ class Vdc(TemplateBase):
         # derive service name from username
         proxy = self.api.services.get(
             template_uid=self.VDCUSER_TEMPLATE, name=vdcuser)
-        user_info = proxy.schedule_action(action='get_info').wait().result
+        user_info = proxy.schedule_action(action='get_info').wait(die=True).result
         name = user_info['name']
 
         for existent_user in users:
@@ -324,7 +324,7 @@ class Vdc(TemplateBase):
         # fetch user name from the vdcuser service
         proxy = self.api.services.get(
             template_uid=self.VDCUSER_TEMPLATE, name=vdcuser)
-        user_info = proxy.schedule_action(action='get_info').wait().result
+        user_info = proxy.schedule_action(action='get_info').wait(die=True).result
         username = user_info['name']
 
         # get user access on the cloudspace

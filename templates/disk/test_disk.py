@@ -47,7 +47,7 @@ class TestDisk(TestCase):
         """ Setup a mock for a proxy of zrobot service  """
         proxy = MagicMock(schedule_action=MagicMock())
         proxy.schedule_action().wait = MagicMock()
-        proxy.schedule_action().wait().result = result
+        proxy.schedule_action().wait(die=True).result = result
         proxy.name = name
         return proxy
 
