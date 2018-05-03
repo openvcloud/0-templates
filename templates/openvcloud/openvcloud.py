@@ -16,13 +16,17 @@ class Openvcloud(TemplateBase):
             if not self.data[key]:
                 raise ValueError('%s is required' % key)
 
-    def get_name(self):
-        '''
-        Return name of ovc connection if successfully installed
-        '''
+    def get_info(self):
+        """
+        Return info of ovc connection if successfully installed
+        """
 
         self.state.check('actions', 'install', 'ok')
-        return self.data['name']
+        return {
+            'name' : self.data['name'],
+            'location' : self.data['location'],
+            'address' : self.data['address'],
+        }
 
     def _configure(self):
         ovc = j.clients.openvcloud.get(
@@ -39,11 +43,10 @@ class Openvcloud(TemplateBase):
         # save config
         ovc.config.save()
 
-
     def install(self):
-        '''
+        """
         Configure ovc connection
-        '''
+        """
         try:
             self.state.check('actions', 'install', 'ok')
             return
@@ -54,18 +57,18 @@ class Openvcloud(TemplateBase):
         self.state.set('actions', 'install', 'ok')
 
     def uninstall(self):
-        '''
+        """
         Delete ovc connection from config manager on zrobot machine
-        '''
+        """
 
         conf_manager = j.tools.configmanager
         conf_manager.delete(location="j.clients.openvcloud", instance=self.data['name'])
         self.state.delete('actions', 'install')
 
     def update(self, address=None, token=None, port=None):
-        '''
+        """
         Update data and reconfigure ovc connection
-        '''
+        """
         self.state.check('actions', 'install', 'ok')
         kwargs = locals()
 

@@ -14,10 +14,10 @@ class Sshkey(TemplateBase):
 
     
     def validate(self):
-        '''
+        """
         Implements 0-Robot validate
         Validates the sshkey service
-        '''
+        """
 
         # validate sshkey name
         if not self.data['name']:
@@ -31,9 +31,9 @@ class Sshkey(TemplateBase):
             raise ValueError('passphrase must be min of 5 characters')
 
     def install(self):
-        '''
+        """
         Installs the ssh key
-        '''
+        """
         try:
             self.state.check('actions', 'install', 'ok')
             return
@@ -46,7 +46,8 @@ class Sshkey(TemplateBase):
 
         path = j.sal.fs.joinPaths(dir, name)
         if not j.sal.fs.exists(path):
-            j.clients.sshkey.key_generate(path, passphrase=passphrase, overwrite=True, returnObj=False)
+            j.clients.sshkey.key_generate(
+                path, passphrase=passphrase, overwrite=True, returnObj=False)
         else:
             paramiko.RSAKey.from_private_key_file(path, password=passphrase)
 
@@ -55,10 +56,10 @@ class Sshkey(TemplateBase):
         self.state.set('actions', 'install', 'ok')
 
     def uninstall(self):
-        '''
+        """
         Uninstalls the sshkey client
         Also deletes the key
-        '''
+        """
         key = self._get_key()
         key.delete()
 
@@ -78,9 +79,12 @@ class Sshkey(TemplateBase):
             },
         )
 
-    def get_name(self):
-        '''
-        Return key name
-        '''
+    def get_info(self):
+        """
+        Return sshkey info
+        """
         self.state.check('actions', 'install', 'ok')
-        return self.data['name']
+        return {
+            'name' : self.data['name'],
+            'dir' : self.data['dir'],
+        }

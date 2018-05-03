@@ -15,7 +15,7 @@ The template is responsible for managing a virtual machine (VM) on the OpenvClou
 - `dataDiskSize`: size of data disk in GB. Default to 10.
 - `dataDiskMountpoint`: data disk mount point. Default to `/var`.
 - `dataDiskFilesystem`: file system of the data disk, supports: `xfs`, `ext2`, `ext3`, `ext4`. **Optional**.
-- `description`: arbitrary description of the VM. **Optional**.
+- `description`: description contain sshkey name loaded to the VM. **Filled in automatically, don't specify it in the blueprint**.
 - `vCpus`: number of CPUs in the VM. **Filled in automatically, don't specify it in the blueprint**.
 - `memSize`: memory size in the VM **Filled in automatically, don't specify it in the blueprint**.
 - `machineId`: unique identifier of the VM. **Filled in automatically, don't specify it in the blueprint**.
@@ -27,7 +27,9 @@ The template is responsible for managing a virtual machine (VM) on the OpenvClou
 
 ## Actions
 
-- `install`: install VM. If state of action `install` is not `ok`, a new VM will be created. If machine with the same name already exists, if will be deleted and installed again.
+### VM actions
+
+- `install`: install VM. If state of action `install` is not `ok`, and VM with given `name` doesn't exist a new VM will be created. If VM already exists `install` action will try to bring it to desired state, if not possible, throws an error. Desired state: 1 boot disk of size `bootdiskSize`, one data disk of size `dataDiskSize` with filesystem `ext4` mounted on `/var`.
 - `uninstall`: delete VM.
 - `stop`: stop VM.
 - `start`: start VM.
@@ -38,10 +40,16 @@ The template is responsible for managing a virtual machine (VM) on the OpenvClou
 - `snapshot`: create a snapshot of the VM.
 - `snapshot_delete`: delete a snapshot of the VM.
 - `list_snapshots`: return a list of snapshots of the VM.
-- `disk_add`: create a new disk on the VM.
+- `disk_add`: create a new disk on the VM. A service of type `github.com/openvcloud/0-templates/disk/0.0.1` will be created to manage the disk. Name of the disk service is generated automatically in from `Disk{DiskId}`, for example `Disk1234`.
 - `disk_attach`: attach disk to the VM.
 - `disk_detach`: detach disk from the VM.
 - `disk_delete`: delete disk, attached to the VM.
+
+### Actions to fetch VM info
+
+- `get_name`: return VM name.
+- `get_id`: return VM id.
+- `get_disk_services`: return list of the services managing disks attached to the vm.
 
 ## Usage examples via the 0-robot DSL
 
@@ -98,6 +106,9 @@ node.schedule_action('restart')
 node.schedule_action('clone')
 node.schedule_action('snapshot')
 node.schedule_action('snapshot_delete', {'snapshot_epoch': 1522839792})
+
+# required arg to create a new disk at the VM:
+#   @name: device name of the disk object
 node.schedule_action('disk_add', {'name': 'testDisk', 'size': 10})
 node.schedule_action('disk_attach', {'disk_service_name': 'Disk0000'})
 node.schedule_action('disk_detach', {'disk_service_name': 'Disk0000'})

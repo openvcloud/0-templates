@@ -15,6 +15,9 @@ class TestSshKey(TestCase):
             os.path.dirname(__file__)
         )
 
+    def tearDown(self):
+        mock.patch.stopall()
+
     @mock.patch.object(j.clients, '_sshkey')
     def test_create(self, ssh):
         dir = '/tmp'

@@ -2,11 +2,11 @@
 
 ## Description
 
-This template is responsible for creating an account on a openVCloud environment.
+This template is responsible for creating an account on an openvCloud environment. Account service is required to create VDCs (Virtual Data Centers).
 
 ## Schema
 
-- `name`: Name of the account on OVC **required**
+- `name`: Name of the account on OVC **Required**.
 - `openvcloud`: Name of the [openvcloud](../openvcloud) instance used to connect to the environment.  **Required**.
 - `description`: Arbitrary description of the account. **Optional**.
 - `maxMemoryCapacity`: The limit on the memory capacity that can be used by the account. Default to -1 (unlimited).
@@ -32,7 +32,7 @@ For information about the different access rights, check docs at [openvcloud](ht
 ## Actions
 
 - `install`: creates an account or gets an existent account.
-- `uninstall`: delete an account. All VDCs (Virtual Data Centers) related to this account will be destroyed and uninstall should not be called on those VDC services when uninstalling an account.
+- `uninstall`: delete an account if empty. Attempt to delete an account with VDCs on it, will produce an error.
 - `user_authorize`: adds a user to the account or updates access rights. In order to add a user, corresponding [`vdcuser`](#vdc-user) service should be installed.
 - `user_unauthorize`: deletes a user from the account.
 - `update`: updates the account attributes:
@@ -66,7 +66,7 @@ account = robot.services.create(
     data={'name': 'test_account','openvcloud':'ovc_service'}
 )
 account.schedule_action('install')
-account.schedue_action('update', {'maxMemoryCapacity': 5})
+account.schedule_action('update', {'maxMemoryCapacity': 5})
 
 # examples to manage users
 # first create a service for vdcuser admin
@@ -80,9 +80,9 @@ vdcuser.schedule_action('install')
 # authorize user
 account.schedule_action('user_authorize', {'vdcuser': 'admin', 'accesstype': 'R'})
 # update user access of the existing user
-account.schedule_action('user_authorize', {'vdcuser': 'admin', 'accesstype': 'W'})
+account.schedule_action('user_authorize', {'vdcuser': 'admin', 'accesstype': 'RCX'})
 # unauthorize user
-account.schedule_action('user_unauthorize', {'vdcuser': 'admin', 'accesstype': 'W'})
+account.schedule_action('user_unauthorize', {'vdcuser': 'admin', 'accesstype': 'RCX'})
 
 account.schedule_action('uninstall')
 ```

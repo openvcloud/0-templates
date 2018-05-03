@@ -27,7 +27,7 @@ For information about the different access rights check docs at [openvcloud](htt
 ## Actions
 
 - `install`: create a VDC in given `account` if doesn't exist.
-- `uninstall`: delete a VDC.
+- `uninstall`: delete a VDC and trigger `uninstall` action on VMs and Disks created on this VDC.
 - `enable`: enable VDC.
 - `disable`: disable VDC.
 - `portforward_create`: create a port forward.
@@ -88,9 +88,9 @@ vdc.schedule_action('update', {'maxMemoryCapacity': 5,
 # authorize user
 vdc.schedule_action('user_authorize', {'vdcuser': 'admin', 'accesstype': 'R'})
 # update user access of the existing user
-vdc.schedule_action('user_authorize', {'vdcuser': 'admin', 'accesstype': 'W'})
+vdc.schedule_action('user_authorize', {'vdcuser': 'admin', 'accesstype': 'RCX'})
 # unauthorize user
-vdc.schedule_action('user_unauthorize', {'vdcuser': 'admin', 'accesstype': 'W'})
+vdc.schedule_action('user_unauthorize', {'vdcuser': 'admin', 'accesstype': 'RCX'})
 
 vdc.schedule_action('uninstall')
 
