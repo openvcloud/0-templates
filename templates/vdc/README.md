@@ -139,7 +139,7 @@ actions:
 
 ```yaml
 actions:
-    - template: github.com/openvcloud/0-templates/vdcuser/0.0.1
+    - template: github.com/openvcloud/0-templates/vdc/0.0.1
       service: space
       actions: ['update']
       args:
@@ -153,21 +153,21 @@ actions:
 
 ```yaml
 actions:
-    - template: github.com/openvcloud/0-templates/vdcuser/0.0.1
+    - template: github.com/openvcloud/0-templates/vdc/0.0.1
       service: space
       actions: ['uninstall']
 ```
 
 ```yaml
 actions:
-    - template: github.com/openvcloud/0-templates/vdcuser/0.0.1
+    - template: github.com/openvcloud/0-templates/vdc/0.0.1
       service: space
       actions: ['disable']
 ```
 
 ```yaml
 actions:
-    - template: github.com/openvcloud/0-templates/vdcuser/0.0.1
+    - template: github.com/openvcloud/0-templates/vdc/0.0.1
       service: space
       actions: ['enable']
 ```
@@ -183,7 +183,7 @@ services:
         sshKey: key-service
         vdc: vdc-service
 actions:
-    - template: github.com/openvcloud/0-templates/vdcuser/0.0.1
+    - template: github.com/openvcloud/0-templates/vdc/0.0.1
       service: space
       actions: ['portforward_create']
       args:
@@ -195,7 +195,7 @@ actions:
 
 ```yaml
 actions:
-    - template: github.com/openvcloud/0-templates/vdcuser/0.0.1
+    - template: github.com/openvcloud/0-templates/vdc/0.0.1
       service: space
       actions: ['portforward_delete']
       args:
@@ -216,7 +216,7 @@ services:
         provider: itsyouonline
         email: admin@greenitglobe.com
 actions:
-    - template: github.com/openvcloud/0-templates/vdcuser/0.0.1
+    - template: github.com/openvcloud/0-templates/vdc/0.0.1
       service: space
       actions: ['user_authorize']
       args:
@@ -226,7 +226,7 @@ actions:
 
 ```yaml
 actions:
-    - template: github.com/openvcloud/0-templates/vdcuser/0.0.1
+    - template: github.com/openvcloud/0-templates/vdc/0.0.1
       service: space
       actions: ['user_unauthorize']
       args:
