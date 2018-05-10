@@ -1,17 +1,35 @@
-language: python
-sudo: required
-dist: trusty
+matrix:
+  include:
+    - language: python
+      sudo: required
+      dist: trusty
 
-python:
-  - "3.5"
+      python: 3.5
 
-install:
-  - pip3 install codecov pytest pytest-cov
-  - ./utils/jumspcale_install.sh
-  - ./utils/zrobot_install.sh
+      install:
+        - pip3 install codecov pytest pytest-cov
+        - ./utils/jumspcale_install.sh
+        - ./utils/zrobot_install.sh
 
-script:
-  - make test
+      script:
+        - make test
 
-after_success:
-  - codecov
+      after_success:
+        - codecov
+
+    - language: python
+      sudo: true
+      dist: trusty
+      if: type IN (api, cron)
+
+      python: 3.5
+
+      install:
+        - pip3 install packet-python
+
+      before_script:
+        - cd ./tests/integration_tests; bash travis.sh setup
+      script:
+        - bash travis.sh run
+      after_script:
+        - bash travis.sh teardown
