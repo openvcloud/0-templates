@@ -32,6 +32,10 @@ class Vdc(TemplateBase):
 
         if not self.data['account']:
             raise ValueError('account service name is required')
+        
+        for key in ['maxMemoryCapacity', 'maxCPUCapacity', 'maxVDiskCapacity', 'maxNumPublicIP']:
+            if self.data[key] < -1:
+                raise RuntimeError("A resource limit should be a positive number or -1 (unlimited)")
 
     def get_info(self):
         """ Return vdc info """
