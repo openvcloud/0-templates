@@ -145,7 +145,7 @@ class BasicTests(OVC_BaseTest):
         self.log('%s ENDED' % self._testID)
 
     def test004_get_cloudspace_info(self):
-        """ ZRT-OVC-000
+        """ ZRT-OVC-024
         *Test case for getting cloudspace indfo*
 
         **Test Scenario:**

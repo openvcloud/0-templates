@@ -119,7 +119,7 @@ class BasicTests(OVC_BaseTest):
 
     @unittest.skip('https://github.com/Jumpscale/lib9/issues/267')
     def test003_get_vm_info(self):
-        """ ZRT-OVC-000
+        """ ZRT-OVC-025
         *Test case for getting vm info*
 
         **Test Scenario:**
@@ -185,7 +185,6 @@ class BasicTests(OVC_BaseTest):
         )
         node.schedule_action('install')
 
-        import ipdb;ipdb.set_Trace()
         self.log('Get VM1 and check its info')
         node_info = node.schedule_action('get_info').wait(die=True).result
         self.assertEqual(vm_name, node_info['name'])
