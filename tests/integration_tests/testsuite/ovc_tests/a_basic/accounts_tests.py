@@ -1,8 +1,8 @@
 import unittest
 from framework.ovc_utils.utils import OVC_BaseTest
-from collections import OrderedDict
 from random import randint
-
+from JumpScale9Lib.clients.portal.PortalClient import ApiError
+import time
 
 class accounts(OVC_BaseTest):
     def __init__(self, *args, **kwargs):
@@ -25,36 +25,37 @@ class accounts(OVC_BaseTest):
                              'vdcuser': {'actions': ['install']}}
         self.CLEANUP["accounts"].append(self.acc1)
 
-    @unittest.skip('https://github.com/openvcloud/0-templates/issues/47')
+    @unittest.skip('https://github.com/openvcloud/0-templates/issues/117')
     def test001_create_account_with_wrong_params(self):
         """ ZRT-OVC-001
         *Test case for creating account with different or missing parameters*
 
         **Test Scenario:**
 
+        #. Create an account without providing an account name parameter, should fail.
         #. Create an account without providing openvcloud parameter, should fail.
         #. Create an account with providing non existing openvcloud value, should fail.
-        #. Create an account with providing non existing parameter, should fail.
         """
         self.log('%s STARTED' % self._testID)
 
-        self.log('Create an account without providing openvcloud parameter, should fail')
+        self.log('Create an account without providing an account name parameter, should fail.')
         self.accounts[self.acc1] = {}
         res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
                                   accounts=self.accounts, temp_actions=self.temp_actions)
-        self.assertEqual(res, 'openvcloud is mandatory')
+        self.assertEqual(res, '"name" is required')
+
+        self.log('Create an account without providing openvcloud parameter, should fail')
+        self.accounts[self.acc1] = {'name': self.random_string()}
+        res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
+                                  accounts=self.accounts, temp_actions=self.temp_actions)
+        self.assertEqual(res, '"openvcloud" is required')
 
         self.log('Create an account with providing wrong openvcloud value, should fail.')
-        self.accounts[self.acc1] = {'openvcloud': self.random_string()}
+        self.accounts[self.acc1] = {'name': self.random_string(),
+                                    'openvcloud': self.random_string()}
         res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
                                   accounts=self.accounts, temp_actions=self.temp_actions)
         self.assertEqual(res, 'found 0 openvcloud connections, requires exactly 1')
-
-        self.log('Create an account with providing non existing parameter, should fail')
-        self.accounts[self.acc1] = {self.random_string(): self.random_string()}
-        res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
-                                  accounts=self.accounts, temp_actions=self.temp_actions)
-        self.assertEqual(res, 'parameter provided is wrong')
 
         self.log('%s ENDED' % self._testID)
 
@@ -196,4 +197,95 @@ class accounts(OVC_BaseTest):
         self.assertNotIn('%s@itsyouonline' % self.vdcuser_name,
                          [user['userGroupId'] for user in account['acl']])
 
+        self.log('%s ENDED' % self._testID)
+
+    def test005_get_account_info(self):
+        """ ZRT-OVC-000
+        *Test case for getting account info*
+
+        **Test Scenario:**
+
+        #. Create an account (A1).
+        #. Get A1 and check its info.
+        """
+        self.log('%s STARTED' % self._testID)
+
+        self.log('Create an account (A1)')
+        openvcloud_ser_name = self.random_string()
+        ovc = self.robot.services.create(
+            template_uid="{}/openvcloud/{}".format(self.repo, self.version),
+            service_name=openvcloud_ser_name,
+            data={'name': self.random_string(),
+                  'location': self.location,
+                  'address': self.env,
+                  'token': self.iyo_jwt()}
+        )
+        ovc.schedule_action('install')
+
+        account_ser_name = self.random_string()
+        account_name = self.random_string()
+        account = self.robot.services.create(
+            template_uid="{}/account/{}".format(self.repo, self.version),
+            service_name=account_ser_name,
+            data={'name': account_name, 'openvcloud': openvcloud_ser_name}
+        )
+        account.schedule_action('install')
+
+        self.log('Get A1 and check its info')
+        acc_info = account.schedule_action('get_info').wait(die=True).result
+        self.assertEqual(account_name, acc_info['name'])
+        self.assertEqual(openvcloud_ser_name, acc_info['openvcloud'])
+        self.assertEqual('CXDRAU', acc_info['users'][0]['accesstype'])
+        ovc.schedule_action('uninstall')
+        account.schedule_action('uninstall')
+
+        self.log('%s ENDED' % self._testID)
+
+    def test006_set_vdcuser_groups(self):
+        """ ZRT-OVC-000
+        *Test case for setting vdcuser groups*
+
+        **Test Scenario:**
+
+        #. Create vdc user, should succeed.
+        #. Set user groups and check if it was set.
+        """
+        self.log('%s STARTED' % self._testID)
+
+        self.log(' vdc user, should succeed')
+        openvcloud_ser_name = self.random_string()
+        ovc = self.robot.services.create(
+            template_uid="{}/openvcloud/{}".format(self.repo, self.version),
+            service_name=openvcloud_ser_name,
+            data={'name': self.random_string(),
+                  'location': self.location,
+                  'address': self.env,
+                  'token': self.iyo_jwt()}
+        )
+        ovc.schedule_action('install')
+
+        vdcuser_ser_name = self.random_string()
+        vdcuser_name = self.random_string()
+        vdcuser = self.robot.services.create(
+            template_uid="github.com/openvcloud/0-templates/vdcuser/0.0.1",
+            service_name=vdcuser_ser_name,
+            data={'name': vdcuser_name,
+                  'openvcloud': openvcloud_ser_name,
+                  'email': '{}@test.com'.format(self.random_string())}
+        )
+        vdcuser.schedule_action('install')
+
+        self.log('Set user groups and check if it was set')
+        vdcuser.schedule_action('groups_set', {'groups': ['level1', 'level2']})
+        time.sleep(12)
+        user = self.ovc_client.api.system.usermanager.userget(name='{}@itsyouonline'.format(vdcuser_name))
+        self.assertIn('level1', user['groups'])
+        self.assertIn('level2', user['groups'])
+
+        self.log('Delete vdcuser, should succeed ')
+        vdcuser.schedule_action('uninstall')
+        try:
+            self.ovc_client.api.system.usermanager.userget(name='{}@itsyouonline'.format(vdcuser_name))
+        except ApiError as e:
+            self.assertEqual(e.response.status_code, 404)
         self.log('%s ENDED' % self._testID)

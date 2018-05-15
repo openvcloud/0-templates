@@ -117,6 +117,87 @@ class BasicTests(OVC_BaseTest):
 
         self.log('%s ENDED' % self._testID)
 
+    @unittest.skip('https://github.com/Jumpscale/lib9/issues/267')
+    def test003_get_vm_info(self):
+        """ ZRT-OVC-000
+        *Test case for getting vm info*
+
+        **Test Scenario:**
+
+        #. Create an account (A1).
+        #. Create Cloudspace (C1).
+        #. Create Cloudspace (VM1).
+        #. Get VM1 and check its info.
+        """
+        self.log('%s STARTED' % self._testID)
+
+        self.log('Create an account (A1)')
+        openvcloud_ser_name = self.random_string()
+        # create services
+        ovc = self.robot.services.create(
+            template_uid="{}/openvcloud/{}".format(self.repo, self.version),
+            service_name=openvcloud_ser_name,
+            data={'name': self.random_string(),
+                  'location': self.location,
+                  'address': self.env,
+                  'token': self.iyo_jwt()}
+        )
+        ovc.schedule_action('install')
+
+        account_ser_name = self.random_string()
+        account_name = self.random_string()
+        account = self.robot.services.create(
+            template_uid="{}/account/{}".format(self.repo, self.version),
+            service_name=account_ser_name,
+            data={'name': account_name, 'openvcloud': openvcloud_ser_name}
+        )
+        account.schedule_action('install')
+
+        self.log('Create Cloudspace (C1)')
+        vdc_ser_name = self.random_string()
+        vdc_name = self.random_string()
+        vdc = self.robot.services.create(
+            template_uid="{}/vdc/{}".format(self.repo, self.version),
+            service_name=vdc_ser_name,
+            data={'name': vdc_name, 'account': account_ser_name}
+        )
+        vdc.schedule_action('install')
+
+        self.log('Create Cloudspace (VM1)')
+        sshkey_ser_name = self.random_string()
+        sshkey_name = self.random_string()
+        sshkey = self.robot.services.create(
+            template_uid="{}/sshkey/{}".format(self.repo, self.version),
+            service_name=sshkey_ser_name,
+            data={'name': sshkey_name,
+                  'dir': '/root/.ssh/',
+                  'passphrase': self.random_string()}
+        )
+        sshkey.schedule_action('install')
+
+        vm_ser_name = self.random_string()
+        vm_name = self.random_string()
+        node = self.robot.services.create(template_uid="{}/node/{}".format(self.repo, self.version),
+            service_name=vm_ser_name,
+            data={'name': vm_name,
+                  'sshKey': sshkey_ser_name,
+                  'vdc': vdc_ser_name}
+        )
+        node.schedule_action('install')
+
+        import ipdb;ipdb.set_Trace()
+        self.log('Get VM1 and check its info')
+        node_info = node.schedule_action('get_info').wait(die=True).result
+        self.assertEqual(vm_name, node_info['name'])
+        self.assertEqual(vdc_ser_name, node_info['vdc'])
+        self.assertEqual('ACDRUX', node_info['users'][0]['accesstype'])
+        ovc.schedule_action('uninstall')
+        node.schedule_action('uninstall')
+        vdc.schedule_action('uninstall')
+        account.schedule_action('uninstall')
+
+        self.log('%s ENDED' % self._testID)
+
 
 class vmactions(OVC_BaseTest):
     def __init__(self, *args, **kwargs):

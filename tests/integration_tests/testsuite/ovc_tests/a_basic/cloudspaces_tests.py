@@ -32,36 +32,37 @@ class BasicTests(OVC_BaseTest):
                              }
         self.CLEANUP["accounts"].append(self.acc1)
 
-    @unittest.skip('https://github.com/openvcloud/0-templates/issues/47')
+    @unittest.skip('https://github.com/openvcloud/0-templates/issues/117')
     def test001_create_cloudspace_with_wrong_params(self):
         """ ZRT-OVC-005
         *Test case for creating a cloudspace with wrong parameters .*
 
         **Test Scenario:**
-        #. Create a cloudspace with providing non existing parameter, should fail.
-        #. Create a cloudspace with non-existing account , should fail.
+        #. Create a cloudspace without providing name parameter, should fail.
         #. Create a cloudspace without providing account parameter, should fail.
+        #. Create a cloudspace with non-existing account , should fail.
+
         """
         self.log('%s STARTED' % self._testID)
 
-        self.log('Create a cloudspace with providing non existing parameter, should fail')
-        self.cloudspaces[self.cs1] = {'name': self.cs1_name, 'account': self.acc1, self.random_string(): self.random_string()}
+        self.log('Create a cloudspace without providing name parameter, should fail')
+        self.cloudspaces[self.cs1] = {}
         res = self.create_cs(accounts=self.accounts, cloudspaces=self.cloudspaces, temp_actions=self.temp_actions)
-        self.assertEqual(res, 'parameter provided is wrong')
+        self.assertEqual(res, 'vdc name is required')
 
-        self.log('Create a cloudspace with non-exist account , should fail')
+        self.log('Create a cloudspace without providing account parameter, should fail.')
+        self.cloudspaces[self.cs1] = {'name': self.cs1_name}
+        res = self.create_cs(accounts=self.accounts, cloudspaces=self.cloudspaces, temp_actions=self.temp_actions)
+        self.assertEqual(res, 'account service name is required')
+
+        self.log('Create a cloudspace with non-existing account , should fail')
         self.cloudspaces[self.cs1] = {'name': self.cs1_name, 'account': self.random_string}
         res = self.create_cs(accounts=self.accounts, cloudspaces=self.cloudspaces, temp_actions=self.temp_actions)
         self.assertEqual(res, "account doesn't exist")
 
-        self.log('Create a cloudspace without providing account parameter, should fail')
-        self.cloudspaces[self.cs1] = {}
-        res = self.create_cs(accounts=self.accounts, cloudspaces=self.cloudspaces, temp_actions=self.temp_actions)
-        self.assertEqual(res, 'name is required')
-
         self.log('%s ENDED' % self._testID)
 
-    @unittest.skip("https://github.com/openvcloud/0-templates/issues/49")
+    @unittest.skip("Need to be tested on different environment other than be-g8-3")
     def test002_create_cloudspaces(self):
         """ ZRT-OVC-006
         * Test case for testing multiple cloud spaces creation. *
@@ -71,7 +72,7 @@ class BasicTests(OVC_BaseTest):
         #. Create 2 cloudspaces  with right parametrs , should succeed.
         #. Check that the cloudspaces have been created.
         #. Uninstall the cloudspaces, should succeed.
-        #. Check that the cloudspaces uninstall successfully , should succeed.
+        #. Check that the cloudspaces have been uninstalled successfully , should succeed.
         """
         self.log('%s STARTED' % self._testID)
         cs2 = self.random_string()
@@ -93,8 +94,8 @@ class BasicTests(OVC_BaseTest):
         temp_actions = {'vdc': {'actions': ['uninstall']}}
         res = self.create_cs(accounts=self.accounts, cloudspaces=self.cloudspaces, temp_actions=temp_actions)
         self.wait_for_service_action_status(self.cs1, res[self.cs1]['uninstall'])
-    
-        self.log("Check that cloudspace [CS1] uninstall successfully , should succeed.")
+
+        self.log("Check that cloudspace [CS1] has been uninstalled successfully , should succeed.")
         self.assertTrue(self.wait_for_cloudspace_status(self.cs1_name, "DESTROYED"))
 
         self.log('%s ENDED' % self._testID)
@@ -143,6 +144,62 @@ class BasicTests(OVC_BaseTest):
 
         self.log('%s ENDED' % self._testID)
 
+    def test004_get_cloudspace_info(self):
+        """ ZRT-OVC-000
+        *Test case for getting cloudspace indfo*
+
+        **Test Scenario:**
+
+        #. Create an account (A1).
+        #. Create Cloudspace (C1).
+        #. Get C1 and check its info.
+        """
+        self.log('%s STARTED' % self._testID)
+
+        self.log('Create an account (A1)')
+        openvcloud_ser_name = self.random_string()
+        # create services
+        ovc = self.robot.services.create(
+            template_uid="{}/openvcloud/{}".format(self.repo, self.version),
+            service_name=openvcloud_ser_name,
+            data={'name': self.random_string(),
+                  'location': self.location,
+                  'address': self.env,
+                  'token': self.iyo_jwt()}
+        )
+        ovc.schedule_action('install')
+
+        account_ser_name = self.random_string()
+        account_name = self.random_string()
+        account = self.robot.services.create(
+            template_uid="{}/account/{}".format(self.repo, self.version),
+            service_name=account_ser_name,
+            data={'name': account_name, 'openvcloud': openvcloud_ser_name}
+        )
+        account.schedule_action('install')
+
+        self.log('Create Cloudspace (C1)')
+        vdc_ser_name = self.random_string()
+        vdc_name = self.random_string()
+        vdc = self.robot.services.create(
+            template_uid="{}/vdc/{}".format(self.repo, self.version),
+            service_name=vdc_ser_name,
+            data={'name': vdc_name , 'account': account_ser_name}
+        )
+        vdc.schedule_action('install')
+
+        self.log('Get C1 and check its info')
+        vdc_info = vdc.schedule_action('get_info').wait(die=True).result
+        self.assertEqual(vdc_name, vdc_info['name'])
+        self.assertEqual(account_ser_name, vdc_info['account'])
+        self.assertEqual('ACDRUX', vdc_info['users'][0]['accesstype'])
+        ovc.schedule_action('uninstall')
+        vdc.schedule_action('uninstall')
+        account.schedule_action('uninstall')
+
+        self.log('%s ENDED' % self._testID)
+
+
 
 class CloudspaceActions(OVC_BaseTest):
     def __init__(self, *args, **kwargs):
@@ -178,13 +235,13 @@ class CloudspaceActions(OVC_BaseTest):
                             'vdc': {'actions': ['install']}
                             }
         cls.cloudspaces[cls.cs1] = {'name': cls.cs1_name, 'account': cls.acc1, 'maxMemoryCapacity': randint(10, 1000),
-                                    'maxCPUCapacity': randint(10, 1000), 'maxVDiskCapacity': randint(10, 1000),                      
+                                    'maxCPUCapacity': randint(10, 1000), 'maxVDiskCapacity': randint(10, 1000),
                                     'maxNumPublicIP': randint(10, 1000), 'maxNetworkPeerTransfer': randint(10, 1000)
                                     }
         self.log("Create cloudspace , should succeed")
         res = self.create_cs(accounts=cls.accounts, cloudspaces=cls.cloudspaces, temp_actions=cls.temp_actions)
         self.wait_for_service_action_status(self.cs1, res[self.cs1]['install'])
-        
+
         self.CLEANUP["accounts"].append(cls.acc1)
 
     def test001_update_cloudspace_params(self):
@@ -229,7 +286,7 @@ class CloudspaceActions(OVC_BaseTest):
 
         **Test Scenario:**
 
-        #. Create a cloudspace[CS1], should succeed. 
+        #. Create a cloudspace[CS1], should succeed.
         #. Disable a cloudspace [CS1], should succeed.
         #. Check that cloudspace [CS1] Disabled successfully , should succeed.
         #. Enable a cloudspace[CS1], should succeed.
@@ -237,17 +294,17 @@ class CloudspaceActions(OVC_BaseTest):
         """
         self.log('%s STARTED' % self._testID)
         self.log('Disable a cloudspace [CS1], should succeed.')
-        temp_actions = {'vdc': {'actions': ['disable'], 'service': self.cs1}}     
+        temp_actions = {'vdc': {'actions': ['disable'], 'service': self.cs1}}
         res = self.create_cs(accounts=self.accounts, cloudspaces=self.cloudspaces, temp_actions=temp_actions)
         self.wait_for_service_action_status(self.cs1, res[self.cs1]['disable'])
-        
+
         self.log("Check that cloudspace [CS1] uninstall successfully , should succeed.")
         self.assertTrue(self.wait_for_cloudspace_status(self.cs1_name, "DISABLED"))
 
         self.log("Enable a cloudspace[CS1], should succeed.")
         temp_actions = {'vdc': {'actions': ['enable'], 'service': self.cs1}}
         res = self.create_cs(accounts=self.accounts, cloudspaces=self.cloudspaces, temp_actions=temp_actions)
-        self.wait_for_service_action_status(self.cs1, res[self.cs1]['enable']) 
+        self.wait_for_service_action_status(self.cs1, res[self.cs1]['enable'])
 
         self.log("Check that cloudspace [CS1] Enabled successfully , should succeed.")
         self.assertTrue(self.wait_for_cloudspace_status(self.cs1_name))
@@ -260,7 +317,7 @@ class CloudspaceActions(OVC_BaseTest):
 
         **Test Scenario:**
 
-        #. Create a cloudspace[CS1], should succeed. 
+        #. Create a cloudspace[CS1], should succeed.
         #. Add User[U1] to cloudspace[CS1] , should succeed.
         #. Check that user[U1] added to cloudspace [CS1] successfully , should succeed.
         #. Delete User [U1] from cloudspace[CS1], should succeed.
@@ -270,7 +327,7 @@ class CloudspaceActions(OVC_BaseTest):
         self.log('%s STARTED' % self._testID)
 
         self.log('Add User[U1] to cloudspace[CS1] , should succeed.')
-        temp_actions = {'vdc': {'actions': ['user_authorize'], 'service': self.cs1, 
+        temp_actions = {'vdc': {'actions': ['user_authorize'], 'service': self.cs1,
                                 'args': {'vdcuser': self.vdcuser, 'accesstype': 'R'}}}
         res = self.create_cs(accounts=self.accounts, cloudspaces=self.cloudspaces, temp_actions=temp_actions)
         self.wait_for_service_action_status(self.cs1, res[self.cs1]['user_authorize'])
@@ -281,7 +338,7 @@ class CloudspaceActions(OVC_BaseTest):
                       [user['userGroupId'] for user in cloudspace['acl']])
 
         self.log("Delete User [U1] from cloudspace, should succeed.")
-        temp_actions = {'vdc': {'actions': ['user_unauthorize'], 'service': self.cs1, 
+        temp_actions = {'vdc': {'actions': ['user_unauthorize'], 'service': self.cs1,
                                 'args': {'vdcuser': self.vdcuser}}}
         res = self.create_cs(accounts=self.accounts, cloudspaces=self.cloudspaces, temp_actions=temp_actions)
         self.wait_for_service_action_status(self.cs1, res[self.cs1]['user_unauthorize'])
@@ -300,7 +357,7 @@ class CloudspaceActions(OVC_BaseTest):
 
         **Test Scenario:**
 
-        #. Create a cloudspace[CS1], should succeed. 
+        #. Create a cloudspace[CS1], should succeed.
         #. Create a vm on [CS1], should succeed.
         #. Create portforward for created cloudspace, should succeed.
         #. Check that portforwad  has been added to cloudspace [CS1] successfully , should succeed.
@@ -321,8 +378,8 @@ class CloudspaceActions(OVC_BaseTest):
         vmId = self.get_vm(cloudspaceId=cs1_id, vmname=vm_name)['id']
         self.log('Create portforward for created cloudspace, should succeed.')
         public_port = randint(1000, 60000)
-        local_port = 22        
-        temp_actions = {'vdc': {'actions': ['portforward_create'], 'service': self.cs1, 
+        local_port = 22
+        temp_actions = {'vdc': {'actions': ['portforward_create'], 'service': self.cs1,
                                 'args': {'machineId': vmId,
                                          'port_forwards': OrderedDict([('destination', local_port),('source', public_port)])}}}
         res = self.create_cs(accounts=self.accounts, cloudspaces=self.cloudspaces, temp_actions=temp_actions)
@@ -331,20 +388,20 @@ class CloudspaceActions(OVC_BaseTest):
         self.log("Check that user[U1] added to cloudspace [CS1] successfully, should succeed.")
         time.sleep(4)
         pf_list = self.get_portforward_list(self.cs1_name, vm_name)
-        self.assertIn(public_port, [int(x["publicPort"]) for x in pf_list]) 
+        self.assertIn(public_port, [int(x["publicPort"]) for x in pf_list])
 
         self.log('Delete the portforward from [CS1], should succeed.')
-        temp_actions = {'vdc': {'actions': ['portforward_delete'], 'service': self.cs1, 
+        temp_actions = {'vdc': {'actions': ['portforward_delete'], 'service': self.cs1,
                                 'args': {'machineId': vmId,
                                          'port_forwards': OrderedDict([('destination', local_port),('source', public_port)])}}}
         res = self.create_cs(accounts=self.accounts, cloudspaces=self.cloudspaces, temp_actions=temp_actions)
         self.wait_for_service_action_status(self.cs1, res[self.cs1]['portforward_delete'])
-        
+
         self.log('Check that the portforward  deleted from cloudspace [CS1] successfully , should succeed.')
         time.sleep(4)
         pf_list = self.get_portforward_list(self.cs1_name, vm_name)
-        self.assertNotIn(public_port, [int(x["publicPort"]) for x in pf_list]) 
-    
+        self.assertNotIn(public_port, [int(x["publicPort"]) for x in pf_list])
+
     @classmethod
     def tearDownClass(cls):
         self = cls()
