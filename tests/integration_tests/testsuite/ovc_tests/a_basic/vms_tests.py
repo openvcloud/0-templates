@@ -20,7 +20,8 @@ class BasicTests(OVC_BaseTest):
         self.vm1_name = self.random_string()
         self.cloudspaces = {self.cs1: {'name': self.cs1_name, 'account': self.acc1}}
         self.vms = dict()
-        self.temp_actions = {'openvcloud': {'actions': ['install']},
+        self.temp_actions = {'sshkey': {'actions': ['install']},
+                             'openvcloud': {'actions': ['install']},
                              'account': {'actions': ['install']},
                              'vdcuser': {'actions': ['install']},
                              'vdc': {'actions': ['install']},
@@ -117,7 +118,6 @@ class BasicTests(OVC_BaseTest):
 
         self.log('%s ENDED' % self._testID)
 
-    @unittest.skip('https://github.com/Jumpscale/lib9/issues/267')
     def test003_get_vm_info(self):
         """ ZRT-OVC-025
         *Test case for getting vm info*
@@ -189,7 +189,7 @@ class BasicTests(OVC_BaseTest):
         node_info = node.schedule_action('get_info').wait(die=True).result
         self.assertEqual(vm_name, node_info['name'])
         self.assertEqual(vdc_ser_name, node_info['vdc'])
-        self.assertEqual('ACDRUX', node_info['users'][0]['accesstype'])
+        self.assertEqual(2, len(node_info['disk_services']))
         ovc.schedule_action('uninstall')
         node.schedule_action('uninstall')
         vdc.schedule_action('uninstall')
