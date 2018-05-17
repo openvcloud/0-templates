@@ -200,10 +200,12 @@ class BasicTests(OVC_BaseTest):
         self.log('%s ENDED' % self._testID)
 
 
-
 class CloudspaceActions(OVC_BaseTest):
     def __init__(self, *args, **kwargs):
         super(CloudspaceActions, self).__init__(*args, **kwargs)
+
+    def setUp(self):
+        super(CloudspaceActions, self).setUp()
 
     def tearDown(self):
         pass
@@ -350,7 +352,7 @@ class CloudspaceActions(OVC_BaseTest):
 
         self.log('%s ENDED' % self._testID)
 
-    @unittest.skip("https://github.com/0-complexity/openvcloud/issues/1496")
+    @unittest.skip("https://github.com/openvcloud/0-templates/issues/120")
     def test004_add_and_delete_portforward(self):
         """ ZRT-OVC-011
         *Test case for adding and deleting portforward on cloudspaces. *
@@ -405,10 +407,16 @@ class CloudspaceActions(OVC_BaseTest):
     @classmethod
     def tearDownClass(cls):
         self = cls()
+        temp_actions = {'vdc': {'actions': ['uninstall']}}
+        if self.check_if_service_exist(self.cs1):
+            res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
+                                      accounts=self.accounts, temp_actions=temp_actions)
+            self.wait_for_service_action_status(self.cs1, res[self.cs1]['uninstall'])
+
         temp_actions = {'account': {'actions': ['uninstall']}}
         if self.check_if_service_exist(self.acc1):
             res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
-                                    accounts=self.accounts, temp_actions=temp_actions)
+                                      accounts=self.accounts, temp_actions=temp_actions)
             self.wait_for_service_action_status(self.acc1, res[self.acc1]['uninstall'])
 
         self.delete_services()
