@@ -541,7 +541,6 @@ class vmactions(OVC_BaseTest):
         disk_list = self.get_disks_list(self.acc1_name)
         self.assertNotIn(disk_name, [disk["name"] for disk in disk_list])
 
-    @unittest.skip("https://github.com/openvcloud/0-templates/issues/109.")
     def test009_update_disk(self):
         """ ZRT-OVC-022
         *Test case for updating disk. *
@@ -568,7 +567,6 @@ class vmactions(OVC_BaseTest):
         self.wait_for_service_action_status(disk, res[disk]['update'])
         self.assertEqual(self.get_disks_list(self.acc1_name)[0]['type'], disktype)
 
-    @unittest.skip("https://github.com/openvcloud/0-templates/issues/109.")
     def test009_attach_dettach_disk(self):
         """ ZRT-OVC-023
         *Test case for attaching and dettaching disk. *
