@@ -37,6 +37,6 @@ if [[ ${action} == "setup" ]]; then
     done
 
 elif [[ ${action} == "run" ]]; then
-    source prepare.sh -d -s -r testsuite/ovc_tests/a_basic/accounts_tests.py
+    source prepare.sh -d -s -r testsuite
 
 fi
