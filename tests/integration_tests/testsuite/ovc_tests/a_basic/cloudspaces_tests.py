@@ -100,8 +100,7 @@ class BasicTests(OVC_BaseTest):
 
         self.log('%s ENDED' % self._testID)
 
-    @parameterized.expand([("Negative values", -1),
-                           ("Positive values", 1)])
+    @parameterized.expand([("Positive values", 1), ("Negative values", -1)])
     def test003_create_cloudspace_with_different_limitaions(self, type, factor):
         """ ZRT-OVC-007
         *Test case for creating cloudspaces with different limitaions*
@@ -125,7 +124,8 @@ class BasicTests(OVC_BaseTest):
                                       }
         self.log("Create cloudspace with %s limitations , should %s."%(type, "succeed" if factor == 1 else "fail"))
         res = self.create_cs(accounts=self.accounts, cloudspaces=self.cloudspaces, temp_actions=self.temp_actions)
-        self.wait_for_service_action_status(self.cs1, res[self.cs1]['install'])
+        if not isinstance(res, str):
+            self.wait_for_service_action_status(self.cs1, res[self.cs1]['install'])
         time.sleep(2)
         cloudspace = self.get_cloudspace(self.cs1_name)
         if type == "Negative values":
@@ -184,7 +184,7 @@ class BasicTests(OVC_BaseTest):
         vdc = self.robot.services.create(
             template_uid="{}/vdc/{}".format(self.repo, self.version),
             service_name=vdc_ser_name,
-            data={'name': vdc_name , 'account': account_ser_name}
+            data={'name': vdc_name, 'account': account_ser_name}
         )
         vdc.schedule_action('install')
 
