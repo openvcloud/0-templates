@@ -32,6 +32,14 @@ class BasicTests(OVC_BaseTest):
                              }
         self.CLEANUP["accounts"].append(self.acc1)
 
+    def tearDown(self):
+        temp_actions = {'vdc': {'actions': ['uninstall']}}
+        if self.check_if_service_exist(self.cs1):
+            res = self.create_cs(accounts=self.accounts, cloudspaces=self.cloudspaces,
+                                 temp_actions=temp_actions)
+            self.wait_for_service_action_status(self.cs1, res[self.cs1]['uninstall'])
+        super(BasicTests, self).tearDown()
+
     @unittest.skip('https://github.com/openvcloud/0-templates/issues/117')
     def test001_create_cloudspace_with_wrong_params(self):
         """ ZRT-OVC-005
@@ -195,6 +203,7 @@ class BasicTests(OVC_BaseTest):
         self.assertEqual('ACDRUX', vdc_info['users'][0]['accesstype'])
         ovc.schedule_action('uninstall')
         vdc.schedule_action('uninstall')
+        time.sleep(10)
         account.schedule_action('uninstall')
 
         self.log('%s ENDED' % self._testID)

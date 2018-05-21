@@ -2,7 +2,8 @@ import unittest
 from framework.ovc_utils.utils import OVC_BaseTest
 from collections import OrderedDict
 from random import randint
-import unittest, time
+import unittest
+import time
 
 
 class BasicTests(OVC_BaseTest):
@@ -27,6 +28,20 @@ class BasicTests(OVC_BaseTest):
                              'vdc': {'actions': ['install']},
                              'node': {'actions': ['install']}}
         self.CLEANUP["accounts"].append(self.acc1)
+
+    def tearDown(self):
+        temp_actions = {'node': {'actions': ['uninstall']}}
+        if self.check_if_service_exist(self.cs1):
+            res = self.create_vm(vms=self.vms, accounts=self.accounts,
+                                 cloudspaces=self.cloudspaces, temp_actions=temp_actions)
+            self.wait_for_service_action_status(self.vm1, res[self.vm1]['uninstall'])
+
+        temp_actions = {'vdc': {'actions': ['uninstall']}}
+        if self.check_if_service_exist(self.cs1):
+            res = self.create_cs(accounts=self.accounts, cloudspaces=self.cloudspaces,
+                                 temp_actions=temp_actions)
+            self.wait_for_service_action_status(self.cs1, res[self.cs1]['uninstall'])
+        super(BasicTests, self).tearDown()
 
     @unittest.skip('https://github.com/openvcloud/0-templates/issues/47')
     def test001_create_vm_with_wrong_params(self):
@@ -192,7 +207,9 @@ class BasicTests(OVC_BaseTest):
         self.assertEqual(2, len(node_info['disk_services']))
         ovc.schedule_action('uninstall')
         node.schedule_action('uninstall')
+        time.sleep(10)
         vdc.schedule_action('uninstall')
+        time.sleep(10)
         account.schedule_action('uninstall')
 
         self.log('%s ENDED' % self._testID)
