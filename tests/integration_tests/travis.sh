@@ -21,6 +21,19 @@ if [[ ${action} == "setup" ]]; then
     fi
     sudo echo "${ctrl_zt_ipaddress}  ${environment}" >> /etc/hosts
 
+    while true; do
+        ip=$(sudo zerotier-cli listnetworks | grep ${zerotier_network} | awk '{print $8}')
+        if [[ $ip == '-' ]]; then
+            sleep 5
+        else
+            break
+        fi
+    done
+
+    for interface in $(ls /sys/class/net | grep zt); do
+        sudo ifconfig ${interface} mtu 1280
+    done
+
 elif [[ ${action} == "run" ]]; then
     bash prepare.sh -d -s -r testsuite/ovc_tests/a_basic/accounts_tests.py
 
