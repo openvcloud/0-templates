@@ -211,10 +211,10 @@ class accounts(OVC_BaseTest):
         self.log('%s STARTED' % self._testID)
 
         self.log('Create an account (A1)')
-        openvcloud_ser_name = self.random_string()
+        openvcloud_service_name = self.random_string()
         ovc = self.robot.services.create(
             template_uid="{}/openvcloud/{}".format(self.repo, self.version),
-            service_name=openvcloud_ser_name,
+            service_name=openvcloud_service_name,
             data={'name': self.random_string(),
                   'location': self.location,
                   'address': self.env,
@@ -222,19 +222,19 @@ class accounts(OVC_BaseTest):
         )
         ovc.schedule_action('install')
 
-        account_ser_name = self.random_string()
+        account_service_name = self.random_string()
         account_name = self.random_string()
         account = self.robot.services.create(
             template_uid="{}/account/{}".format(self.repo, self.version),
-            service_name=account_ser_name,
-            data={'name': account_name, 'openvcloud': openvcloud_ser_name}
+            service_name=account_service_name,
+            data={'name': account_name, 'openvcloud': openvcloud_service_name}
         )
         account.schedule_action('install')
 
         self.log('Get A1 and check its info')
         acc_info = account.schedule_action('get_info').wait(die=True).result
         self.assertEqual(account_name, acc_info['name'])
-        self.assertEqual(openvcloud_ser_name, acc_info['openvcloud'])
+        self.assertEqual(openvcloud_service_name, acc_info['openvcloud'])
         self.assertEqual('CXDRAU', acc_info['users'][0]['accesstype'])
         ovc.schedule_action('uninstall')
         account.schedule_action('uninstall')
@@ -252,11 +252,11 @@ class accounts(OVC_BaseTest):
         """
         self.log('%s STARTED' % self._testID)
 
-        self.log(' vdc user, should succeed')
-        openvcloud_ser_name = self.random_string()
+        self.log('Create vdc user, should succeed')
+        openvcloud_service_name = self.random_string()
         ovc = self.robot.services.create(
             template_uid="{}/openvcloud/{}".format(self.repo, self.version),
-            service_name=openvcloud_ser_name,
+            service_name=openvcloud_service_name,
             data={'name': self.random_string(),
                   'location': self.location,
                   'address': self.env,
@@ -264,13 +264,13 @@ class accounts(OVC_BaseTest):
         )
         ovc.schedule_action('install')
 
-        vdcuser_ser_name = self.random_string()
+        vdcuser_service_name = self.random_string()
         vdcuser_name = self.random_string()
         vdcuser = self.robot.services.create(
             template_uid="github.com/openvcloud/0-templates/vdcuser/0.0.1",
-            service_name=vdcuser_ser_name,
+            service_name=vdcuser_service_name,
             data={'name': vdcuser_name,
-                  'openvcloud': openvcloud_ser_name,
+                  'openvcloud': openvcloud_service_name,
                   'email': '{}@test.com'.format(self.random_string())}
         )
         vdcuser.schedule_action('install')
