@@ -2,7 +2,8 @@ import unittest
 from framework.ovc_utils.utils import OVC_BaseTest
 from collections import OrderedDict
 from random import randint
-import unittest, time
+import unittest
+import time
 
 
 class BasicTests(OVC_BaseTest):
@@ -20,12 +21,27 @@ class BasicTests(OVC_BaseTest):
         self.vm1_name = self.random_string()
         self.cloudspaces = {self.cs1: {'name': self.cs1_name, 'account': self.acc1}}
         self.vms = dict()
-        self.temp_actions = {'openvcloud': {'actions': ['install']},
+        self.temp_actions = {'sshkey': {'actions': ['install']},
+                             'openvcloud': {'actions': ['install']},
                              'account': {'actions': ['install']},
                              'vdcuser': {'actions': ['install']},
                              'vdc': {'actions': ['install']},
                              'node': {'actions': ['install']}}
         self.CLEANUP["accounts"].append(self.acc1)
+
+    def tearDown(self):
+        temp_actions = {'node': {'actions': ['uninstall']}}
+        if self.check_if_service_exist(self.cs1):
+            res = self.create_vm(vms=self.vms, accounts=self.accounts,
+                                 cloudspaces=self.cloudspaces, temp_actions=temp_actions)
+            self.wait_for_service_action_status(self.vm1, res[self.vm1]['uninstall'])
+
+        temp_actions = {'vdc': {'actions': ['uninstall']}}
+        if self.check_if_service_exist(self.cs1):
+            res = self.create_cs(accounts=self.accounts, cloudspaces=self.cloudspaces,
+                                 temp_actions=temp_actions)
+            self.wait_for_service_action_status(self.cs1, res[self.cs1]['uninstall'])
+        super(BasicTests, self).tearDown()
 
     @unittest.skip('https://github.com/openvcloud/0-templates/issues/47')
     def test001_create_vm_with_wrong_params(self):
@@ -117,9 +133,8 @@ class BasicTests(OVC_BaseTest):
 
         self.log('%s ENDED' % self._testID)
 
-    @unittest.skip('https://github.com/Jumpscale/lib9/issues/267')
     def test003_get_vm_info(self):
-        """ ZRT-OVC-000
+        """ ZRT-OVC-025
         *Test case for getting vm info*
 
         **Test Scenario:**
@@ -185,21 +200,23 @@ class BasicTests(OVC_BaseTest):
         )
         node.schedule_action('install')
 
-        import ipdb;ipdb.set_Trace()
         self.log('Get VM1 and check its info')
         node_info = node.schedule_action('get_info').wait(die=True).result
         self.assertEqual(vm_name, node_info['name'])
         self.assertEqual(vdc_ser_name, node_info['vdc'])
-        self.assertEqual('ACDRUX', node_info['users'][0]['accesstype'])
+        self.assertEqual(2, len(node_info['disk_services']))
         ovc.schedule_action('uninstall')
         node.schedule_action('uninstall')
+        time.sleep(10)
         vdc.schedule_action('uninstall')
+        time.sleep(10)
         account.schedule_action('uninstall')
 
         self.log('%s ENDED' % self._testID)
 
 
 class vmactions(OVC_BaseTest):
+    key = None
     def __init__(self, *args, **kwargs):
         super(vmactions, self).__init__(*args, **kwargs)
 
@@ -207,6 +224,7 @@ class vmactions(OVC_BaseTest):
     def setUpClass(cls):
         self = cls()
         super(vmactions, self).setUp()
+        vmactions.key = self.key
         cls.acc1 = self.random_string()
         cls.acc1_name = self.random_string()
         cls.cs1 = self.random_string()
@@ -218,7 +236,7 @@ class vmactions(OVC_BaseTest):
         cls.openvcloud = self.openvcloud
         cls.accounts = {cls.acc1: {'name': self.acc1_name, 'openvcloud': self.openvcloud}}
         cls.cloudspaces = {cls.cs1: {'name': self.cs1_name, 'account': cls.acc1}}
-        cls.vms = {cls.vm1: {'name': self.vm1_name, 'sshKey': self.key, 'vdc': self.cs1}}
+        cls.vms = {cls.vm1: {'name': self.vm1_name, 'sshKey': vmactions.key, 'vdc': self.cs1}}
         self.vdcusers[cls.vdcuser] = {'name': self.vdcuser_name,
                                       'openvcloud': self.openvcloud,
                                       'provider': 'itsyouonline',
@@ -240,6 +258,7 @@ class vmactions(OVC_BaseTest):
     def tearDown(self):
         pass
 
+    @unittest.skip('portforward actions are not there anymore.. this testcase is skipped')
     def test001_adding_and_deleting_portforward(self):
         """ ZRT-OVC-014
         *Test case for adding and deleting portforward.*
@@ -390,7 +409,7 @@ class vmactions(OVC_BaseTest):
         self.assertEqual(vm2_c["vcpus"], vm1["vcpus"])
         self.assertEqual(vm2_c["sizeid"], vm1["sizeid"])
 
-    @unittest.skip("https://github.com/0-complexity/openvcloud/issues/1518")
+    @unittest.skip("https://github.com/openvcloud/0-templates/issues/122")
     def test005_snapshot_of_machine(self):
         """ ZRT-OVC-018
         *Test case for testing create and delete snapshot of machine .*
@@ -408,7 +427,7 @@ class vmactions(OVC_BaseTest):
         self.log("Create snapshot[sn] of [vm1], should succeed.")
         temp_actions = {'node': {'actions': ['snapshot'], 'service': self.vm1}}
 
-        res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
+        res = self.create_vm(keys=vmactions.key, accounts=self.accounts, cloudspaces=self.cloudspaces,
                              vms=self.vms, temp_actions=temp_actions)
         self.wait_for_service_action_status(self.vm1, res[self.vm1]['snapshot'])
 
@@ -420,7 +439,7 @@ class vmactions(OVC_BaseTest):
         self.log("Delete the snapshot[sn], should succeed.")
         sn_epoch = snapshots[0]["epoch"]
         temp_actions = {'node': {'actions': ['snapshot_delete'], 'service': self.vm1, 'args': {'snapshot_epoch': sn_epoch}}}
-        res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
+        res = self.create_vm(keys=vmactions.key, accounts=self.accounts, cloudspaces=self.cloudspaces,
                              vms=self.vms, temp_actions=temp_actions)
         self.wait_for_service_action_status(self.vm1, res[self.vm1]['snapshot_delete'])
 
@@ -428,7 +447,7 @@ class vmactions(OVC_BaseTest):
         time.sleep(2)
         self.assertFalse(self.get_snapshots_list(self.cs1_name, self.vm1_name))
 
-    @unittest.skip("https://github.com/0-complexity/openvcloud/issues/1518")
+    @unittest.skip("https://github.com/openvcloud/0-templates/issues/122")
     def test006_rollback_of_machine(self):
         """ ZRT-OVC-019
         *Test case for testing snapshot rollback of machine .*
@@ -523,7 +542,7 @@ class vmactions(OVC_BaseTest):
         disk = self.random_string()
         disk_name = self.random_string()
         disks = {disk: {"name": disk_name, "vdc": self.cs1}}
-        self.temp_actions = {'disk': {'actions': ['install']}}
+        self.temp_actions = {'disk': {'actions': ['install'], 'service': disk}}
         res = self.create_disk(accounts=self.accounts, cloudspaces=self.cloudspaces, disks=disks, temp_actions=self.temp_actions)
         self.wait_for_service_action_status(disk, res[disk]['install'])
         self.log("Check that disk[D1] has been created.")
@@ -539,7 +558,6 @@ class vmactions(OVC_BaseTest):
         disk_list = self.get_disks_list(self.acc1_name)
         self.assertNotIn(disk_name, [disk["name"] for disk in disk_list])
 
-    @unittest.skip("https://github.com/openvcloud/0-templates/issues/109.")
     def test009_update_disk(self):
         """ ZRT-OVC-022
         *Test case for updating disk. *
@@ -555,7 +573,7 @@ class vmactions(OVC_BaseTest):
         disk = self.random_string()
         disk_name = self.random_string()
         disks = {disk: {"name": disk_name, "vdc": self.cs1}}
-        self.temp_actions = {'disk': {'actions': ['install']}}
+        self.temp_actions = {'disk': {'actions': ['install'], 'service': disk}}
         res = self.create_disk(accounts=self.accounts, cloudspaces=self.cloudspaces, disks=disks, temp_actions=self.temp_actions)
         self.wait_for_service_action_status(disk, res[disk]['install'])
 
@@ -566,7 +584,6 @@ class vmactions(OVC_BaseTest):
         self.wait_for_service_action_status(disk, res[disk]['update'])
         self.assertEqual(self.get_disks_list(self.acc1_name)[0]['type'], disktype)
 
-    @unittest.skip("https://github.com/openvcloud/0-templates/issues/109.")
     def test009_attach_dettach_disk(self):
         """ ZRT-OVC-023
         *Test case for attaching and dettaching disk. *
@@ -583,30 +600,31 @@ class vmactions(OVC_BaseTest):
         disk = self.random_string()
         disk_name = self.random_string()
         disks = {disk: {"name": disk_name, "vdc": self.cs1}}
-        self.temp_actions = {'disk': {'actions': ['install']}}
-        res = self.create_disk(accounts=self.accounts, cloudspaces=self.cloudspaces, disks=disks, temp_actions=self.temp_actions)
+        self.temp_actions = {'disk': {'actions': ['install'], 'service': disk}}
+        res = self.create_disk(key=vmactions.key, accounts=self.accounts, cloudspaces=self.cloudspaces, disks=disks, temp_actions=self.temp_actions)
         self.wait_for_service_action_status(disk, res[disk]['install'])
         diskid = next(disk for disk in self.get_disks_list(self.acc1_name) if disk["name"] == disk_name)['id']
 
-
         self.log("Attach disk [D1] to vm, should succeed.")
-        temp_actions = {'node': {'actions': ['disk_attach'],'args': {"disk_service_name": "Disk{}".format(diskid)}, 'service': self.vm1}}
-        res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
-                             vms=self.vms, temp_actions=temp_actions)
+        temp_actions = {'node': {'actions': ['disk_attach'],'args': {"disk_service_name": disk}, 'service': self.vm1}}
+        res = self.create_disk(key=vmactions.key, accounts=self.accounts, cloudspaces=self.cloudspaces,
+                               vms=self.vms, disks=disks, temp_actions=temp_actions)
         self.wait_for_service_action_status(self.vm1, res[self.vm1]['disk_attach'])
 
         self.log("Check that disk has been added to vm successfully.")
+        time.sleep(5)
         cloudspaceId = self.get_cloudspace(self.cs1_name)['id']
         vm = self.get_vm(cloudspaceId, self.vm1_name)
         self.assertIn(disk_name, [disk['name'] for disk in vm['disks']])
 
         self.log("Deattach disk[D1] from vm, should succeed")
-        temp_actions = {'node': {'actions': ['disk_deattach'],'args': {"disk_service_name": disk_name}, 'service': self.vm1}}
-        res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
-                             vms=self.vms, temp_actions=temp_actions)
-        self.wait_for_service_action_status(self.vm1, res[self.vm1]['disk_deattach'])
+        temp_actions = {'node': {'actions': ['disk_detach'],'args': {"disk_service_name": disk}, 'service': self.vm1}}
+        res = self.create_disk(key=vmactions.key, accounts=self.accounts, cloudspaces=self.cloudspaces,
+                               vms=self.vms, disks=disks, temp_actions=temp_actions)
+        self.wait_for_service_action_status(self.vm1, res[self.vm1]['disk_detach'])
 
         self.log("Check that disk has been deattached to vm successfully.")
+        time.sleep(5)
         cloudspaceId = self.get_cloudspace(self.cs1_name)['id']
         vm = self.get_vm(cloudspaceId, self.vm1_name)
         self.assertNotIn(disk_name, [disk['name'] for disk in vm['disks']])
@@ -614,6 +632,18 @@ class vmactions(OVC_BaseTest):
     @classmethod
     def tearDownClass(cls):
         self = cls()
+        temp_actions = {'node': {'actions': ['uninstall']}}
+        if self.check_if_service_exist(self.vm1):
+            res = self.create_account(keys=vmactions.key, openvcloud=self.openvcloud, vdcusers=self.vdcusers,
+                                      accounts=self.accounts, temp_actions=temp_actions)
+            self.wait_for_service_action_status(self.vm1, res[self.vm1]['uninstall'])
+
+        temp_actions = {'vdc': {'actions': ['uninstall']}}
+        if self.check_if_service_exist(self.cs1):
+            res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
+                                      accounts=self.accounts, temp_actions=temp_actions)
+            self.wait_for_service_action_status(self.cs1, res[self.cs1]['uninstall'])
+
         temp_actions = {'account': {'actions': ['uninstall']}}
         if self.check_if_service_exist(self.acc1):
             res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,

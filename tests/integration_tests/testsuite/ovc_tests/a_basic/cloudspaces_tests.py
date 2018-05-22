@@ -32,6 +32,14 @@ class BasicTests(OVC_BaseTest):
                              }
         self.CLEANUP["accounts"].append(self.acc1)
 
+    def tearDown(self):
+        temp_actions = {'vdc': {'actions': ['uninstall']}}
+        if self.check_if_service_exist(self.cs1):
+            res = self.create_cs(accounts=self.accounts, cloudspaces=self.cloudspaces,
+                                 temp_actions=temp_actions)
+            self.wait_for_service_action_status(self.cs1, res[self.cs1]['uninstall'])
+        super(BasicTests, self).tearDown()
+
     @unittest.skip('https://github.com/openvcloud/0-templates/issues/117')
     def test001_create_cloudspace_with_wrong_params(self):
         """ ZRT-OVC-005
@@ -100,8 +108,7 @@ class BasicTests(OVC_BaseTest):
 
         self.log('%s ENDED' % self._testID)
 
-    @parameterized.expand([("Negative values", -1),
-                           ("Positive values", 1)])
+    @parameterized.expand([("Positive values", 1), ("Negative values", -1)])
     def test003_create_cloudspace_with_different_limitaions(self, type, factor):
         """ ZRT-OVC-007
         *Test case for creating cloudspaces with different limitaions*
@@ -125,7 +132,8 @@ class BasicTests(OVC_BaseTest):
                                       }
         self.log("Create cloudspace with %s limitations , should %s."%(type, "succeed" if factor == 1 else "fail"))
         res = self.create_cs(accounts=self.accounts, cloudspaces=self.cloudspaces, temp_actions=self.temp_actions)
-        self.wait_for_service_action_status(self.cs1, res[self.cs1]['install'])
+        if not isinstance(res, str):
+            self.wait_for_service_action_status(self.cs1, res[self.cs1]['install'])
         time.sleep(2)
         cloudspace = self.get_cloudspace(self.cs1_name)
         if type == "Negative values":
@@ -145,7 +153,7 @@ class BasicTests(OVC_BaseTest):
         self.log('%s ENDED' % self._testID)
 
     def test004_get_cloudspace_info(self):
-        """ ZRT-OVC-000
+        """ ZRT-OVC-024
         *Test case for getting cloudspace indfo*
 
         **Test Scenario:**
@@ -184,7 +192,7 @@ class BasicTests(OVC_BaseTest):
         vdc = self.robot.services.create(
             template_uid="{}/vdc/{}".format(self.repo, self.version),
             service_name=vdc_ser_name,
-            data={'name': vdc_name , 'account': account_ser_name}
+            data={'name': vdc_name, 'account': account_ser_name}
         )
         vdc.schedule_action('install')
 
@@ -195,15 +203,18 @@ class BasicTests(OVC_BaseTest):
         self.assertEqual('ACDRUX', vdc_info['users'][0]['accesstype'])
         ovc.schedule_action('uninstall')
         vdc.schedule_action('uninstall')
+        time.sleep(10)
         account.schedule_action('uninstall')
 
         self.log('%s ENDED' % self._testID)
 
 
-
 class CloudspaceActions(OVC_BaseTest):
     def __init__(self, *args, **kwargs):
         super(CloudspaceActions, self).__init__(*args, **kwargs)
+
+    def setUp(self):
+        super(CloudspaceActions, self).setUp()
 
     def tearDown(self):
         pass
@@ -350,7 +361,7 @@ class CloudspaceActions(OVC_BaseTest):
 
         self.log('%s ENDED' % self._testID)
 
-    @unittest.skip("https://github.com/0-complexity/openvcloud/issues/1496")
+    @unittest.skip("https://github.com/openvcloud/0-templates/issues/120")
     def test004_add_and_delete_portforward(self):
         """ ZRT-OVC-011
         *Test case for adding and deleting portforward on cloudspaces. *
@@ -405,10 +416,16 @@ class CloudspaceActions(OVC_BaseTest):
     @classmethod
     def tearDownClass(cls):
         self = cls()
+        temp_actions = {'vdc': {'actions': ['uninstall']}}
+        if self.check_if_service_exist(self.cs1):
+            res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
+                                      accounts=self.accounts, temp_actions=temp_actions)
+            self.wait_for_service_action_status(self.cs1, res[self.cs1]['uninstall'])
+
         temp_actions = {'account': {'actions': ['uninstall']}}
         if self.check_if_service_exist(self.acc1):
             res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
-                                    accounts=self.accounts, temp_actions=temp_actions)
+                                      accounts=self.accounts, temp_actions=temp_actions)
             self.wait_for_service_action_status(self.acc1, res[self.acc1]['uninstall'])
 
         self.delete_services()
