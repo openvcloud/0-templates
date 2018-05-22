@@ -37,7 +37,7 @@ fi
 if [ ${SERVER} ]; then
   echo "* Start zrobot server and connect to it"
   zrobot server start --listen 0.0.0.0:6600 --template-repo https://github.com/openvcloud/0-templates.git --data-repo https://github.com/john-kheir/0-robot6.git &> /dev/null &
-  sleep 10
+  sleep 20
   ip=$(sudo zerotier-cli listnetworks | grep PRIVATE | awk '{print $9}' | cut -d '/' -f1)
   zrobot robot connect main http://$ip:6600
 fi
