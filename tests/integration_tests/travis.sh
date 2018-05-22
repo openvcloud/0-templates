@@ -3,8 +3,6 @@
 action=$1
 
 if [[ ${action} == "setup" ]]; then
-    echo "[+] Generating ssh key ..."
-    ssh-keygen -f ~/.ssh/id_rsa -P ''
 
     echo "[+] Joining zerotier network: ${zerotier_network}"
     sudo zerotier-cli join ${zerotier_network}; sleep 10
