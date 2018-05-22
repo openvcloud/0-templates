@@ -37,7 +37,7 @@ fi
 if [ ${SERVER} ]; then
   echo "* Start zrobot server and connect to it"
   zrobot server start --listen :6600 --template-repo https://github.com/openvcloud/0-templates.git --data-repo https://github.com/john-kheir/0-robot6.git &> /dev/null &
-  sleep 5
+  sleep 20
   zrobot robot connect main http://localhost:6600
 fi
 
