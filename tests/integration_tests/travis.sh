@@ -38,5 +38,4 @@ if [[ ${action} == "setup" ]]; then
 
 elif [[ ${action} == "run" ]]; then
     source prepare.sh -d -s -r testsuite
-
 fi
