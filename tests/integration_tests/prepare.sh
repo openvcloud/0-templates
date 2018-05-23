@@ -45,6 +45,7 @@ if [ ${SERVER} ]; then
   zrobot robot connect main http://$ip:6600
 fi
 
+
 ## running testsuite
 if [ ${TESTSPATH} ]; then
   echo " "
