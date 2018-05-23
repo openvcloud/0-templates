@@ -50,6 +50,7 @@ if [ ${TESTSPATH} ]; then
   echo " "
   echo "* Running Tests"
   eval `ssh-agent -s`
-  ssh-add ~/.ssh/id_rsa
+  ssh-add -D
+  ssh-add /root/.ssh/id_rsa
   nosetests -v -s ${TESTSPATH} --tc-file=config.ini
 fi
