@@ -17,6 +17,9 @@ if [[ ${action} == "setup" ]]; then
     if [ $? -gt 0 ]; then
         echo "Can't reach the controller using this ip address ${ctrl_zt_ipaddress}"; exit 1
     fi
+    sudo chown -R travis:travis /etc/hosts
+    sudo chown -R travis:travis /root
+    sleep 1
     sudo echo "${ctrl_zt_ipaddress}  ${environment}" >> /etc/hosts
 
     while true; do
