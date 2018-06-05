@@ -44,6 +44,7 @@ class Vdc(TemplateBase):
             'name' : self.data['name'],
             'account' : self.data['account'],
             'users' : self._get_users(),
+            'external_ip': self.space.ipaddr_pub,
         }
 
     @property
