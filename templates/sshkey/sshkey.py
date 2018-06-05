@@ -50,8 +50,9 @@ class Sshkey(TemplateBase):
                 path, passphrase=passphrase, overwrite=True, returnObj=False)
         else:
             paramiko.RSAKey.from_private_key_file(path, password=passphrase)
-
-        self._get_key()
+        
+        # load key to ssh-agent
+        self._get_key().load()
 
         self.state.set('actions', 'install', 'ok')
 
