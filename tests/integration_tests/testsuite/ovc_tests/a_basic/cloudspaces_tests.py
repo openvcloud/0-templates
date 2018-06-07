@@ -148,7 +148,7 @@ class BasicTests(OVC_BaseTest):
         self.log('%s ENDED' % self._testID)
 
     def test004_get_cloudspace_info(self):
-        """ ZRT-OVC-000
+        """ ZRT-OVC-024
         *Test case for getting cloudspace indfo*
 
         **Test Scenario:**
@@ -232,10 +232,10 @@ class CloudspaceActions(OVC_BaseTest):
         cls.accounts = {cls.acc1: {'name': cls.acc1_name, 'openvcloud': self.openvcloud}}
         cls.cloudspaces = {cls.cs1: {'name': cls.cs1_name, 'account': cls.acc1}}
 
-        cls.temp_actions = {'openvcloud': {'actions': ['install']},
-                            'account': {'actions': ['install']},
+        cls.temp_actions = {'openvcloud': {'actions': ['install'], 'service': self.openvcloud},
+                            'account': {'actions': ['install'], 'service': cls.acc1},
                             'vdcuser': {'actions': ['install']},
-                            'vdc': {'actions': ['install']}
+                            'vdc': {'actions': ['install'], 'service': cls.cs1}
                             }
         cls.cloudspaces[cls.cs1] = {'name': cls.cs1_name, 'account': cls.acc1, 'maxMemoryCapacity': randint(10, 1000),
                                     'maxCPUCapacity': randint(10, 1000), 'maxVDiskCapacity': randint(10, 1000),
