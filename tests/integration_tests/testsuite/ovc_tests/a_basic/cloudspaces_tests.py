@@ -25,9 +25,9 @@ class BasicTests(OVC_BaseTest):
                                        'groups': ['user']}
         self.accounts = {self.acc1: {'name': self.acc1_name, 'openvcloud': self.openvcloud}}
         self.cloudspaces = dict()
-        self.temp_actions = {'openvcloud': {'actions': ['install']},
-                             'account': {'actions': ['install']},
-                             'vdcuser': {'actions': ['install']},
+        self.temp_actions = {'openvcloud': {'actions': ['install'], 'service': self.openvcloud},
+                             'account': {'actions': ['install'], 'service': self.acc1},
+                             'vdcuser': {'actions': ['install'], 'service': self.vdcuser},
                              'vdc': {'actions': ['install']}
                              }
         self.CLEANUP["accounts"].append(self.acc1)
@@ -125,7 +125,10 @@ class BasicTests(OVC_BaseTest):
                                       }
         self.log("Create cloudspace with %s limitations , should %s."%(type, "succeed" if factor == 1 else "fail"))
         res = self.create_cs(accounts=self.accounts, cloudspaces=self.cloudspaces, temp_actions=self.temp_actions)
-        self.wait_for_service_action_status(self.cs1, res[self.cs1]['install'])
+        if type == "Negative values":
+            self.assertEqual(res, "A resource limit should be a positive number or -1 (unlimited)")
+        else:
+            self.wait_for_service_action_status(self.cs1, res[self.cs1]['install'])
         time.sleep(2)
         cloudspace = self.get_cloudspace(self.cs1_name)
         if type == "Negative values":
