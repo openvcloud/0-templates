@@ -225,6 +225,7 @@ class CloudspaceActions(OVC_BaseTest):
     def setUpClass(cls):
         self = cls()
         super(CloudspaceActions, self).setUp()
+        cls.openvcloud = self.random_string()
         cls.acc1 = self.random_string()
         cls.acc1_name = self.random_string()
         cls.cs1 = self.random_string()
@@ -232,19 +233,18 @@ class CloudspaceActions(OVC_BaseTest):
         cls.vdcuser = self.random_string()
         cls.vdcuser_name = self.random_string()
         cls.vdcusers = self.vdcusers
-        cls.openvcloud = self.openvcloud
         self.vdcusers[cls.vdcuser] = {'name': cls.vdcuser_name,
-                                      'openvcloud': self.openvcloud,
+                                      'openvcloud': cls.openvcloud,
                                       'provider': 'itsyouonline',
                                       'email': '%s@test.com' % self.random_string(),
                                       'groups': ['user']}
 
-        cls.accounts = {cls.acc1: {'name': cls.acc1_name, 'openvcloud': self.openvcloud}}
+        cls.accounts = {cls.acc1: {'name': cls.acc1_name, 'openvcloud': cls.openvcloud}}
         cls.cloudspaces = {cls.cs1: {'name': cls.cs1_name, 'account': cls.acc1}}
 
-        cls.temp_actions = {'openvcloud': {'actions': ['install'], 'service': self.openvcloud},
+        cls.temp_actions = {'openvcloud': {'actions': ['install'], 'service': cls.openvcloud},
                             'account': {'actions': ['install'], 'service': cls.acc1},
-                            'vdcuser': {'actions': ['install']},
+                            'vdcuser': {'actions': ['install'], 'service': cls.vdcuser},
                             'vdc': {'actions': ['install'], 'service': cls.cs1}
                             }
         cls.cloudspaces[cls.cs1] = {'name': cls.cs1_name, 'account': cls.acc1, 'maxMemoryCapacity': randint(10, 1000),
@@ -418,13 +418,13 @@ class CloudspaceActions(OVC_BaseTest):
     @classmethod
     def tearDownClass(cls):
         self = cls()
-        temp_actions = {'vdc': {'actions': ['uninstall']}}
+        temp_actions = {'vdc': {'actions': ['uninstall'], 'service': cls.cs1}}
         if self.check_if_service_exist(self.cs1):
             res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
                                       accounts=self.accounts, temp_actions=temp_actions)
             self.wait_for_service_action_status(self.cs1, res[self.cs1]['uninstall'])
 
-        temp_actions = {'account': {'actions': ['uninstall']}}
+        temp_actions = {'account': {'actions': ['uninstall'], 'service': cls.acc1}}
         if self.check_if_service_exist(self.acc1):
             res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
                                       accounts=self.accounts, temp_actions=temp_actions)
