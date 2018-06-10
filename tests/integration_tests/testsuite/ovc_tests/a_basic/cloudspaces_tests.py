@@ -25,9 +25,9 @@ class BasicTests(OVC_BaseTest):
                                        'groups': ['user']}
         self.accounts = {self.acc1: {'name': self.acc1_name, 'openvcloud': self.openvcloud}}
         self.cloudspaces = dict()
-        self.temp_actions = {'openvcloud': {'actions': ['install']},
-                             'account': {'actions': ['install']},
-                             'vdcuser': {'actions': ['install']},
+        self.temp_actions = {'openvcloud': {'actions': ['install'], 'service': self.openvcloud},
+                             'account': {'actions': ['install'], 'service': self.acc1},
+                             'vdcuser': {'actions': ['install'], 'service': self.vdcuser},
                              'vdc': {'actions': ['install']}
                              }
         self.CLEANUP["accounts"].append(self.acc1)
@@ -132,7 +132,9 @@ class BasicTests(OVC_BaseTest):
                                       }
         self.log("Create cloudspace with %s limitations , should %s."%(type, "succeed" if factor == 1 else "fail"))
         res = self.create_cs(accounts=self.accounts, cloudspaces=self.cloudspaces, temp_actions=self.temp_actions)
-        if not isinstance(res, str):
+        if type == "Negative values":
+            self.assertEqual(res, "A resource limit should be a positive number or -1 (unlimited)")
+        else:
             self.wait_for_service_action_status(self.cs1, res[self.cs1]['install'])
         time.sleep(2)
         cloudspace = self.get_cloudspace(self.cs1_name)
@@ -240,10 +242,10 @@ class CloudspaceActions(OVC_BaseTest):
         cls.accounts = {cls.acc1: {'name': cls.acc1_name, 'openvcloud': self.openvcloud}}
         cls.cloudspaces = {cls.cs1: {'name': cls.cs1_name, 'account': cls.acc1}}
 
-        cls.temp_actions = {'openvcloud': {'actions': ['install']},
-                            'account': {'actions': ['install']},
+        cls.temp_actions = {'openvcloud': {'actions': ['install'], 'service': self.openvcloud},
+                            'account': {'actions': ['install'], 'service': cls.acc1},
                             'vdcuser': {'actions': ['install']},
-                            'vdc': {'actions': ['install']}
+                            'vdc': {'actions': ['install'], 'service': cls.cs1}
                             }
         cls.cloudspaces[cls.cs1] = {'name': cls.cs1_name, 'account': cls.acc1, 'maxMemoryCapacity': randint(10, 1000),
                                     'maxCPUCapacity': randint(10, 1000), 'maxVDiskCapacity': randint(10, 1000),
