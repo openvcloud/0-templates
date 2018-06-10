@@ -225,7 +225,7 @@ class CloudspaceActions(OVC_BaseTest):
     def setUpClass(cls):
         self = cls()
         super(CloudspaceActions, self).setUp()
-        cls.openvcloud = self.random_string()
+        cls.openvcloud = self.openvcloud
         cls.acc1 = self.random_string()
         cls.acc1_name = self.random_string()
         cls.cs1 = self.random_string()
@@ -419,15 +419,15 @@ class CloudspaceActions(OVC_BaseTest):
     def tearDownClass(cls):
         self = cls()
         temp_actions = {'vdc': {'actions': ['uninstall'], 'service': cls.cs1}}
-        if self.check_if_service_exist(self.cs1):
-            res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
-                                      accounts=self.accounts, temp_actions=temp_actions)
-            self.wait_for_service_action_status(self.cs1, res[self.cs1]['uninstall'])
+        if self.check_if_service_exist(cls.cs1):
+            res = self.create_account(openvcloud=cls.openvcloud, vdcusers=cls.vdcusers,
+                                      accounts=cls.accounts, temp_actions=temp_actions)
+            self.wait_for_service_action_status(self.cs1, res[cls.cs1]['uninstall'])
 
         temp_actions = {'account': {'actions': ['uninstall'], 'service': cls.acc1}}
         if self.check_if_service_exist(self.acc1):
-            res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
-                                      accounts=self.accounts, temp_actions=temp_actions)
-            self.wait_for_service_action_status(self.acc1, res[self.acc1]['uninstall'])
+            res = self.create_account(openvcloud=cls.openvcloud, vdcusers=cls.vdcusers,
+                                      accounts=cls.accounts, temp_actions=temp_actions)
+            self.wait_for_service_action_status(cls.acc1, res[cls.acc1]['uninstall'])
 
         self.delete_services()
