@@ -419,10 +419,17 @@ class CloudspaceActions(OVC_BaseTest):
     def tearDownClass(cls):
         self = cls()
         temp_actions = {'vdc': {'actions': ['uninstall'], 'service': cls.cs1}}
+<<<<<<< f6cf7115a09f8bb615412857d766ed27acf9153e
         if self.check_if_service_exist(cls.cs1):
             res = self.create_account(openvcloud=cls.openvcloud, vdcusers=cls.vdcusers,
                                       accounts=cls.accounts, temp_actions=temp_actions)
             self.wait_for_service_action_status(self.cs1, res[cls.cs1]['uninstall'])
+=======
+        if self.check_if_service_exist(self.cs1):
+            res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
+                                      accounts=self.accounts, temp_actions=temp_actions)
+            self.wait_for_service_action_status(self.cs1, res[self.cs1]['uninstall'])
+>>>>>>> fixes
 
         temp_actions = {'account': {'actions': ['uninstall'], 'service': cls.acc1}}
         if self.check_if_service_exist(self.acc1):
