@@ -200,7 +200,7 @@ class accounts(OVC_BaseTest):
         self.log('%s ENDED' % self._testID)
 
     def test005_get_account_info(self):
-        """ ZRT-OVC-000
+        """ ZRT-OVC-022
         *Test case for getting account info*
 
         **Test Scenario:**
@@ -242,7 +242,7 @@ class accounts(OVC_BaseTest):
         self.log('%s ENDED' % self._testID)
 
     def test006_set_vdcuser_groups(self):
-        """ ZRT-OVC-000
+        """ ZRT-OVC-023
         *Test case for setting vdcuser groups*
 
         **Test Scenario:**
