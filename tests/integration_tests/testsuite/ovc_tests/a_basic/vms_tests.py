@@ -22,10 +22,10 @@ class BasicTests(OVC_BaseTest):
         self.cloudspaces = {self.cs1: {'name': self.cs1_name, 'account': self.acc1}}
         self.vms = dict()
         self.temp_actions = {'sshkey': {'actions': ['install']},
-                             'openvcloud': {'actions': ['install']},
-                             'account': {'actions': ['install']},
+                             'openvcloud': {'actions': ['install'], 'service': self.openvcloud},
+                             'account': {'actions': ['install'], 'service': self.acc1},
                              'vdcuser': {'actions': ['install']},
-                             'vdc': {'actions': ['install']},
+                             'vdc': {'actions': ['install'], 'service': self.cs1},
                              'node': {'actions': ['install']}}
         self.CLEANUP["accounts"].append(self.acc1)
 
@@ -133,6 +133,7 @@ class BasicTests(OVC_BaseTest):
 
         self.log('%s ENDED' % self._testID)
 
+    @unittest.skip('https://github.com/openvcloud/0-templates/issues/125')
     def test003_get_vm_info(self):
         """ ZRT-OVC-025
         *Test case for getting vm info*
@@ -298,6 +299,7 @@ class vmactions(OVC_BaseTest):
         pf_list = self.get_portforward_list(self.cs1_name, self.vm1_name)
         self.assertNotIn(public_port, [int(x["publicPort"]) for x in pf_list])
 
+    @unittest.skip('https://github.com/openvcloud/0-templates/issues/126')
     def test002_start_stop_vm(self):
         """ ZRT-OVC-015
         *Test case for testing start and stop vm .*
@@ -332,6 +334,7 @@ class vmactions(OVC_BaseTest):
         cloudspaceId = self.get_cloudspace(self.cs1_name)['id']
         self.assertTrue(self.wait_for_vm_status(cloudspaceId, self.vm1_name))
 
+    @unittest.skip('https://github.com/openvcloud/0-templates/issues/126')
     def test003_pause_and_resume(self):
         """ ZRT-OVC-016
         *Test case for testing pause and resume vm .*
