@@ -178,6 +178,7 @@ class BasicTests(OVC_BaseTest):
             data={'name': vdc_name, 'account': account_ser_name}
         )
         vdc.schedule_action('install')
+        vdc.schedule_action('install').wait(die=True, timeout=120)
 
         self.log('Create Cloudspace (VM1)')
         sshkey_ser_name = self.random_string()
@@ -200,9 +201,10 @@ class BasicTests(OVC_BaseTest):
                   'vdc': vdc_ser_name}
         )
         node.schedule_action('install')
+        node.schedule_action('install').wait(die=True, timeout=120)
 
         self.log('Get VM1 and check its info')
-        node_info = node.schedule_action('get_info').wait(die=True).result
+        node_info = node.schedule_action('get_info').wait(die=True, timeout=30).result
         self.assertEqual(vm_name, node_info['name'])
         self.assertEqual(vdc_ser_name, node_info['vdc'])
         self.assertEqual(2, len(node_info['disk_services']))
