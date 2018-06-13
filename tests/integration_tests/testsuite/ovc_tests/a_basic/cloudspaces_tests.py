@@ -197,9 +197,10 @@ class BasicTests(OVC_BaseTest):
             data={'name': vdc_name, 'account': account_ser_name}
         )
         vdc.schedule_action('install')
+        vdc.schedule_action('install').wait(die=True, timeout=120)
 
         self.log('Get C1 and check its info')
-        vdc_info = vdc.schedule_action('get_info').wait(die=True).result
+        vdc_info = vdc.schedule_action('get_info').wait(die=True, timeout=30).result
         self.assertEqual(vdc_name, vdc_info['name'])
         self.assertEqual(account_ser_name, vdc_info['account'])
         self.assertEqual('ACDRUX', vdc_info['users'][0]['accesstype'])
