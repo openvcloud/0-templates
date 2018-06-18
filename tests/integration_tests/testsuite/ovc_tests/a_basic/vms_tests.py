@@ -12,6 +12,13 @@ class BasicTests(OVC_BaseTest):
 
     def setUp(self):
         super(BasicTests, self).setUp()
+        self.vdcuser = self.random_string()
+        self.vdcuser_name = self.random_string()
+        self.vdcusers[self.vdcuser] = {'name': self.vdcuser_name,
+                                      'openvcloud': self.openvcloud,
+                                      'provider': 'itsyouonline',
+                                      'email': '%s@test.com' % self.random_string(),
+                                      'groups': ['user']}
         self.acc1 = self.random_string()
         self.acc1_name = self.random_string()
         self.accounts = {self.acc1: {'name': self.acc1_name, 'openvcloud': self.openvcloud}}
@@ -21,10 +28,10 @@ class BasicTests(OVC_BaseTest):
         self.vm1_name = self.random_string()
         self.cloudspaces = {self.cs1: {'name': self.cs1_name, 'account': self.acc1}}
         self.vms = dict()
-        self.temp_actions = {'sshkey': {'actions': ['install']},
+        self.temp_actions = {'sshkey': {'actions': ['install'], 'service': self.key},
                              'openvcloud': {'actions': ['install'], 'service': self.openvcloud},
                              'account': {'actions': ['install'], 'service': self.acc1},
-                             'vdcuser': {'actions': ['install']},
+                             'vdcuser': {'actions': ['install'], 'service': self.vdcuser},
                              'vdc': {'actions': ['install'], 'service': self.cs1},
                              'node': {'actions': ['install']}}
         self.CLEANUP["accounts"].append(self.acc1)
@@ -36,7 +43,7 @@ class BasicTests(OVC_BaseTest):
                                  cloudspaces=self.cloudspaces, temp_actions=temp_actions)
             self.wait_for_service_action_status(self.vm1, res[self.vm1]['uninstall'])
 
-        temp_actions = {'vdc': {'actions': ['uninstall']}}
+        temp_actions = {'vdc': {'actions': ['uninstall'], 'service': self.cs1}}
         if self.check_if_service_exist(self.cs1):
             res = self.create_cs(accounts=self.accounts, cloudspaces=self.cloudspaces,
                                  temp_actions=temp_actions)
@@ -133,7 +140,7 @@ class BasicTests(OVC_BaseTest):
 
         self.log('%s ENDED' % self._testID)
 
-    @unittest.skip('https://github.com/openvcloud/0-templates/issues/125')
+    #@unittest.skip('https://github.com/openvcloud/0-templates/issues/125')
     def test003_get_vm_info(self):
         """ ZRT-OVC-025
         *Test case for getting vm info*
@@ -214,6 +221,11 @@ class BasicTests(OVC_BaseTest):
         vdc.schedule_action('uninstall')
         time.sleep(10)
         account.schedule_action('uninstall')
+        node.delete()
+        vdc.delete()
+        account.delete()
+        ovc.delete()
+        sshkey.delete()
 
         self.log('%s ENDED' % self._testID)
 
@@ -237,21 +249,21 @@ class vmactions(OVC_BaseTest):
         cls.vdcuser = self.random_string()
         cls.vdcuser_name = self.random_string()
         cls.openvcloud = self.openvcloud
-        cls.accounts = {cls.acc1: {'name': self.acc1_name, 'openvcloud': self.openvcloud}}
+        cls.accounts = {cls.acc1: {'name': self.acc1_name, 'openvcloud': cls.openvcloud}}
         cls.cloudspaces = {cls.cs1: {'name': self.cs1_name, 'account': cls.acc1}}
         cls.vms = {cls.vm1: {'name': self.vm1_name, 'sshKey': vmactions.key, 'vdc': self.cs1}}
-        self.vdcusers[cls.vdcuser] = {'name': self.vdcuser_name,
-                                      'openvcloud': self.openvcloud,
+        self.vdcusers[cls.vdcuser] = {'name': cls.vdcuser_name,
+                                      'openvcloud': cls.openvcloud,
                                       'provider': 'itsyouonline',
                                       'email': '%s@test.com' % self.random_string(),
                                       'groups': ['user']}
         cls.vdcusers = self.vdcusers
-        cls.temp_actions = {'openvcloud': {'actions': ['install']},
-                            'account': {'actions': ['install']},
-                            'vdcuser': {'actions': ['install']},
-                            'vdc': {'actions': ['install']},
+        cls.temp_actions = {'openvcloud': {'actions': ['install'], 'service': cls.openvcloud},
+                            'account': {'actions': ['install'], 'service': cls.acc1},
+                            'vdcuser': {'actions': ['install'], 'service': cls.vdcuser},
+                            'vdc': {'actions': ['install'], 'service': cls.cs1},
                             'node': {'actions': ['install']},
-                            'sshkey': {'actions':['install']}}
+                            'sshkey': {'actions':['install'], 'service': vmactions.key}}
         self.log('Create vm, should succeed')
         res = self.create_vm(accounts=cls.accounts, cloudspaces=cls.cloudspaces,
                              vms=cls.vms, temp_actions=cls.temp_actions)
@@ -301,7 +313,7 @@ class vmactions(OVC_BaseTest):
         pf_list = self.get_portforward_list(self.cs1_name, self.vm1_name)
         self.assertNotIn(public_port, [int(x["publicPort"]) for x in pf_list])
 
-    @unittest.skip('https://github.com/openvcloud/0-templates/issues/126')
+    #@unittest.skip('https://github.com/openvcloud/0-templates/issues/126')
     def test002_start_stop_vm(self):
         """ ZRT-OVC-015
         *Test case for testing start and stop vm .*
@@ -336,7 +348,7 @@ class vmactions(OVC_BaseTest):
         cloudspaceId = self.get_cloudspace(self.cs1_name)['id']
         self.assertTrue(self.wait_for_vm_status(cloudspaceId, self.vm1_name))
 
-    @unittest.skip('https://github.com/openvcloud/0-templates/issues/126')
+    #@unittest.skip('https://github.com/openvcloud/0-templates/issues/126')
     def test003_pause_and_resume(self):
         """ ZRT-OVC-016
         *Test case for testing pause and resume vm .*
@@ -638,19 +650,19 @@ class vmactions(OVC_BaseTest):
     def tearDownClass(cls):
         self = cls()
         temp_actions = {'node': {'actions': ['uninstall']}}
-        if self.check_if_service_exist(self.vm1):
-            res = self.create_account(keys=vmactions.key, openvcloud=self.openvcloud, vdcusers=self.vdcusers,
+        if self.check_if_service_exist(cls.vm1):
+            res = self.create_account(keys=vmactions.key, openvcloud=cls.openvcloud, vdcusers=self.vdcusers,
                                       accounts=self.accounts, temp_actions=temp_actions)
             self.wait_for_service_action_status(self.vm1, res[self.vm1]['uninstall'])
 
-        temp_actions = {'vdc': {'actions': ['uninstall']}}
-        if self.check_if_service_exist(self.cs1):
-            res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
+        temp_actions = {'vdc': {'actions': ['uninstall'], 'service': cls.cs1}}
+        if self.check_if_service_exist(cls.cs1):
+            res = self.create_account(openvcloud=cls.openvcloud, vdcusers=self.vdcusers,
                                       accounts=self.accounts, temp_actions=temp_actions)
             self.wait_for_service_action_status(self.cs1, res[self.cs1]['uninstall'])
 
-        temp_actions = {'account': {'actions': ['uninstall']}}
-        if self.check_if_service_exist(self.acc1):
+        temp_actions = {'account': {'actions': ['uninstall'], 'service': cls.acc1}}
+        if self.check_if_service_exist(cls.acc1):
             res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
                                       accounts=self.accounts, temp_actions=temp_actions)
             self.wait_for_service_action_status(self.acc1, res[self.acc1]['uninstall'], timeout=20)

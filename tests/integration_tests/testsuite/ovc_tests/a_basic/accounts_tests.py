@@ -238,6 +238,8 @@ class accounts(OVC_BaseTest):
         self.assertEqual('CXDRAU', acc_info['users'][0]['accesstype'])
         ovc.schedule_action('uninstall')
         account.schedule_action('uninstall')
+        account.delete()
+        ovc.delete()
 
         self.log('%s ENDED' % self._testID)
 
