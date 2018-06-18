@@ -12,6 +12,13 @@ class BasicTests(OVC_BaseTest):
 
     def setUp(self):
         super(BasicTests, self).setUp()
+        self.vdcuser = self.random_string()
+        self.vdcuser_name = self.random_string()
+        self.vdcusers[self.vdcuser] = {'name': self.vdcuser_name,
+                                      'openvcloud': self.openvcloud,
+                                      'provider': 'itsyouonline',
+                                      'email': '%s@test.com' % self.random_string(),
+                                      'groups': ['user']}
         self.acc1 = self.random_string()
         self.acc1_name = self.random_string()
         self.accounts = {self.acc1: {'name': self.acc1_name, 'openvcloud': self.openvcloud}}
@@ -21,10 +28,10 @@ class BasicTests(OVC_BaseTest):
         self.vm1_name = self.random_string()
         self.cloudspaces = {self.cs1: {'name': self.cs1_name, 'account': self.acc1}}
         self.vms = dict()
-        self.temp_actions = {'sshkey': {'actions': ['install']},
+        self.temp_actions = {'sshkey': {'actions': ['install'], 'service': self.key},
                              'openvcloud': {'actions': ['install'], 'service': self.openvcloud},
                              'account': {'actions': ['install'], 'service': self.acc1},
-                             'vdcuser': {'actions': ['install']},
+                             'vdcuser': {'actions': ['install'], 'service': self.vdcuser},
                              'vdc': {'actions': ['install'], 'service': self.cs1},
                              'node': {'actions': ['install']}}
         self.CLEANUP["accounts"].append(self.acc1)
@@ -36,7 +43,7 @@ class BasicTests(OVC_BaseTest):
                                  cloudspaces=self.cloudspaces, temp_actions=temp_actions)
             self.wait_for_service_action_status(self.vm1, res[self.vm1]['uninstall'])
 
-        temp_actions = {'vdc': {'actions': ['uninstall']}}
+        temp_actions = {'vdc': {'actions': ['uninstall'], 'service': self.cs1}}
         if self.check_if_service_exist(self.cs1):
             res = self.create_cs(accounts=self.accounts, cloudspaces=self.cloudspaces,
                                  temp_actions=temp_actions)
@@ -214,6 +221,11 @@ class BasicTests(OVC_BaseTest):
         vdc.schedule_action('uninstall')
         time.sleep(10)
         account.schedule_action('uninstall')
+        node.delete()
+        vdc.delete()
+        account.delete()
+        ovc.delete()
+        sshkey.delete()
 
         self.log('%s ENDED' % self._testID)
 
@@ -240,7 +252,7 @@ class vmactions(OVC_BaseTest):
         cls.accounts = {cls.acc1: {'name': self.acc1_name, 'openvcloud': cls.openvcloud}}
         cls.cloudspaces = {cls.cs1: {'name': self.cs1_name, 'account': cls.acc1}}
         cls.vms = {cls.vm1: {'name': self.vm1_name, 'sshKey': vmactions.key, 'vdc': self.cs1}}
-        self.vdcusers[cls.vdcuser] = {'name': self.vdcuser_name,
+        self.vdcusers[cls.vdcuser] = {'name': cls.vdcuser_name,
                                       'openvcloud': cls.openvcloud,
                                       'provider': 'itsyouonline',
                                       'email': '%s@test.com' % self.random_string(),
@@ -248,7 +260,7 @@ class vmactions(OVC_BaseTest):
         cls.vdcusers = self.vdcusers
         cls.temp_actions = {'openvcloud': {'actions': ['install'], 'service': cls.openvcloud},
                             'account': {'actions': ['install'], 'service': cls.acc1},
-                            'vdcuser': {'actions': ['install']},
+                            'vdcuser': {'actions': ['install'], 'service': cls.vdcuser},
                             'vdc': {'actions': ['install'], 'service': cls.cs1},
                             'node': {'actions': ['install']},
                             'sshkey': {'actions':['install'], 'service': vmactions.key}}

@@ -208,6 +208,9 @@ class BasicTests(OVC_BaseTest):
         vdc.schedule_action('uninstall')
         time.sleep(10)
         account.schedule_action('uninstall')
+        vdc.delete()
+        account.delete()
+        ovc.delete()
 
         self.log('%s ENDED' % self._testID)
 
