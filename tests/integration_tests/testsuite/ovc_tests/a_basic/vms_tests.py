@@ -273,46 +273,6 @@ class vmactions(OVC_BaseTest):
     def tearDown(self):
         pass
 
-    @unittest.skip('portforward actions are not there anymore.. this testcase is skipped')
-    def test001_adding_and_deleting_portforward(self):
-        """ ZRT-OVC-014
-        *Test case for adding and deleting portforward.*
-
-        **Test Scenario:**
-
-        #. Create a vm[vm1], should succeed.
-        #. Create a portforward for [vm1], should succeed.
-        #. Check that the portforward has been created, should succeed.
-        #. Delete the created portforward , should succeed.
-        #. Check that portforward has been deleted, should succeed.
-        """
-        self.log('%s STARTED' % self._testID)
-
-        self.log("Create portforward for [vm1], should succeed. ")
-        public_port = randint(1000, 60000)
-        local_port = 22
-        temp_actions = {'node': {'actions': ['portforward_create'], 'service': self.vm1,
-                                 'args': {'ports': OrderedDict([('destination', local_port),('source', public_port)])}}}
-        res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
-                             vms=self.vms, temp_actions=temp_actions)
-        self.wait_for_service_action_status(self.vm1, res[self.vm1]['portforward_create'])
-        self.log("Check that the portforward has been created, should succeed.")
-        time.sleep(2)
-        pf_list = self.get_portforward_list(self.cs1_name, self.vm1_name)
-        self.assertIn(public_port, [int(x["publicPort"]) for x in pf_list])
-        self.log("Delete the portforward created, should succeed")
-
-        temp_actions = {'node': {'actions': ['portforward_delete'], 'service': self.vm1,
-                        'args': {'ports': OrderedDict([('destination', local_port),('source', public_port)])}}}
-        res = self.create_vm(accounts=self.accounts, cloudspaces=self.cloudspaces,
-                             vms=self.vms, temp_actions=temp_actions)
-        self.wait_for_service_action_status(self.vm1, res[self.vm1]['portforward_delete'])
-
-        self.log('Check that portforward has been deleted, should succeed')
-        time.sleep(2)
-        pf_list = self.get_portforward_list(self.cs1_name, self.vm1_name)
-        self.assertNotIn(public_port, [int(x["publicPort"]) for x in pf_list])
-
     #@unittest.skip('https://github.com/openvcloud/0-templates/issues/126')
     def test002_start_stop_vm(self):
         """ ZRT-OVC-015
