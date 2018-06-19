@@ -38,11 +38,10 @@ if [ ${SERVER} ]; then
   echo "* Start zrobot server and connect to it"
   mkdir server-logs
   touch server-logs/logs.txt
-  zrobot server start --listen 0.0.0.0:6600 --template-repo https://github.com/openvcloud/0-templates.git --data-repo https://github.com/john-kheir/0-robot6.git &> server-logs/logs.txt &
+  zrobot server start --listen :6600 --template-repo https://github.com/openvcloud/0-templates.git --data-repo https://github.com/john-kheir/0-robot6.git &> server-logs/logs.txt &
   sleep 20
   cat server-logs/logs.txt
-  ip=$(sudo zerotier-cli listnetworks | grep PRIVATE | awk '{print $9}' | cut -d '/' -f1)
-  zrobot robot connect main http://$ip:6600
+  zrobot robot connect main http://localhost:6600
 fi
 
 
