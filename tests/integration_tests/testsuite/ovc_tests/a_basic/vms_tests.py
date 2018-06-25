@@ -184,8 +184,7 @@ class BasicTests(OVC_BaseTest):
             service_name=vdc_ser_name,
             data={'name': vdc_name, 'account': account_ser_name}
         )
-        vdc.schedule_action('install')
-        vdc.schedule_action('install').wait(die=True, timeout=120)
+        vdc.schedule_action('install').wait(die=True, timeout=150)
 
         self.log('Create Cloudspace (VM1)')
         sshkey_ser_name = self.random_string()
@@ -207,8 +206,7 @@ class BasicTests(OVC_BaseTest):
                   'sshKey': sshkey_ser_name,
                   'vdc': vdc_ser_name}
         )
-        node.schedule_action('install')
-        node.schedule_action('install').wait(die=True, timeout=200)
+        node.schedule_action('install').wait(die=True, timeout=400)
 
         self.log('Get VM1 and check its info')
         node_info = node.schedule_action('get_info').wait(die=True, timeout=30).result
