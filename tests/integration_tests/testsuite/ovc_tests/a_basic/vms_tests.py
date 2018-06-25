@@ -206,7 +206,9 @@ class BasicTests(OVC_BaseTest):
                   'sshKey': sshkey_ser_name,
                   'vdc': vdc_ser_name}
         )
-        node.schedule_action('install').wait(die=True, timeout=400)
+        node.schedule_action('install')
+        time.sleep(100)
+        #node.schedule_action('install').wait(die=True, timeout=400)
 
         self.log('Get VM1 and check its info')
         node_info = node.schedule_action('get_info').wait(die=True, timeout=30).result
