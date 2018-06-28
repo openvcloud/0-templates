@@ -2,7 +2,7 @@
 set -e
 
 # settings
-export BRANCH="development"
+export BRANCH=${1:-development}
 
 for target in /usr/local /opt /opt/cfg /opt/code/github/jumpscale /opt/var/capnp /opt/var/log $HOME/js9host/cfg; do
     mkdir -p $target
@@ -29,6 +29,7 @@ popd
 mkdir -p ~/.ssh
 ssh-keygen -f ~/.ssh/id_rsa -P ''
 eval `ssh-agent -s`
+ssh-add -D
 ssh-add ~/.ssh/id_rsa
 
 # initialize jumpscale config manager

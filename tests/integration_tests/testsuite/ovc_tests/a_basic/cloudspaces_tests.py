@@ -25,9 +25,9 @@ class BasicTests(OVC_BaseTest):
                                        'groups': ['user']}
         self.accounts = {self.acc1: {'name': self.acc1_name, 'openvcloud': self.openvcloud}}
         self.cloudspaces = dict()
-        self.temp_actions = {'openvcloud': {'actions': ['install']},
-                             'account': {'actions': ['install']},
-                             'vdcuser': {'actions': ['install']},
+        self.temp_actions = {'openvcloud': {'actions': ['install'], 'service': self.openvcloud},
+                             'account': {'actions': ['install'], 'service': self.acc1},
+                             'vdcuser': {'actions': ['install'], 'service': self.vdcuser},
                              'vdc': {'actions': ['install']}
                              }
         self.CLEANUP["accounts"].append(self.acc1)
@@ -132,7 +132,9 @@ class BasicTests(OVC_BaseTest):
                                       }
         self.log("Create cloudspace with %s limitations , should %s."%(type, "succeed" if factor == 1 else "fail"))
         res = self.create_cs(accounts=self.accounts, cloudspaces=self.cloudspaces, temp_actions=self.temp_actions)
-        if not isinstance(res, str):
+        if type == "Negative values":
+            self.assertEqual(res, "A resource limit should be a positive number or -1 (unlimited)")
+        else:
             self.wait_for_service_action_status(self.cs1, res[self.cs1]['install'])
         time.sleep(2)
         cloudspace = self.get_cloudspace(self.cs1_name)
@@ -195,9 +197,10 @@ class BasicTests(OVC_BaseTest):
             data={'name': vdc_name, 'account': account_ser_name}
         )
         vdc.schedule_action('install')
+        vdc.schedule_action('install').wait(die=True, timeout=120)
 
         self.log('Get C1 and check its info')
-        vdc_info = vdc.schedule_action('get_info').wait(die=True).result
+        vdc_info = vdc.schedule_action('get_info').wait(die=True, timeout=30).result
         self.assertEqual(vdc_name, vdc_info['name'])
         self.assertEqual(account_ser_name, vdc_info['account'])
         self.assertEqual('ACDRUX', vdc_info['users'][0]['accesstype'])
@@ -205,6 +208,9 @@ class BasicTests(OVC_BaseTest):
         vdc.schedule_action('uninstall')
         time.sleep(10)
         account.schedule_action('uninstall')
+        vdc.delete()
+        account.delete()
+        ovc.delete()
 
         self.log('%s ENDED' % self._testID)
 
@@ -223,6 +229,7 @@ class CloudspaceActions(OVC_BaseTest):
     def setUpClass(cls):
         self = cls()
         super(CloudspaceActions, self).setUp()
+        cls.openvcloud = self.openvcloud
         cls.acc1 = self.random_string()
         cls.acc1_name = self.random_string()
         cls.cs1 = self.random_string()
@@ -230,20 +237,19 @@ class CloudspaceActions(OVC_BaseTest):
         cls.vdcuser = self.random_string()
         cls.vdcuser_name = self.random_string()
         cls.vdcusers = self.vdcusers
-        cls.openvcloud = self.openvcloud
         self.vdcusers[cls.vdcuser] = {'name': cls.vdcuser_name,
-                                      'openvcloud': self.openvcloud,
+                                      'openvcloud': cls.openvcloud,
                                       'provider': 'itsyouonline',
                                       'email': '%s@test.com' % self.random_string(),
                                       'groups': ['user']}
 
-        cls.accounts = {cls.acc1: {'name': cls.acc1_name, 'openvcloud': self.openvcloud}}
+        cls.accounts = {cls.acc1: {'name': cls.acc1_name, 'openvcloud': cls.openvcloud}}
         cls.cloudspaces = {cls.cs1: {'name': cls.cs1_name, 'account': cls.acc1}}
 
-        cls.temp_actions = {'openvcloud': {'actions': ['install']},
-                            'account': {'actions': ['install']},
-                            'vdcuser': {'actions': ['install']},
-                            'vdc': {'actions': ['install']}
+        cls.temp_actions = {'openvcloud': {'actions': ['install'], 'service': cls.openvcloud},
+                            'account': {'actions': ['install'], 'service': cls.acc1},
+                            'vdcuser': {'actions': ['install'], 'service': cls.vdcuser},
+                            'vdc': {'actions': ['install'], 'service': cls.cs1}
                             }
         cls.cloudspaces[cls.cs1] = {'name': cls.cs1_name, 'account': cls.acc1, 'maxMemoryCapacity': randint(10, 1000),
                                     'maxCPUCapacity': randint(10, 1000), 'maxVDiskCapacity': randint(10, 1000),
@@ -416,16 +422,16 @@ class CloudspaceActions(OVC_BaseTest):
     @classmethod
     def tearDownClass(cls):
         self = cls()
-        temp_actions = {'vdc': {'actions': ['uninstall']}}
-        if self.check_if_service_exist(self.cs1):
-            res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
-                                      accounts=self.accounts, temp_actions=temp_actions)
-            self.wait_for_service_action_status(self.cs1, res[self.cs1]['uninstall'])
+        temp_actions = {'vdc': {'actions': ['uninstall'], 'service': cls.cs1}}
+        if self.check_if_service_exist(cls.cs1):
+            res = self.create_account(openvcloud=cls.openvcloud, vdcusers=cls.vdcusers,
+                                      accounts=cls.accounts, temp_actions=temp_actions)
+            self.wait_for_service_action_status(self.cs1, res[cls.cs1]['uninstall'])
 
-        temp_actions = {'account': {'actions': ['uninstall']}}
+        temp_actions = {'account': {'actions': ['uninstall'], 'service': cls.acc1}}
         if self.check_if_service_exist(self.acc1):
-            res = self.create_account(openvcloud=self.openvcloud, vdcusers=self.vdcusers,
-                                      accounts=self.accounts, temp_actions=temp_actions)
-            self.wait_for_service_action_status(self.acc1, res[self.acc1]['uninstall'])
+            res = self.create_account(openvcloud=cls.openvcloud, vdcusers=cls.vdcusers,
+                                      accounts=cls.accounts, temp_actions=temp_actions)
+            self.wait_for_service_action_status(cls.acc1, res[cls.acc1]['uninstall'])
 
-        self.delete_services()
+        self.delete_services() 
